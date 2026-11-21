@@ -51,6 +51,12 @@ image_symbols.h
 *.seeds.json
 xbox_kernel.log
 
+# --- harness output: logs and captures stay local ---
+/logs/
+/reference/
+*.ics
+icall_targets.json
+
 # --- the toolkit is fetched and pinned, not vendored ---
 /xboxrecomp/
 /tools/xboxrecomp/
