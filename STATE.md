@@ -22,7 +22,8 @@ solved/instrumented; classification with default env: **HANG**.
 - Patches: `0001` `[WRITE]` trace, `0002` `[EVENT]` trace, `0003` write
   CSV + backtrace, `0004` FSCTL probe, **`0005` cache-volume capacity =
   the write-loop fix**, `0006` span placement insurance, `0007`
-  `RECOMP_CONTIG_ALIAS=1` aperture probe (default off). Table in THIRD_PARTY.md.
+  `RECOMP_CONTIG_ALIAS=1` aperture probe (default off), `0008` `[READ]
+  buf=` VA. Table in THIRD_PARTY.md.
 - XBE: pinned SHA-256 ✔. Gen tree unchanged since session 1 (432 stubs).
 - Skills: five pinned, digest gate green.
 
@@ -67,34 +68,34 @@ RECOMP_MISSING_FILES=all RECOMP_KERNEL_LOG_BUDGET=200 RECOMP_CONTIG_ALIAS=1`
 
 ## Live hypotheses
 
-1. **H10 (primary):** the decoder's input delivery never reports EOF —
-   refill (`sub_00022340` ← XAPI read helper `sub_00270FBD`, read site
-   `0x271012`) keeps feeding stale ring data after the 679,936-byte
-   source is consumed, so the bit iterator loops forever. Falsifier:
-   instrument refill (buffer VA + returned length) and/or `RECOMP_WATCH`
-   on the decoder object's source cursor/end fields (`+0x10/+0x14`) and
-   show whether `+0x10` reaches `+0x14` and what happens then.
-2. **H12 (alternative):** the decoder mis-reads its source because of a
-   window/mirror aliasing difference: the toolkit deliberately backs the
-   contiguous window (0x80000000) with **separate storage** from RAM and
-   its 0xC0000000+ mirrors, but on hardware all three alias the same
-   DRAM. If the game reads via one alias and decodes via another, the
-   decoder sees garbage. Falsifier: in a core, search for the last-read
-   chunk bytes (e.g. `75 00 ec fc d5 16 82 d9` = boot.baf @624640)
-   across RAM, mirrors and the window — inconclusive so far because the
-   ring rotates decode output over the file chunks; needs a stopped-time
-   capture earlier in the flow (watchdog core mid-copy, not at crash).
+1. **H10 (primary, refined by note 0008):** input delivery is *correct*
+   (reads land in the same window the decoder reads, byte-exact, valid
+   decoded output) but the decoder still never terminates. Refill
+   `sub_00022340` returns 0 on every path including exhausted-source;
+   termination must come from the decoder's own `+0x10/+0x14` checks or
+   a stream terminator. Question: after the last 22,528-byte chunk, what
+   do `+0x10/+0x14` become and why does the bit iterator keep running?
+2. **H12 dead** (note 0008): the 21 `boot.baf` reads alternate
+   `buf=0x80034000`/`0x8003C000` — the same contiguous arena the decoder
+   references. No alias mismatch.
+3. Pre-arming `RECOMP_WATCH` across two runs does **not** work: worker
+   stack tops shift (+0x1000) even with identical env. Instead:
+   one-shot dump the object from a SIGABRT core (search the thread stack
+   by pointer *families*, not fixed quartets — fields rotate
+   pointer/count semantics), or write the offline `.baf` decoder.
 
 ## Queue (next concrete actions)
 
-1. Note 0008 first: extend the `[READ]` trace (patch 0001 family) to
-   print buffer VA + caller for reads from `0x00271012`, and watch the
-   decoder object fields; run with alias on, capture a core ~10 s after
-   the first write (watchdog abort gives one), and test H12 by signature
-   search at a *fresh* moment.
-2. Identify the `.baf` container format offline (python re-encode of the
-   lifted decoder structure): if 1,820,672 output bytes are reachable
-   from the disc bytes, input delivery is confirmed broken, not format.
+1. Write the offline `.baf` decoder (python, from the lifted structure +
+   disc bytes): expected output ≈ 1,820,672 B from 679,936 B (triplet →
+   8-byte entry expansion, verified on the first 96 bytes of
+   `Z:\boot.baf` vs disc @2048). If the python decoder terminates
+   cleanly, the guest's non-termination is a state-divergence to hunt
+   with a one-shot object dump from a SIGABRT core.
+2. One-shot object dump: SIGABRT core mid-copy (18 s recipe), scan
+   worker #2's stack for the stream-object pointer family (fields
+   rotate semantics — search `0x8003xxxx` clusters), then read
+   `+0x10/+0x14/+0x24/+0x28/+0x3C/+0x40` at that instant.
 3. Keep H9 (FATX mount/geometry) queued; patch 0005 approximates it.
 4. xemu reference baseline still awaiting user approval (approval gate:
    installing software). Ask.
@@ -133,4 +134,5 @@ RECOMP_MISSING_FILES=all RECOMP_KERNEL_LOG_BUDGET=200 RECOMP_CONTIG_ALIAS=1`
 | 2026-11-21 s2 | autonomy layer (AGENTS/STATE/scripts/notes); full disc tree extracted (notes 0002-0003); wall framed as XAPILIB read/write/wait cluster | `55b8693` |
 | 2026-11-21 s3 | skills pinned + drift gate; note 0004: read completes, wall = Partition5 FATX bootstrap retry loop; [WRITE] patch | `17aa020` |
 | 2026-11-21 s4a | note 0005: write loop is the game's cache writer; H7 falsified; **patch 0005 cache capacity → loop ends (HANG→CRASH)**; instrumentation patches 0002-0004 | `35cb8a4` |
-| 2026-11-21 s4b | notes 0006-0007: placement patch 0006 (canonical-limit), contig-alias probe 0007; core-dump analysis pins the fault to the boot-archive decoder; **wall = decoder never terminates → launch events never signalled (HANG)**; build.sh patch series made deterministic | (this commit) |
+| 2026-11-21 s4b | notes 0006-0007: placement patch 0006 (canonical-limit), contig-alias probe 0007; core-dump analysis pins the fault to the boot-archive decoder; **wall = decoder never terminates → launch events never signalled (HANG)**; build.sh patch series made deterministic | `0f5068d` |
+| 2026-11-21 s4c | note 0008 + patch 0008 (`[READ] buf=`): reads land in the decoder's own arena (H12 dead), output is valid decoded data (triplet→8-byte expansion), refill returns 0 on every path; watch pre-arming ruled out (stack jitter); SIGABRT-core recipe added | (this commit) |
