@@ -3,19 +3,20 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-21 (session 4e)
-**Stage:** LIFT complete, ENTRY evidence strong. Current wall: **the
-title's boot-archive *decoder* thread never terminates** — it decodes
-`boot.baf` into unbounded `Z:\boot.baf` writes, so the launch-complete
-events (`0x48000001`, `0x48000004`) are never signalled and the title
-polls forever (HANG). **NEW (note 0009): the xemu+SpiritBoot reference
-environment reproduces the same wall** — the title loads there and
-bugchecks `STOP 0x7E (0xC0000005, EIP 0x000226D8, 0x84FB8B1C, …)` *inside
-the same decoder* (`sub_000223F0` output loop, flush call = `0x22270`):
-the dest cursor runs past the mapped window in both worlds. The wall is
-platform geometry/EOF semantics, not our lift. Old walls (write-loop,
-window mapping) solved/instrumented; recomp classification with default
-env: **HANG**.
+**Last updated:** 2026-11-21 (session 4f)
+**Stage:** LIFT complete, ENTRY evidence strong. Wall refined hard (note
+0010): the boot-archive **data side is solved** — the real LZ77 stream is
+file [0x800, 0x9E000) (decoded ≈ 1,489,655 B); the disc file's last
+30,720 B (0x9E000..0xA6000) are **padding**, and note 0009's
+"END@0xA5E0D / output == header" result was a padding false-positive.
+The guest (and xemu, identically) stops reads at 0x9E000 with a closed
+budget, the decoder has **no EOF termination** (only the dist==0 END
+token exits), so it consumes ring residue/stale heap past the valid end
+→ garbage output inflation → writer floods the cache → output cursor
+overruns the contiguous window → CRASH (xemu: same overrun, STOP 0x7E).
+Classification with default env: **CRASH** (deterministic, rip in
+`sub_000223F0`); the 1 GiB cache-cap experiment rules out disk-full as
+the trigger.
 
 ## Where things are verified
 
@@ -29,27 +30,52 @@ env: **HANG**.
   CSV + backtrace, `0004` FSCTL probe, **`0005` cache-volume capacity =
   the write-loop fix**, `0006` span placement insurance, `0007`
   `RECOMP_CONTIG_ALIAS=1` aperture probe (default off), `0008` `[READ]
-  buf=` VA. Table in THIRD_PARTY.md.
+  buf=` VA, `0009` `RECOMP_IO_WRITE_DUMP` content dump, `0010` `[READ]
+  sz=/path=`, `0011` `[QINFO]` size-query trace, `0012`/`0013`
+  `RECOMP_WATCH` arm fixes (errno, multi-page window). Table in
+  THIRD_PARTY.md.
 - XBE: pinned SHA-256 ✔. Gen tree unchanged since session 1 (432 stubs).
 - Skills: five pinned, digest gate green.
 
 ## Last run
 
-`scripts/run.sh 90 RECOMP_WATCHDOG_SECS=80 RECOMP_EVENT_LOG=1
-RECOMP_MISSING_FILES=all RECOMP_KERNEL_LOG_BUDGET=200 RECOMP_CONTIG_ALIAS=1`
-→ `logs/run-20261121-051703.log`: **HANG** (crash-free).
+`scripts/run.sh 60 RECOMP_WATCHDOG_SECS=55 RECOMP_KERNEL_LOG_BUDGET=200
+RECOMP_CACHE_CAP_BYTES=1073741824 RECOMP_EVENT_LOG=1`
+→ `logs/run-20261121-174222.log`: **CRASH** — same decoder overrun
+(rip = `sub_000223F0`+0), launch events still never signalled. Large
+cache cap does NOT change the failure → disk-full is not the trigger.
 
-- Cache volume fills at the derived 786 MB cap → writer takes its
-  disk-full branch → game opens `Z:\`, writes `Z:\badger.plap` (512 B),
-  then all threads idle. Main polls `0x48000004` (finite timeouts)
-  forever; worker #1 (ctx `0x00021AD0`) blocks INFINITE on
-  `0x48000001` + `0x48000006`; only `0x48000002` is ever signalled.
-- Without `RECOMP_CONTIG_ALIAS=1` the same flow instead faults exactly
-  at guest `0x84000000` (end of the 64 MB contiguous window) in the
-  decoder (`sub_000223F0`) after ~94k writes — the E_FAIL path leaves
-  the destination cursor unreset and it walks off the window (note 0007).
+## Solved / established this session (note 0010)
 
-## Solved / established this session (notes 0005-0009)
+1. **Stream boundary**: real LZ77 stream = file [0x800, 0x9E000); tail
+   0x9E000..0xA6000 is padding inside the recorded file (XDVFS entry
+   size 0xA6000, LBA 0x4BFD). Guest output matches the offline decoder
+   byte-exact to output 0x16BAF6 (input ≈ 0x9E000), i.e. through the
+   whole valid stream.
+2. **Read/budget accounting closes**: budget init 0xA5800
+   (filesize−0x800), 3×0x8000 prefetch, chunk ops to zero; 21 file reads
+   (header + 19×0x8000 + 0x5800) end at file 0x9E000. One 0x8000 budget
+   charge has no `[READ]` (suspect the flag-2 refill branch at 0x2236F,
+   `budget -= [+0x3C]`). **QINFO (patch 0011) proves the kernel size
+   answer was correct** (`eof=0xA6000`) — the read-stop is game logic,
+   byte-identical to xemu's STOP RAM dump (same quartet: budget
+   0xA5800-region, total-read 0x9E000, chunk 0x5800, ret `0x1F335`).
+3. **Decoder has no EOF exit** (disasm: only the dist==0 token returns,
+   `je 0x226ED`; refill at budget==0 returns without data and the byte
+   iterator reads past `+0x14` into ring residue). Post-EOF garbage
+   re-consumes the guest's own output (the first divergent literals sit
+   inside the contiguous arena, not in boot.baf). Both worlds overrun
+   the output window identically.
+4. **1 GiB cache cap → same CRASH**: the disk-full flag amplifies but
+   does not trigger the overrun.
+5. Tools: `baf_decode_offline.py` gained `--eof N` clamp and
+   `--tokens FILE` token trace; docstring records the padding fact.
+6. Patches 0011 `[QINFO]`, 0012/0013 `RECOMP_WATCH` fixes committed;
+   very wide watch windows destabilize the run — keep windows small and
+   pick the stack parity (0x02681/0x02691/0x02692 pages) from a probe
+   run first.
+
+## Established earlier (notes 0005-0009)
 
 1. The write loop was the game's cache writer; cache capacity (patch
    0005) ends it the way hardware does. Commit `35cb8a4`.
@@ -87,50 +113,57 @@ RECOMP_MISSING_FILES=all RECOMP_KERNEL_LOG_BUDGET=200 RECOMP_CONTIG_ALIAS=1`
 
 ## Live hypotheses
 
-1. **H10 (primary, refined by note 0008):** input delivery is *correct*
-   (reads land in the same window the decoder reads, byte-exact, valid
-   decoded output) but the decoder still never terminates. Refill
-   `sub_00022340` returns 0 on every path including exhausted-source;
-   termination must come from the decoder's own `+0x10/+0x14` checks or
-   a stream terminator. Question: after the last 22,528-byte chunk, what
-   do `+0x10/+0x14` become and why does the bit iterator keep running?
-2. **H12 dead** (note 0008): the 21 `boot.baf` reads alternate
-   `buf=0x80034000`/`0x8003C000` — the same contiguous arena the decoder
-   references. No alias mismatch.
-3. Pre-arming `RECOMP_WATCH` across two runs does **not** work: worker
-   stack tops shift (+0x1000) even with identical env. Instead:
-   one-shot dump the object from a SIGABRT core (search the thread stack
-   by pointer *families*, not fixed quartets — fields rotate
-   pointer/count semantics), or write the offline `.baf` decoder.
+1. **H14 (primary, note 0010): token-level divergence at the stream
+   EOF.** Guest and offline parser agree through the entire valid stream
+   (common output prefix ends exactly at input 0x9E000 = first padding
+   byte); then the guest consumes non-file bytes (ring residue / stale
+   heap) and diverges. The exact token mechanism (tag-bit carry across
+   the valid end? the phantom 0x8000 budget charge?) needs a guest
+   token trace.
+2. **H13c (platform geometry): hardware may see a different `boot.baf`
+   size** (e.g. a re-packed archive whose payload ends where the stream
+   does, with a real END token). Disc says 0xA6000 and both worlds agree
+   on every observed byte, so this is now the *reference-side* question:
+   check the SpiritBoot HDD image's own `boot.baf` entry/size on the
+   xemu side (cheap image parse, no run needed).
+3. **H13a dead in its cheap form**: 1 GiB cache cap changes nothing;
+   disk-full flag is an amplifier only.
+4. H9 (FATX mount/geometry) still queued behind these.
 
 ## Queue (next concrete actions)
 
-1. Write the offline `.baf` decoder (python, from the lifted structure +
-   disc bytes): expected output ≈ 1,820,672 B from 679,936 B (triplet →
-   8-byte entry expansion, verified on the first 96 bytes of
-   `Z:\boot.baf` vs disc @2048). If the python decoder terminates
-   cleanly, the guest's non-termination is a state-divergence to hunt
-   with a one-shot object dump from a SIGABRT core.
-2. One-shot object dump: SIGABRT core mid-copy (18 s recipe), scan
-   worker #2's stack for the stream-object pointer family (fields
-   rotate semantics — search `0x8003xxxx` clusters), then read
-   `+0x10/+0x14/+0x24/+0x28/+0x3C/+0x40` at that instant.
-3. Keep H9 (FATX mount/geometry) queued; patch 0005 approximates it.
-4. **xemu reference (approved, installed, boots to the same wall — note
-   0009):** (a) finish the rel128 RAM/VRAM dump analysis: rebuild the
-   blue-screen frame from the `PT_LOAD @0xF0000000` segment into
-   `reference/xemu/` as my own pixel evidence; compare the STOP cursor
-   object state (`+0x18/+0x1c`) between xemu and our run — shared
-   signature would confirm identical decoder state divergence; (b) try
-   xemu with a *properly partitioned larger* HDD image (Z: geometry,
-   H9 cross-check); (c) then decide which reference geometry is
-   "hardware-faithful" before any behaviour verdicts.
+1. **gdb token trace of the decoder around the divergence** (recipe in
+   note 0010): conditional breakpoints at guest 0x226C0 / 0x226A0 /
+   0x22635 (host = `sub_000223F0` + offsets), condition on the output
+   cursor field `[rbp-0xA4]+0x18` in the window around
+   `0x80004000+0x16A000`; capture ~200 tokens, diff against
+   `tools/baf_decode_offline.py --tokens` (clamped stream).
+2. Same probe run also settles the phantom charge: 16-byte
+   `RECOMP_WATCH` at the object's `+0x3C/+0x40` slots using the parity
+   seen in that run's own crash esp (object = esp+0x58 at the fault).
+3. xemu-side cheap check: parse the SpiritBoot HDD image for its
+   `boot.baf` entry (size/LBA) — if its payload is exactly 0x9D800,
+   H13b/H13c collapse into "the game reads its own repacked archive;
+   hardware's D: copy must end at the stream".
+4. If token trace shows a lift divergence (not shared with xemu):
+   fix host-side per rules; if shared: the answer is in file geometry,
+   and the next lever is providing `D:\boot.Baf` as payload-only
+   (0x9E800 B) as an experiment — host-side file choice, no code
+   change, and legitimate (both are disc-derived slices; try in logs
+   only, verdict needs reference).
+5. Cleanup between runs: `rm -f ~/.local/share/xboxrecomp/Cache/*`.
 
 ## Blockers / open questions
 
-- Where exactly the decoder's EOF/termination signal comes from (its
-  code is lifted, so observation = watch on its object + read-side
-  instrumentation, not breakpoints).
+- Token-level mechanism of the H14 divergence (gdb trace queued).
+- The tension to resolve: hardware boots, yet both observed environments
+  stop reading at 0x9E000 with no END token in reach. Either (a) the
+  phantom 0x8000 budget charge is an artefact of a kernel answer both
+  xemu and us give (if hardware's reads reach 0xA6000, the stream ends
+  cleanly at END@0xA5E0D with output == header — note 0009's exact-size
+  result gains meaning again), or (b) the game genuinely handles the
+  residue/EOF region differently based on data we have not compared.
+  The object watch on `+0x3C/+0x40` plus the token trace decide.
 - Whether the 786 MB of `Z:\boot.baf` written before disk-full is even
   correct behaviour — unanswerable without the reference capture (rule 6).
 
@@ -163,3 +196,4 @@ RECOMP_MISSING_FILES=all RECOMP_KERNEL_LOG_BUDGET=200 RECOMP_CONTIG_ALIAS=1`
 | 2026-11-21 s4b | notes 0006-0007: placement patch 0006 (canonical-limit), contig-alias probe 0007; core-dump analysis pins the fault to the boot-archive decoder; **wall = decoder never terminates → launch events never signalled (HANG)**; build.sh patch series made deterministic | `0f5068d` |
 | 2026-11-21 s4c | note 0008 + patch 0008 (`[READ] buf=`): reads land in the decoder's own arena (H12 dead), output is valid decoded data (triplet→8-byte expansion), refill returns 0 on every path; watch pre-arming ruled out (stack jitter); SIGABRT-core recipe added | (this commit) |
 | 2026-11-21 s4e | **xemu reference installed (user-approved) & boots the title to OUR wall**: SpiritBoot-release + `-m 128` → `STOP 0x7E` inside `sub_000223F0` byte loop (EIP 0x226D8, flush `call 0x22270`) — same decoder, same runaway cursor as note 0007; VRAM-forensics recipe (FB @0x3C00000, pitch 720) reconstructs the bugcheck screen as `reference/xemu/` artefact; VRAM contention with inference engine ruled out; note 0009 + `scripts/xemu_{ref,kill,boot_probe,standalone}.sh` + THIRD_PARTY reference table | (this commit) |
+| 2026-11-21 s4f | **data side of the boot-archive wall solved (note 0010)**: real stream = [0x800, 0x9E000), tail 30,720 B = padding; END@0xA5E0D was a padding false-positive; guest == offline decoder byte-exact to output 0x16BAF6; QINFO (patch 0011) shows kernel size answers correct — 0x9E000 read-stop is game budget logic (identical in xemu STOP RAM); decoder has no EOF exit (only dist==0 END); ring reconstruction from core; 1 GiB cache cap → same CRASH (disk-full not the trigger); tool `--eof/--tokens` modes; patches 0011-0013 | (this commit) |

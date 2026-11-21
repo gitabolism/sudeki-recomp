@@ -1,0 +1,29 @@
+--- a/src/kernel/xbox_memory_layout.c
++++ b/src/kernel/xbox_memory_layout.c
+@@ -2203,16 +2203,22 @@
+     g_watch_hsize = (uintptr_t)sysconf(_SC_PAGESIZE);
+     g_watch_hpage = ((uintptr_t)g_memory_offset + g_watch_va)
+                     & ~(g_watch_hsize - 1);
+-    room = (uint32_t)(g_watch_hpage + g_watch_hsize
+-                      - ((uintptr_t)g_memory_offset + g_watch_va));
+-    if (room > sizeof g_watch_snap)
+-        room = sizeof g_watch_snap;
++    /* sudeki-recomp local patch 0013: guest RAM is one contiguous host
++     * mapping, so a window may legally span host pages (the guest worker
++     * stack alternates between two adjacent pages run-to-run; arm once and
++     * watch both). */
++    room = (uint32_t)(sizeof g_watch_snap * 4);
+     if (len && *len)
+         g_watch_len = (uint32_t)strtoul(len, NULL, 0);
+     if (!g_watch_len)
+         g_watch_len = 4;
+     if (g_watch_len > room)
+         g_watch_len = room;
++    {
++        uintptr_t lo_h = (uintptr_t)g_memory_offset + g_watch_va;
++        g_watch_hsize = (((lo_h + g_watch_len - 1) & ~(g_watch_hsize - 1))
++                         + g_watch_hsize) - g_watch_hpage;
++    }
+     memcpy(g_watch_snap, (const uint8_t *)g_memory_offset + g_watch_va,
+            (g_watch_len + 3) & ~3u);
+ 

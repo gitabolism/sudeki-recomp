@@ -1,0 +1,27 @@
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -5170,6 +5170,24 @@
+                 XBOX_TO_NATIVE(info_va), length,
+                 (XBOX_FILE_INFORMATION_CLASS)infoclass);
+     bridge_write_iostatus(ios_va, ios.Status, (uint32_t)ios.Information);
++
++    /* [QINFO] (sudeki-recomp local patch 0011): what a size query actually
++     * answered — the boot-archive read budget is derived from it (note 0009). */
++#ifndef _WIN32
++    if (getenv("RECOMP_QINFO_LOG")) {
++        const uint8_t *q = (const uint8_t *)XBOX_TO_NATIVE(info_va);
++        const char *qp = w32_handle_path(handle);
++        fprintf(stderr, "  [QINFO] from=0x%08X class=%u len=%u st=0x%08X info=%u path=%s  %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X | eof %02X %02X %02X %02X %02X %02X %02X %02X alloc %02X %02X %02X %02X %02X %02X %02X %02X attrs %02X %02X %02X %02X\n",
++                g_xbox_kernel_caller, infoclass, length, g_eax,
++                (uint32_t)ios.Information, qp ? qp : "?",
++                q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7],
++                q[8], q[9], q[10], q[11], q[12], q[13], q[14], q[15],
++                q[32], q[33], q[34], q[35], q[36], q[37], q[38], q[39],
++                q[40], q[41], q[42], q[43], q[44], q[45], q[46], q[47],
++                q[48], q[49], q[50], q[51]);
++        fflush(stderr);
++    }
++#endif
+ }
+ 
+ /* ── NtSetInformationFile (ordinal 226, 5 args = 20 bytes) ─ */

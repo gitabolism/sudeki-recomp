@@ -1,0 +1,24 @@
+--- a/src/kernel/xbox_memory_layout.c
++++ b/src/kernel/xbox_memory_layout.c
+@@ -2068,6 +2068,7 @@
+  * the contiguous-window alias go to a different host mapping and are not
+  * trapped. */
+ #include <signal.h>
++#include <errno.h>
+ #include <sys/mman.h>
+ #include <dlfcn.h>
+ #include <pthread.h>
+@@ -2225,8 +2226,12 @@
+     if (pthread_create(&th, NULL, watch_posix_reprotect, NULL) != 0)
+         return 0;
+     pthread_detach(th);
+-    if (mprotect((void *)g_watch_hpage, g_watch_hsize, PROT_READ) != 0)
++    if (mprotect((void *)g_watch_hpage, g_watch_hsize, PROT_READ) != 0) {
++        fprintf(stderr, "  WATCH: mprotect failed errno=%d (page=%p va=%08X)\n",
++                errno, (void *)g_watch_hpage, g_watch_va);
++        fflush(stderr);
+         return 0;
++    }
+     fprintf(stderr, "  WATCH: writes to %u bytes at 0x%08X are trapped "
+                     "(POSIX, current %08X)\n", g_watch_len, g_watch_va,
+             g_watch_last);
