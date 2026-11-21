@@ -1,0 +1,76 @@
+diff --git a/src/kernel/xbox_memory_layout.c b/src/kernel/xbox_memory_layout.c
+index 0f1c02e..b5faf74 100644
+--- a/src/kernel/xbox_memory_layout.c
++++ b/src/kernel/xbox_memory_layout.c
+@@ -83,6 +83,35 @@ static void *g_mirror_views[XBOX_NUM_MIRRORS] = {0};
+  * question. */
+ static void *g_span_base = NULL;
+ static size_t g_span_size = 0;
++
++#if !defined(_WIN32)
++#include <sys/mman.h>
++
++/* (sudeki-recomp local patch 0006 — note 0006.) Can a span placed at `base`
++ * host the whole guest window? The fixed windows (contiguous at guest
++ * 0x80000000, tiled 0xF0000000, NV2A 0xFD000000, MCPX 0xFE800000, flash
++ * 0xFF000000+1 MB) are all mapped at offset + guest VA, so if the topmost of
++ * them cannot be mapped, none of them can. Linux places mappings top-down: a
++ * span at the very top of the user address space puts those addresses outside
++ * the canonical range, mmap fails, and a title that touches a pinned physical
++ * buffer (Sudeki, guest 0x84000000) faults with nothing wrong in the guest. */
++static int span_hosts_window(const void *base)
++{
++#if defined(MAP_FIXED_NOREPLACE)
++    void *p = mmap((void *)((uintptr_t)base + 0xFF000000u), (size_t)1 << 20,
++                   PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
++                   -1, 0);
++    if (p == MAP_FAILED)
++        return 0;
++    munmap(p, (size_t)1 << 20);
++    return 1;
++#else
++    /* No MAP_FIXED_NOREPLACE (macOS): check the arithmetic instead, against
++     * the 48-bit user limit that host applies. */
++    return (uint64_t)(uintptr_t)base + ((uint64_t)1 << 32) <= ((uint64_t)1 << 47);
++#endif
++}
++#endif /* !_WIN32 */
+ /* POSIX, RECOMP_EXT_VMA only: the span holds the whole 4 GB guest window, and
+  * every fixed-address window is carved out of it (layout_map_view,
+  * layout_commit_at). See the span reservation in xbox_MemoryLayoutInit. */
+@@ -2638,6 +2667,35 @@ BOOL xbox_MemoryLayoutInit(const void *xbe_data, size_t xbe_size)
+             g_span_whole_window = 1;
+         }
+         g_span_base = VirtualAlloc(NULL, g_span_size, MEM_RESERVE, PAGE_NOACCESS);
++#if !defined(_WIN32)
++        /* Note 0006: if the OS-chosen span cannot host the high guest
++         * windows, re-place the span at a low hint. The compat VirtualAlloc
++         * uses MAP_FIXED_NOREPLACE for a hint, so a hint can never displace
++         * an existing mapping; if none works, keep the OS choice and let the
++         * windows report their own failure as before. */
++        if (g_span_base && !span_hosts_window(g_span_base)) {
++            static const uintptr_t span_hints[] = {
++                0x0000004000000000ULL,      /* 256 GB */
++                0x0000000400000000ULL,      /* 16 GB  */
++                0x0000000100000000ULL,      /* 4 GB   */
++                0x0000000020000000ULL,      /* 512 MB */
++            };
++            size_t k;
++            for (k = 0; k < sizeof(span_hints) / sizeof(span_hints[0]); k++) {
++                void *alt = VirtualAlloc((LPVOID)span_hints[k], g_span_size,
++                                         MEM_RESERVE, PAGE_NOACCESS);
++                if (alt == (void *)span_hints[k]) {
++                    fprintf(stderr, "  span at %p cannot host the guest window; "
++                            "re-placed at %p\n", g_span_base, alt);
++                    VirtualFree(g_span_base, g_span_size, MEM_RELEASE);
++                    g_span_base = alt;
++                    break;
++                }
++                if (alt)
++                    VirtualFree(alt, 0, MEM_RELEASE);
++            }
++        }
++#endif
+         if (g_span_base) {
+             VirtualFree(g_span_base, g_memory_size, MEM_RELEASE);
+             g_memory_base = MapViewOfFileEx(g_mapping_handle,

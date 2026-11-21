@@ -1,0 +1,27 @@
+diff --git a/src/kernel/xbox_memory_layout.c b/src/kernel/xbox_memory_layout.c
+index b5faf74..3b1e9a0 100644
+--- a/src/kernel/xbox_memory_layout.c
++++ b/src/kernel/xbox_memory_layout.c
+@@ -3247,6 +3247,22 @@ BOOL xbox_MemoryLayoutInit(const void *xbe_data, size_t xbe_size)
+         if (g_contig_memory) {
+             fprintf(stderr, "  Contiguous window: %u MB at Xbox VA 0x%08X\n",
+                     XBOX_CONTIG_SIZE / (1024 * 1024), XBOX_CONTIG_BASE);
++            /* (sudeki-recomp local patch 0007, probe — note 0007.) Hardware
++             * decodes the AGP aperture past 64 MB (it is physical address
++             * space aliasing DRAM); our window stops at the RAM size.
++             * RECOMP_CONTIG_ALIAS=1 maps a second view of the same storage at
++             * 0x84000000 so a title whose cursor walks into it sees the same
++             * bytes hardware would decode, instead of a host fault. Probe,
++             * not a model of wrap semantics. */
++            if (getenv("RECOMP_CONTIG_ALIAS")) {
++                void *alias = layout_map_view(
++                    g_contig_mapping, XBOX_CONTIG_SIZE,
++                    (LPVOID)(contig_native + XBOX_CONTIG_SIZE));
++                fprintf(stderr, "  Contiguous alias: %u MB at Xbox VA 0x%08X (%s)\n",
++                        XBOX_CONTIG_SIZE / (1024 * 1024),
++                        XBOX_CONTIG_BASE + XBOX_CONTIG_SIZE,
++                        alias ? "mapped" : "failed");
++            }
+         } else {
+             /* Say what is in the way. Under Wine the base view lands wherever
+              * the loader left room, and 0x80000000 + offset can be taken. */
