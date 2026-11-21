@@ -1,0 +1,35 @@
+{
+  // sudeki-recomp — OpenCode project config.
+  // The contract lives in AGENTS.md (auto-discovered) + BRIEF.md; STATE.md is
+  // injected too so every session starts with the live working state.
+  "$schema": "https://opencode.ai/config.json",
+
+  "instructions": ["BRIEF.md", "STATE.md"],
+
+  "permissions": [
+    // "Never edit generated code" — mechanical enforcement of AGENTS.md rule 1.
+    { "action": "edit", "resource": "src/recomp/gen/*", "effect": "deny" },
+
+    // "Never push, never rewrite history" — belt on top of the NO_PUSH remote
+    // (AGENTS.md rule 7). A trailing ` *` also matches the bare command.
+    { "action": "shell", "resource": "git push *", "effect": "deny" },
+    { "action": "shell", "resource": "git reset --hard *", "effect": "deny" },
+    { "action": "shell", "resource": "git rebase *", "effect": "deny" },
+
+    // Approval gate (AGENTS.md): sudo / system package state needs the user.
+    { "action": "shell", "resource": "sudo *", "effect": "ask" },
+    { "action": "shell", "resource": "su *", "effect": "ask" },
+
+    // Game-binary protection at the read level stays permissive (analysis
+    // needs it), but the disc tree and generated C must never be committed:
+    // keep the .gitignore patterns; they are the law (rule 2).
+  ],
+
+  // Hard deny that saved approvals can never override — same rules again at
+  // the policy layer so "allow always" clicks cannot loosen them.
+  "policies": [
+    { "action": "tool.use", "resource": "shell:git push *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git reset --hard *", "effect": "deny" },
+    { "action": "tool.use", "resource": "shell:git rebase *", "effect": "deny" }
+  ]
+}

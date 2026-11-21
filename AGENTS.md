@@ -83,6 +83,16 @@ moves" — is yours. If you stop, say precisely what you need and why.
 2. Commit any doc/script changes. Never leave uncommitted source changes;
    finish or revert them, and say in STATE.md which you did.
 
+## Slash commands (the harness in OpenCode form)
+
+`.opencode/commands/`: `/resume` (session start), `/status`, `/run <args>`,
+`/cycle [focus]` (one full work loop), `/note [n] [slug]`, `/lift [seed]`
+(regenerate + rebuild), `/handoff` (session end), `/setup` (fresh machine).
+`opencode.jsonc` mechanically enforces the non-negotiables: `edit` denied on
+`src/recomp/gen/*`, `git push`/`reset --hard`/`rebase` denied (policy layer,
+unapprovable), `sudo` asks. `BRIEF.md` + `STATE.md` are auto-injected as
+instructions.
+
 ## The work loop
 
 ```

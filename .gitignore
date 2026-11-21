@@ -134,5 +134,9 @@ __pycache__/
 .ruff_cache/
 
 # --- editor/agent session data ---
-.opencode/
+# Project OpenCode surface is committed (commands, config); anything else
+# OpenCode may drop locally stays out.
+.opencode/*
+!.opencode/commands/
+!.opencode/commands/**
 

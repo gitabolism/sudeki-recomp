@@ -82,6 +82,10 @@ kernel calls total. Facts:
 
 - Harness: `scripts/{doctor,pipeline,build,run,stubs,new_note,env}.sh`
   (usage in headers). Logs → `logs/`, captures → `reference/` (gitignored).
+- OpenCode layer: `opencode.jsonc` (instructions auto-inject BRIEF.md +
+  STATE.md; hard denies on editing `src/recomp/gen/`, `git push`,
+  `reset --hard`, `rebase`; `sudo` asks). Commands: `/resume /status
+  /run /cycle /note /lift /handoff /setup`.
 - run.sh: exit classification fixed for watchdog-abort (game exits 3 from
   watchdog abort; verdict now "HANG (watchdog abort)").
 - kernel_calls census counts only detailed lines (RECOMP_KERNEL_LOG_BUDGET
