@@ -3,13 +3,19 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-21 (session 4, late)
+**Last updated:** 2026-11-21 (session 4e)
 **Stage:** LIFT complete, ENTRY evidence strong. Current wall: **the
 title's boot-archive *decoder* thread never terminates** — it decodes
 `boot.baf` into unbounded `Z:\boot.baf` writes, so the launch-complete
 events (`0x48000001`, `0x48000004`) are never signalled and the title
-polls forever (HANG). The old walls (write-loop, window mapping) are
-solved/instrumented; classification with default env: **HANG**.
+polls forever (HANG). **NEW (note 0009): the xemu+SpiritBoot reference
+environment reproduces the same wall** — the title loads there and
+bugchecks `STOP 0x7E (0xC0000005, EIP 0x000226D8, 0x84FB8B1C, …)` *inside
+the same decoder* (`sub_000223F0` output loop, flush call = `0x22270`):
+the dest cursor runs past the mapped window in both worlds. The wall is
+platform geometry/EOF semantics, not our lift. Old walls (write-loop,
+window mapping) solved/instrumented; recomp classification with default
+env: **HANG**.
 
 ## Where things are verified
 
@@ -43,7 +49,7 @@ RECOMP_MISSING_FILES=all RECOMP_KERNEL_LOG_BUDGET=200 RECOMP_CONTIG_ALIAS=1`
   decoder (`sub_000223F0`) after ~94k writes — the E_FAIL path leaves
   the destination cursor unreset and it walks off the window (note 0007).
 
-## Solved / established this session (notes 0005-0007)
+## Solved / established this session (notes 0005-0009)
 
 1. The write loop was the game's cache writer; cache capacity (patch
    0005) ends it the way hardware does. Commit `35cb8a4`.
@@ -65,6 +71,19 @@ RECOMP_MISSING_FILES=all RECOMP_KERNEL_LOG_BUDGET=200 RECOMP_CONTIG_ALIAS=1`
 6. Thread-stack bases shift between runs (racy) — `RECOMP_WATCH`
    pre-arming on stack slots can't be done reliably; watch heap/object
    addresses instead (verify stability first).
+7. **xemu reference baseline is installed and boots the title to our wall**
+   (note 0009, THIRD_PARTY.md "Reference emulator"): xemu v0.8.139 AppImage
+   + clean-room SpiritBoot-release + xemu-dashboard HDD; only `release`
+   image with `-m 128` gets past BIOS. Screen shows `STOP 0x7E
+   (0xC0000005, EIP 0x000226D8, 0x84FB8B1C, 0x84FB8820)` — fault EIP is
+   inside `sub_000223F0`'s byte-output loop (verified by capstone on the
+   disc: `0x226d8 mov [eax],bl` with flush `call 0x22270` at 0x226d0),
+   dest cursor past mapped RAM. Both environments mis-signal the stream
+   end; a clean title-screen reference needs correct drive/memory
+   geometry on the xemu side too. VRAM contention with the inference
+   engine ruled out (xemu uses ~80 MiB; screen renders fine alongside).
+   Scripts: `xemu_ref.sh`, `xemu_kill.sh`, `xemu_boot_probe.sh`,
+   `xemu_standalone.sh`.
 
 ## Live hypotheses
 
@@ -97,8 +116,15 @@ RECOMP_MISSING_FILES=all RECOMP_KERNEL_LOG_BUDGET=200 RECOMP_CONTIG_ALIAS=1`
    rotate semantics — search `0x8003xxxx` clusters), then read
    `+0x10/+0x14/+0x24/+0x28/+0x3C/+0x40` at that instant.
 3. Keep H9 (FATX mount/geometry) queued; patch 0005 approximates it.
-4. xemu reference baseline still awaiting user approval (approval gate:
-   installing software). Ask.
+4. **xemu reference (approved, installed, boots to the same wall — note
+   0009):** (a) finish the rel128 RAM/VRAM dump analysis: rebuild the
+   blue-screen frame from the `PT_LOAD @0xF0000000` segment into
+   `reference/xemu/` as my own pixel evidence; compare the STOP cursor
+   object state (`+0x18/+0x1c`) between xemu and our run — shared
+   signature would confirm identical decoder state divergence; (b) try
+   xemu with a *properly partitioned larger* HDD image (Z: geometry,
+   H9 cross-check); (c) then decide which reference geometry is
+   "hardware-faithful" before any behaviour verdicts.
 
 ## Blockers / open questions
 
@@ -136,3 +162,4 @@ RECOMP_MISSING_FILES=all RECOMP_KERNEL_LOG_BUDGET=200 RECOMP_CONTIG_ALIAS=1`
 | 2026-11-21 s4a | note 0005: write loop is the game's cache writer; H7 falsified; **patch 0005 cache capacity → loop ends (HANG→CRASH)**; instrumentation patches 0002-0004 | `35cb8a4` |
 | 2026-11-21 s4b | notes 0006-0007: placement patch 0006 (canonical-limit), contig-alias probe 0007; core-dump analysis pins the fault to the boot-archive decoder; **wall = decoder never terminates → launch events never signalled (HANG)**; build.sh patch series made deterministic | `0f5068d` |
 | 2026-11-21 s4c | note 0008 + patch 0008 (`[READ] buf=`): reads land in the decoder's own arena (H12 dead), output is valid decoded data (triplet→8-byte expansion), refill returns 0 on every path; watch pre-arming ruled out (stack jitter); SIGABRT-core recipe added | (this commit) |
+| 2026-11-21 s4e | **xemu reference installed (user-approved) & boots the title to OUR wall**: SpiritBoot-release + `-m 128` → `STOP 0x7E` inside `sub_000223F0` byte loop (EIP 0x226D8, flush `call 0x22270`) — same decoder, same runaway cursor as note 0007; VRAM-forensics recipe (FB @0x3C00000, pitch 720) reconstructs the bugcheck screen as `reference/xemu/` artefact; VRAM contention with inference engine ruled out; note 0009 + `scripts/xemu_{ref,kill,boot_probe,standalone}.sh` + THIRD_PARTY reference table | (this commit) |

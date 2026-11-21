@@ -35,6 +35,27 @@ gitignored and must never be committed. The one file the pipeline needs is
 `game/default.xbe`, SHA-256
 `1e28c3db033a3de471ba78ccdd13a824ebddd17fdd0479bf69a795f63bd92419`.
 
+## Reference emulator (xemu) — outside the repo, for baseline captures
+
+Installed under `~/Applications/xemu/` (never in git; nothing here feeds the
+pipeline). Approved by the user 2026-11-21 as the reference-baseline
+prerequisite (brief rule 6). No sudo used.
+
+| component | version / build | identity |
+|---|---|---|
+| xemu (upstream) | v0.8.139, commit `aa54c34cae1c09410d74c69a44210a9867fe2d16`, AppImage x86_64 | sha256 `220282aacf09b30b35c55ba900a774fb6940c70deca1408bc70a4c9cc67c322f` (matches GitHub release asset digest) |
+| xemu fork (SpiritBoot-qualified) | Mainkill1/xemu `v0.8.136-0-g458730bf5373` AppImage | sha256 OK vs release `SHA256SUMS`; kept as fallback — ignores new config keys, `-m 128` passthrough needed, `-qmp` never opens |
+| flash image (BIOS) | **SpiritBoot v1.1.0** clean-room `optimized-xemu/SpiritBoot-release.bin` (262144 B) at commit `9bd0d975…`; `SpiritBoot-checked.bin` also fetched | `sha256sum --check` against upstream SHA256SUMS.txt: both OK. **No Microsoft BIOS/MCPX bytes were downloaded** — clean-room firmware keeps our posture identical to the recomp side |
+| HDD image | `xemu-project/xemu-dashboard` `xbox_hdd.qcow2` (1,638,400 B) | sha256 `00d7df7a2bc235f8801764f00b7f40e194d1e392f7a9619d6b2396c89770f6dd` |
+| EEPROM | xemu auto-generated (`~/.local/share/xemu/xemu/eeprom.bin`) | not a disc/BIOS derivative |
+
+Boot state found: **SpiritBoot-release + `-m 128`** is the only combo that
+reaches the kernel (title loads and bugchecks `STOP 0x7E` inside the
+boot-archive decoder — see note 0009; the reference environment hits *our*
+wall too). Reference captures: `scripts/xemu_ref.sh` /
+`scripts/xemu_boot_probe.sh`; standalone (agent-off) experiment:
+`scripts/xemu_standalone.sh`.
+
 ## Agent skills (fetched, reviewed, pinned)
 
 Installed under `.opencode/skills/` (OpenCode auto-discovers them). Each was
