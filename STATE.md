@@ -3,88 +3,102 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-21 (session 3)
-**Stage:** LIFT complete, ENTRY evidence strong. Current wall: **XAPILIB
-utility-drive bootstrap — Partition5 FATX bring-up retry loop** (old
-"loader stalls mid-read" framing is dead; the read completes — note 0004).
+**Last updated:** 2026-11-21 (session 4)
+**Stage:** LIFT complete, ENTRY evidence strong. Current wall: **the guest
+faults on Xbox VA `0x84000000` — the contiguous window (and other apertures)
+the loader could not map on this host.** The old wall (XAPILIB/utility-drive
+write loop) is **solved** by toolkit patch 0005; run classification moved
+from HANG to CRASH, i.e. real progress.
 
 ## Where things are verified
 
-- Toolkit: `xboxrecomp/` @ v0.18.0 / `37b61d589168adee3680fabd51805ee81427bf07` (`scripts/doctor.sh` all ok). Checkout kept clean; local changes are patch files, see below.
-- Local toolkit patches: `patches/xboxrecomp/0001-io-write-trace.patch`
-  (`[WRITE]` trace, env `RECOMP_IO_WRITE_LOG=1`) — auto-applied by
-  `scripts/build.sh`, recorded in THIRD_PARTY.md.
-- XBE: `game/default.xbe` pinned SHA-256 ✔. `game/` = full disc tree
-  (442 files, 3.6 GB, gitignored).
+- Toolkit: `xboxrecomp/` @ v0.18.0 / `37b61d589168adee3680fabd51805ee81427bf07`
+  (`scripts/doctor.sh` green). Checkout clean at the pin; local changes are
+  patch files auto-applied by `scripts/build.sh` — see THIRD_PARTY.md.
+- Local toolkit patches now: `0001` `[WRITE]` trace, `0002` `[EVENT]` trace,
+  `0003` write-CSV + guest backtrace, `0004` FSCTL probe (env-gated),
+  **`0005-cache-volume-capacity.patch` = the fix** (note 0005).
+- XBE: `game/default.xbe` pinned SHA-256 ✔. `game/` = full disc tree (gitignored).
 - Generated tree unchanged since session 1 (432 stubs agree; note 0001).
-- Executable: `build/sudeki` (rebuilt this session with the [WRITE] patch).
-- Skills: five pinned skills installed, digest gate in `doctor.sh` green
-  (commits `3b10d34`, `73a8d93`).
+- Skills: five pinned, digest gate green.
 
 ## Last run
 
-`scripts/run.sh 60 RECOMP_WATCHDOG_SECS=50 RECOMP_MISSING_FILES=all RECOMP_IO_WRITE_LOG=1 RECOMP_KERNEL_LOG_BUDGET=10`
-→ `logs/run-20261121-022812.log`: **HANG (watchdog abort)**. Facts:
+`scripts/run.sh 90 RECOMP_WATCHDOG_SECS=80 RECOMP_EVENT_LOG=1 RECOMP_MISSING_FILES=all RECOMP_KERNEL_LOG_BUDGET=200`
+→ `logs/run-20261121-050812.log`: **CRASH** (was HANG before patch 0005).
 
-- `boot.Baf` fully read from `D:\` (24 sync reads, last `@624640 want=22528
-  got=22528` = 679,936 total — session-2's "stops at 657,408" was a miscount).
-- Copy to `Z:\boot.baf` (`~/.local/share/xboxrecomp/Cache/boot.baf`),
-  4096-byte positioned writes, all `st=0`, **offset grows unbounded** —
-  ~614.4 MB per 10k writes, file hit 4,295,024,640 B (≈ 2^20+4 blocks,
-  near a 4 GiB/32-bit wrap). Deleted at handoff (sparse, harmless).
-- Sequence: open `Partition5` → `NtFsControlFile(0x90020)` → **stub →
-  STATUS_NOT_SUPPORTED** → mount/copy proceeds → retry-ish forever, with a
-  poller thread in 500 ms `NtWaitForSingleObjectEx` timeouts on event
-  `0x5A000024` (guest token `0x48000004`, manual-reset created unsignalled
-  at log line 227).
-- gdb-on-bridge probing is a dead end: ptrace breaks the runtime's
-  SIGSEGV/SEH emulation (spurious `sub_0026D079` crash). Use env-gated
-  instrumentation instead (`scripts/gdb_probe.sh` kept for host-side-only
-  debugging).
+- `boot.Baf` copied to the utility drive until the volume is full:
+  `[FILE] cache volume full (used 786371584 +61440, cap 786432000) … from 0x002710FF`
+  → the title's writer (`sub_00022270`) then returns E_FAIL and the launch
+  path proceeds. New ordinals appear that never did during the loop
+  (187 `NtClose`, 190, 184, 67).
+- Then: `[CRASH] … Xbox VA of fault: 0x84000000 in sub_000223F0+0x2F3B`,
+  frames `0x95800 0x22234 0x1BC800 0x1F335 0xA5800 0x9E000 0x1F0E8 0x1E60A
+  0x21C1F 0x26D456`. This is the window the loader warned about at startup:
+  `contiguous window at 0x80000000 (native 0x800002800000) failed (error 8)`,
+  plus NV2A (0xFD000000), MCPX (0xFE800000), flash (0xFF000000) and tiled
+  (0xF0000000) apertures all unmapped.
+
+## Solved this session (facts, artefacts in note 0005)
+
+1. The write loop is the **game's own cache writer** (backtrace: call site
+   `0x000222E0` into the XAPI write helper `sub_002710AA` ← frames
+   `0x226D5/0x22234/0x1F335/0x1F0E8/0x1E60A/0x21C1F`), not XAPILIB.
+2. Its only exit is a short/failed write; a host directory has no capacity,
+   so it wrote 94,643 × 61,440 B (>5.8 GB, one 32-bit wrap) forever.
+3. H7 (FSCTL mount failure drives it) **falsified** with patch 0004.
+4. The `0x5A000024` / `0x48000004` wait is a symptom: nothing ever signals
+   that event (`RECOMP_EVENT_LOG` shows exactly one signal all run,
+   `0x48000002`).
+5. gdb/ptrace on the bridge is unusable with this runtime (SIGSEGV-based SEH
+   emulation), so env-gated instrumentation is the debugging route.
 
 ## Live hypotheses
 
-1. **H6 (primary):** the copy/mount loop's exit predicate depends on FATX
-   volume facts the stub never gives — FSCTL `0x90020` (FILE_ANY_ACCESS
-   function 8) returns `STATUS_NOT_SUPPORTED`, and POSIX writes never fail
-   at partition capacity, so the guest never sees "volume ready / disk
-   full" and loops. Falsifier: implement/answer `0x90020` correctly (or
-   cap the Partition5 image) and the loop terminates or errors forward.
-2. **H5 (secondary):** a guest-side 32-bit block-count wrap (host file
-   stopped exactly near 2^20 blocks ≈ 4 GiB) — if the guest would stop at
-   capacity on real hardware, the only host defect is *allowing* the
-   overshoot; fixing capacity semantics alone may suffice.
+1. **H8 (primary, new):** the crash at `0x84000000` is purely the unmapped
+   contiguous/AGP window — the toolkit's attempt collides with its own guest
+   RAM mirror reservation (`occupant: base 0x800002800000 … state 0x10000`).
+   Falsifier: map the window (and apertures) successfully at startup and the
+   fault disappears / moves.
+2. **H9 (deferred gap):** the guest's own FATX superblock for Partition5 says
+   `bytes_per_sector=1, sectors_per_cluster=0, cluster_count=0xFFFFFFFF`
+   because `IoMountVolume`/geometry is not implemented. Patch 0005 emulates
+   capacity at the write layer; a title that trusts that geometry could still
+   mis-size. Not the current wall, but it is the honest follow-up.
 
 ## Queue (next concrete actions)
 
-1. Identify FSCTL `0x90020` from public XDK/XAPILIB headers (GitHub code
-   search is auth-gated; fetch raw header files, e.g. cxbx/xbe headers —
-   webfetch proxy is flaky, prefer `curl`). Note 0005 before code changes.
-2. Implement `bridge_NtFsControlFile` host-side for that code against the
-   Partition5 image (`~/.local/share/xboxrecomp/Partition5.img`); one
-   variable at a time. Consider FATX capacity semantics for cache images.
-3. After the loop resolves, re-run and check whether event `0x5A000024`
-   finally gets SetEvent (launch-complete) → next wall (APU poll, note 0002).
-4. Reference baseline (xemu) still queued; ask user before installing
-   software (approval gate). Session paused by user frequently — machine is
-   also used for Kodi; keep GPU-heavy steps off (game never touches GPU,
-   but keep runs bounded and clean the toolkit cache between long loops).
+1. Note 0006 first: read the loader's aperture mapping in
+   `xboxrecomp/src/…/xbox_memory_layout.c` (why "error 8", what native
+   address it asks for), then map the 64 MB contiguous window at
+   `0x80000000` + the tiled/NV2A/MCPX/flash apertures host-side (patch 0006).
+   One variable: contiguous window alone, then re-run.
+2. Re-run and re-classify; expect the wall to move to APU/GPU register
+   access (the other "will fault" warnings) or to the `0x5A000024`
+   launch-complete event once the window exists.
+3. Consider implementing FATX mount/geometry (FSCTL family) instead of the
+   capacity approximation (H9) once the window gap is closed.
+4. Reference baseline (xemu) still queued — ask user before installing
+   software (approval gate). Keep runs bounded; the toolkit cache dir
+   (`~/.local/share/xboxrecomp/Cache`) can grow to the volume capacity —
+   clear it between long runs.
 
 ## Blockers / open questions
 
-- FSCTL 0x90020 identity unknown (headers fetch pending). Candidates in
-  the FATX FSCTL family (mount/dismount/lock/geometry) — do not guess,
-  read the guest's input buffer at the call instead if headers stay elusive.
-- Toolkit checkout is dirty *after* a build (patches auto-applied) — by
-  design; `doctor.sh` verifies the pin commit, not tree cleanliness.
+- Why the aperture mmap fails on this host (error 8) and whether the fix is
+  a different native base for the mirror reservation or explicit MAP_FIXED
+  holes — measure before patching.
+- Patch 0005 caps cache volumes only; Partition1-backed saves (TDATA/UDATA)
+  remain unbounded by choice, recorded in THIRD_PARTY.md.
 
 ## Housekeeping facts
 
 - Harness: `scripts/{doctor,pipeline,build,run,stubs,new_note,env,skills_check,gdb_probe}.sh`.
   Logs → `logs/`, captures → `reference/` (gitignored).
-- Useful env: `RECOMP_MISSING_FILES=all` (every open logged),
-  `RECOMP_IO_WRITE_LOG=1` (needs patch 0001, auto), `RECOMP_KERNEL_LOG_BUDGET`,
-  `RECOMP_WATCHDOG_SECS`.
+- Useful env: `RECOMP_MISSING_FILES=all`, `RECOMP_IO_WRITE_LOG=1`,
+  `RECOMP_IO_WRITE_CSV=<path>`, `RECOMP_EVENT_LOG=1`, `RECOMP_FSCTL_OK=1`,
+  `RECOMP_CACHE_CAP_BYTES=<n>` (default = backing image size, 0 disables),
+  `RECOMP_KERNEL_LOG_BUDGET`, `RECOMP_WATCHDOG_SECS`.
 - OpenCode layer: `opencode.jsonc` + commands `/resume /status /run /cycle
   /note /lift /handoff /setup`; skills under `.opencode/skills/` (pinned).
 - Remote origin push URL is `NO_PUSH`. Do not "fix" this.
@@ -95,4 +109,5 @@ utility-drive bootstrap — Partition5 FATX bring-up retry loop** (old
 |---|---|---|
 | 2026-11-21 s1 | pinned v0.18.0, hashes verified, full pipeline, lift 14,741 fn / 432 stubs, Linux exe builds, first run alive at timeout | `eca6f9f` |
 | 2026-11-21 s2 | autonomy layer (AGENTS/STATE/scripts/notes); full disc tree extracted (notes 0002-0003); wall framed as XAPILIB read/write/wait cluster | `55b8693` |
-| 2026-11-21 s3 | skills pinned + drift gate (`3b10d34`,`73a8d93`); note 0004: read completes, wall = Partition5 FATX bootstrap retry loop (FSCTL 0x90020 stub, unbounded cache writes); [WRITE] patch + gdb-probe lessons; Kodi GPU incident investigated (not repo-caused) | (this commit) |
+| 2026-11-21 s3 | skills pinned + drift gate; note 0004: read completes, wall = Partition5 FATX bootstrap retry loop; [WRITE] patch | `17aa020` |
+| 2026-11-21 s4 | note 0005: write loop is the game's cache writer; H7 falsified; **patch 0005 cache capacity → loop ends, wall moves to unmapped 0x80000000 window (HANG→CRASH)**; instrumentation patches 0002-0004 | (this commit) |

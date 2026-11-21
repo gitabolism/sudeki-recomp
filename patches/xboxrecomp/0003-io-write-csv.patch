@@ -1,0 +1,66 @@
+diff --git a/src/kernel/kernel_bridge.c b/src/kernel/kernel_bridge.c
+index d0efc77..532264c 100644
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -4891,6 +4891,61 @@ static void bridge_NtWriteFile(void)
+         }
+     }
+ 
++    /* (sudeki-recomp local patch 0003.) Full CSV of every write to the file
++     * named by RECOMP_IO_WRITE_CSV: a copy that never ends looks identical to
++     * one that strides unless you can plot the whole (n, offset, length)
++     * sequence. */
++    {
++        static FILE *csv;
++        static int csv_on = -1;
++        static long csv_n;
++        if (csv_on < 0) csv_on = getenv("RECOMP_IO_WRITE_CSV") ? 1 : 0;
++        if (csv_on) {
++            if (!csv) {
++                const char *p = getenv("RECOMP_IO_WRITE_CSV");
++                csv = fopen(p && p[0] == '/' ? p : "/tmp/opencode/io-write.csv", "w");
++            }
++            if (csv) {
++                csv_n++;
++                fprintf(csv, "%ld,0x%08X,%lld,%u,%lu,0x%08X,%s\n",
++                        csv_n, g_xbox_kernel_caller,
++                        (long long)(poff ? off.QuadPart : -1),
++                        length, (unsigned long)ios.Information,
++                        (uint32_t)ios.Status,
++                        w32_handle_path(handle) ? w32_handle_path(handle) : "?");
++                /* (sudeki-recomp local patch 0004.) Crude guest backtrace:
++                 * the bridge knows only the immediate call site, so scan the
++                 * guest stack for anything that looks like a code address and
++                 * let the function tables name the frames. Periodic, not
++                 * per-call: enough to identify a loop, cheap enough to leave on. */
++                if (csv_n == 1 || csv_n % 20000 == 0) {
++                    int i;
++                    uint32_t info[7];
++                    static int told;
++                    if (!told) {
++                        int q = guest_vmem_query(g_esp, info);
++                        told = 1;
++                        fprintf(stderr, "  [SCAN] g_esp=0x%08X query=%d base=0x%08X size=0x%X state=0x%X protect=0x%X\n",
++                                g_esp, q, q ? info[0] : 0, q ? info[3] : 0,
++                                q ? info[4] : 0, q ? info[5] : 0);
++                        fflush(stderr);
++                    }
++                    /* Bounded scan: ESP's own frame always lies below it in
++                     * mapped guest RAM, and 96 words is far smaller than any
++                     * guest stack, so this cannot reach a guard page. */
++                    fprintf(csv, "#scan,%ld", csv_n);
++                    for (i = 0; i < 96; i++) {
++                        uint32_t w = BRIDGE_MEM32(g_esp + i * 4);
++                        if (w >= 0x00010000u && w < 0x00430000u)
++                            fprintf(csv, ",0x%08X", w);
++                    }
++                    fprintf(csv, "\n");
++                }
++                fflush(csv);
++            }
++        }
++    }
++
+     bridge_write_iostatus(iostatus, ios.Status, (uint32_t)ios.Information);
+     bridge_complete_file_io(STACK_ARG(1), STACK_ARG(2), STACK_ARG(3),
+                             iostatus);

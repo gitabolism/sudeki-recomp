@@ -1,0 +1,177 @@
+diff --git a/src/kernel/kernel_bridge.c b/src/kernel/kernel_bridge.c
+index 24cbc9e..5018e5a 100644
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -4840,6 +4840,140 @@ static void bridge_NtReadFile(void)
+ }
+ 
+ /* ── NtWriteFile (ordinal 236, 8 args = 32 bytes) ─────── */
++/* ── cache-volume capacity (sudeki-recomp local patch 0005 — note 0005) ──
++ * The Xbox cache partitions (X:/Y:/Z:, backed by Partition3-5.img) are
++ * fixed-size FATX volumes. A host directory has no capacity, so a title
++ * whose cache writer loops until a write fails loops forever: Sudeki's
++ * writer (sub_00022270) returns E_FAIL only when bytes-written != requested.
++ * Refusing writes past the backing image's size restores the hardware
++ * condition. Usage is tracked per volume by the writes we serve (delta of
++ * high-water marks per file), seeded from the directory's current contents;
++ * RECOMP_CACHE_CAP_BYTES overrides the derived capacity, 0 disables.
++ * Only the cache volumes are capped today; TDATA/UDATA (Partition1) are not,
++ * which is recorded in THIRD_PARTY.md rather than left implied. */
++#ifndef _WIN32
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <dirent.h>
++
++#define CACHE_VOL_MAX 8
++#define CACHE_FILE_MAX 32
++
++static struct {
++    char root[400];
++    long long cap, used;
++} s_cache_vol[CACHE_VOL_MAX];
++static struct {
++    char path[400];
++    long long hi;
++} s_cache_file[CACHE_FILE_MAX];
++
++int recomp_cache_capacity_check(const char *path, long long upto,
++                                unsigned length, const char **why)
++{
++    static char whybuf[96];
++    const char *seg = strstr(path, "/Cache/");
++    char root[400];
++    char img[500];
++    int i, rootlen, v = -1;
++    long long delta = 0, cap;
++    struct stat st;
++    const char *env = getenv("RECOMP_CACHE_CAP_BYTES");
++
++    *why = whybuf;
++    if (!seg)
++        return 0;                       /* not a cache-volume path */
++    rootlen = (int)(seg - path) + 6;    /* include "Cache" */
++    if (rootlen <= 0 || rootlen >= (int)sizeof root)
++        return 0;
++    memcpy(root, path, (size_t)rootlen);
++    root[rootlen] = 0;
++
++    for (i = 0; i < CACHE_VOL_MAX; i++)
++        if (s_cache_vol[i].root[0] && !strcmp(s_cache_vol[i].root, root)) {
++            v = i;
++            break;
++        }
++    if (v < 0) {
++        long long best = 0;
++        for (i = 0; i < CACHE_VOL_MAX; i++)
++            if (!s_cache_vol[i].root[0]) { v = i; break; }
++        if (v < 0) return 0;
++        snprintf(s_cache_vol[v].root, sizeof s_cache_vol[v].root, "%s", root);
++
++        /* Capacity = the largest backing image (Partition3/4/5) that sits
++         * beside the volume directory. */
++        {
++            const char *part = strrchr(root, '/');
++            int base = part ? (int)(part - root) : 0;
++            static const char *imgs[] = { "Partition5", "Partition4", "Partition3" };
++            int k;
++            memcpy(img, root, (size_t)base);
++            img[base] = 0;
++            for (k = 0; k < 3; k++) {
++                snprintf(img + base, sizeof img - base, "/%s.img", imgs[k]);
++                if (stat(img, &st) == 0 && (long long)st.st_size > best)
++                    best = (long long)st.st_size;
++            }
++        }
++        if (env) best = atoll(env);
++        s_cache_vol[v].cap = best;
++
++        {   /* seed with what is already on the volume */
++            DIR *d = opendir(root);
++            long long used = 0;
++            if (d) {
++                struct dirent *de;
++                while ((de = readdir(d)) != NULL) {
++                    char p[600];
++                    int n = snprintf(p, sizeof p, "%s/%s", root, de->d_name);
++                    if (n > 0 && n < (int)sizeof p && stat(p, &st) == 0 &&
++                        S_ISREG(st.st_mode))
++                        used += (long long)st.st_size;
++                }
++                closedir(d);
++            }
++            s_cache_vol[v].used = used;
++        }
++    }
++
++    cap = s_cache_vol[v].cap;
++    if (cap <= 0)
++        return 0;                       /* unknown or disabled */
++
++    /* Track this file's high-water mark and charge the volume for growth. */
++    {
++        int f, slot = -1;
++        for (f = 0; f < CACHE_FILE_MAX; f++) {
++            if (s_cache_file[f].path[0] && !strcmp(s_cache_file[f].path, path)) {
++                slot = f;
++                break;
++            }
++            if (!s_cache_file[f].path[0] && slot < 0)
++                slot = f;
++        }
++        if (slot >= 0) {
++            long long end = upto + (long long)length;
++            if (end > s_cache_file[slot].hi) {
++                delta = end - s_cache_file[slot].hi;
++                s_cache_file[slot].hi = end;
++            }
++            if (!s_cache_file[slot].path[0])
++                snprintf(s_cache_file[slot].path, sizeof s_cache_file[slot].path,
++                         "%s", path);
++        }
++    }
++
++    if (s_cache_vol[v].used + delta > cap) {
++        snprintf(whybuf, sizeof whybuf, "used %lld +%lld, cap %lld",
++                 s_cache_vol[v].used, delta, cap);
++        return 1;
++    }
++    s_cache_vol[v].used += delta;
++    return 0;
++}
++#endif /* !_WIN32 */
++
+ static void bridge_NtWriteFile(void)
+ {
+     HANDLE   handle    = bridge_resolve_handle(STACK_ARG(0));
+@@ -4862,6 +4996,31 @@ static void bridge_NtWriteFile(void)
+         off.HighPart = (LONG)BRIDGE_MEM32(offset_va + 4);
+         poff = &off;
+     }
++    /* Utility-drive capacity (sudeki-recomp local patch 0005 — note 0005):
++     * see recomp_cache_capacity_check above. */
++#ifndef _WIN32
++    {
++        const char *cp = w32_handle_path(handle);
++        if (cp) {
++            const char *why = "";
++            if (recomp_cache_capacity_check(cp, poff ? off.QuadPart : 0,
++                                            length, &why)) {
++                static int told;
++                if (!told) {
++                    told = 1;
++                    fprintf(stderr, "  [FILE] cache volume full (%s): %s @%lld +%u from 0x%08X\n",
++                            why, cp, (long long)(poff ? off.QuadPart : 0),
++                            length, g_xbox_kernel_caller);
++                    fflush(stderr);
++                }
++                bridge_write_iostatus(iostatus, (NTSTATUS)0xC000007F, 0);
++                g_eax = 0xC000007Fu;   /* STATUS_DISK_FULL */
++                return;
++            }
++        }
++    }
++#endif
++
+     g_eax = (uint32_t)xbox_NtWriteFile(handle, NULL, NULL, NULL, &ios,
+                 XBOX_TO_NATIVE(buffer_va), length, poff);
+ 

@@ -1,0 +1,102 @@
+diff --git a/src/kernel/kernel_bridge.c b/src/kernel/kernel_bridge.c
+index 5a7e61a..d0efc77 100644
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -2020,6 +2020,21 @@ static HANDLE ke_guest_event_prepare(uint32_t guest_va, int *type)
+     return h;
+ }
+ 
++/* (sudeki-recomp local patch 0002, see THIRD_PARTY.md.) Env-gated trace of
++ * every guest-visible event signal: a producer/consumer handoff stall cannot
++ * be told from "producer never ran" vs "ran but never signalled" without
++ * seeing the signal attempts and their caller. */
++static void recomp_log_event_signal(uint32_t token, const char *what)
++{
++    static int on = -1;
++    if (on < 0) on = getenv("RECOMP_EVENT_LOG") ? 1 : 0;
++    if (on) {
++        fprintf(stderr, "  [EVENT] %s token=0x%08X from=0x%08X\n",
++                what, token, g_xbox_kernel_caller);
++        fflush(stderr);
++    }
++}
++
+ /* ── KeSetEvent (ordinal 145) ────────────────────────────── */
+ static void bridge_KeSetEvent(void)
+ {
+@@ -2035,6 +2050,7 @@ static void bridge_KeSetEvent(void)
+         int type;
+         HANDLE ge = ke_guest_event(guest_va, &type);
+         if (ge) {
++            recomp_log_event_signal(guest_va, "KeSetEvent");
+             g_eax = BRIDGE_MEM32(guest_va + 4) != 0;   /* previous state */
+             BRIDGE_MEM32(guest_va + 4) = 1;
+             SetEvent(ge);
+@@ -2046,9 +2062,10 @@ static void bridge_KeSetEvent(void)
+         h = bridge_resolve_handle(guest_va);
+     if (!h)
+         h = XBOX_TO_NATIVE(guest_va);
+-    if (h)
++    if (h) {
++        recomp_log_event_signal(guest_va, "KeSetEvent");
+         g_eax = (uint32_t)SetEvent(h);
+-    else
++    } else
+         g_eax = 0;
+ }
+ 
+@@ -2123,8 +2140,10 @@ static void bridge_NtClearEvent(void)
+  * context's go-event and only the first 14 KB of the map ever loaded. */
+ static void bridge_NtSetEvent(void)
+ {
+-    HANDLE   handle = bridge_resolve_handle(STACK_ARG(0));
++    uint32_t tok    = STACK_ARG(0);
++    HANDLE   handle = bridge_resolve_handle(tok);
+     uint32_t prev   = STACK_ARG(1);
++    recomp_log_event_signal(tok, "NtSetEvent");
+     g_eax = (uint32_t)xbox_NtSetEvent(handle, XBOX_TO_NATIVE(prev));
+ }
+ 
+@@ -2135,7 +2154,9 @@ static void bridge_NtSetEvent(void)
+  * faithfully -- a waiter not yet blocked misses it, exactly as on hardware. */
+ static void bridge_NtPulseEvent(void)
+ {
+-    HANDLE handle = bridge_resolve_handle(STACK_ARG(0));
++    uint32_t tok = STACK_ARG(0);
++    HANDLE handle = bridge_resolve_handle(tok);
++    recomp_log_event_signal(tok, "NtPulseEvent");
+     if (handle) PulseEvent(handle);
+     g_eax = 0;
+ }
+@@ -4502,7 +4523,10 @@ static void bridge_complete_file_io(uint32_t event_token, uint32_t apc_routine,
+ {
+     if (event_token) {
+         HANDLE ev = bridge_resolve_handle(event_token);
+-        if (ev) SetEvent(ev);
++        if (ev) {
++            recomp_log_event_signal(event_token, "io-complete SetEvent");
++            SetEvent(ev);
++        }
+     }
+     if (apc_routine) {
+         if (g_defer_io_apc && g_io_apc_count < IO_APC_QUEUE) {
+@@ -8523,6 +8547,7 @@ static void bridge_KePulseEvent(void)
+         int type;
+         HANDLE ge = ke_guest_event(guest_va, &type);
+         if (ge) {
++            recomp_log_event_signal(guest_va, "KePulseEvent");
+             PulseEvent(ge);
+             BRIDGE_MEM32(guest_va + 4) = 0;
+             g_eax = 0;
+@@ -8532,8 +8557,10 @@ static void bridge_KePulseEvent(void)
+     h = ke_shadow_lookup(guest_va);
+     if (!h)
+         h = XBOX_TO_NATIVE(guest_va);
+-    if (h)
++    if (h) {
++        recomp_log_event_signal(guest_va, "KePulseEvent");
+         PulseEvent(h);
++    }
+ 
+     g_eax = 0; /* previous state unknown */
+ }

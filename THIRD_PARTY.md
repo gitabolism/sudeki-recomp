@@ -75,6 +75,10 @@ We keep the toolkit at the pinned upstream commit; local changes live as
 `scripts/build.sh` — the checkout stays verifiable against the pin, and
 each patch is one reviewed, documented diff.
 
-| patch | what | why |
+| patch | what | why / status |
 |---|---|---|
-| `0001-io-write-trace.patch` | `[WRITE]` trace in `bridge_NtWriteFile`, env-gated `RECOMP_IO_WRITE_LOG=1` (first 60 calls, then every 10,000th) | mirror of the existing `[READ]` line; settled the boot.Baf write-loop diagnosis (note 0004). Candidate for upstream PR. |
+| `0001-io-write-trace.patch` | `[WRITE]` trace in `bridge_NtWriteFile`, env `RECOMP_IO_WRITE_LOG=1` (first 60 calls, then every 10,000th) | mirror of the existing `[READ]` line; settled the boot.Baf write-loop diagnosis (note 0004). Candidate for upstream PR. |
+| `0002-event-signal-trace.patch` | `[EVENT]` trace of every guest-visible event signal (`KeSetEvent`, `KePulseEvent`, `NtSetEvent`, `NtPulseEvent`, I/O-completion `SetEvent`), env `RECOMP_EVENT_LOG=1` | proved `0x48000004` is never signalled — the wait was a symptom, not the wall (note 0005). |
+| `0003-io-write-csv.patch` | per-write CSV (`RECOMP_IO_WRITE_CSV=<path>`) + periodic guest-stack backtrace (`#scan` lines) | the census (94,643 × 61,440 B contiguous, one 32-bit wrap) and the backtrace that named the game's own writer loop. |
+| `0004-fsctl-probe.patch` | env-gated (`RECOMP_FSCTL_OK=1`) success answer for FILE_DEVICE_FILE_SYSTEM FSCTLs + logs code/in/out/caller | **probe, kept for the logging**: H7 (mount failure causes the loop) was falsified with it. Default behaviour unchanged. |
+| `0005-cache-volume-capacity.patch` | `recomp_cache_volume_capacity()` + `STATUS_DISK_FULL` past the capacity of the cache volume (`X:/Y:/Z:`, backed by `Partition3-5.img`); capacity = largest backing image size, `RECOMP_CACHE_CAP_BYTES` overrides, `0` disables | **the fix for the boot write-loop wall** (note 0005): a host directory has no capacity, so the title's cache writer never saw the disk-full condition that ends it on hardware. Capacity *emulation* at the write layer — the FATX mount/geometry gap remains. Cache volumes only; TDATA/UDATA (Partition1) not yet capped. |

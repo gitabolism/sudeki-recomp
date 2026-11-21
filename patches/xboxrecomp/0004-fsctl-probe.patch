@@ -1,0 +1,29 @@
+diff --git a/src/kernel/kernel_bridge.c b/src/kernel/kernel_bridge.c
+index 532264c..24cbc9e 100644
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -5399,6 +5399,24 @@ static void bridge_NtFsControlFile(void)
+ {
+     uint32_t fsctl = STACK_ARG(5);
+     uint32_t ios_va = STACK_ARG(4);
++
++    /* (sudeki-recomp local patch 0004, probe only — note 0005.) Sudeki's
++     * utility-drive mount (FSCTL 0x90020 = CTL_CODE(FILE_DEVICE_FILE_SYSTEM,
++     * 8, METHOD_BUFFERED, FILE_ANY_ACCESS)) gets STATUS_NOT_SUPPORTED here.
++     * RECOMP_FSCTL_OK=1 answers the file-system family with success so the
++     * falsifier can be run; the default stays the honest stub. */
++    {
++        static int ok_fsctl = -1;
++        if (ok_fsctl < 0) ok_fsctl = getenv("RECOMP_FSCTL_OK") ? 1 : 0;
++        if (ok_fsctl && (fsctl & 0xFFFF0000u) == 0x00090000u) {
++            fprintf(stderr, "  [FILE] NtFsControlFile(0x%X) in=%u out=%u from=0x%08X -> 0 (probe)\n",
++                    fsctl, STACK_ARG(7), STACK_ARG(9), g_xbox_kernel_caller);
++            bridge_write_iostatus(ios_va, 0, 0);
++            g_eax = 0;
++            return;
++        }
++    }
++
+     fprintf(stderr, "  [FILE] NtFsControlFile(0x%X) - stub\n", fsctl);
+     bridge_write_iostatus(ios_va, 0xC00000BBu, 0);
+     g_eax = 0xC00000BBu;
