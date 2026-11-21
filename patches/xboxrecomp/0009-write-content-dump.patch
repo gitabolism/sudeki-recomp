@@ -1,0 +1,39 @@
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -5022,6 +5022,36 @@
+     }
+ #endif
+ 
++    /* [WRDUMP] (sudeki-recomp local patch 0009): append the guest buffer
++     * contents of cache-volume writes to a host file
++     * (RECOMP_IO_WRITE_DUMP=<path>) with a per-write index line, capped at
++     * 32 MiB, so the title's write stream can be diffed byte-for-byte
++     * against the offline boot.baf decoder output (note 0009). */
++#ifndef _WIN32
++    {
++        const char *wdump = getenv("RECOMP_IO_WRITE_DUMP");
++        if (wdump) {
++            static FILE *s_wf = NULL;
++            static long long s_wbytes = 0;
++            static long s_widx = 0;
++            const char *hp = w32_handle_path(handle);
++            if (hp && (strstr(hp, "Partition") || strstr(hp, "Cache"))) {
++                s_widx++;
++                if (s_wbytes < (32LL << 20)) {
++                    if (!s_wf) s_wf = fopen(wdump, "wb");
++                    if (s_wf) {
++                        fwrite(XBOX_TO_NATIVE(buffer_va), 1, length, s_wf);
++                        s_wbytes += length;
++                    }
++                }
++                fprintf(stderr, "  [WRDUMP] #%ld @%lld n=%u path=%s\n",
++                        s_widx, (long long)(poff ? off.QuadPart : 0), length, hp);
++                if (s_widx % 2000 == 0) fflush(stderr);
++            }
++        }
++    }
++#endif
++
+     g_eax = (uint32_t)xbox_NtWriteFile(handle, NULL, NULL, NULL, &ios,
+                 XBOX_TO_NATIVE(buffer_va), length, poff);
+ 

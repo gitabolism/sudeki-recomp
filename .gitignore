@@ -119,6 +119,11 @@ compile_commands.json
 *.bak
 *.swp
 
+# --- coverage instrumentation (from the toolkit's conformance runs) ---
+*.gcov
+*.gcno
+*.gcda
+
 # --- vcpkg ---
 vcpkg_installed/
 
