@@ -36,6 +36,10 @@ recomp_*.c
 recomp_dispatch.c
 recomp_funcs.h
 recomp_types.h
+# ...but the hand-written override layer and the host entry are project
+# source, not translated code. Negate them explicitly: the `recomp_*.c`
+# pattern above catches src/recomp_manual.c otherwise.
+!src/recomp_manual.c
 
 # --- analysis artifacts about the game binary: keep local ---
 /analysis/
@@ -45,6 +49,7 @@ recomp_types.h
 /abi_functions.json
 image_symbols.h
 *.seeds.json
+xbox_kernel.log
 
 # --- the toolkit is fetched and pinned, not vendored ---
 /xboxrecomp/
@@ -121,3 +126,7 @@ __pycache__/
 .venv/
 .pytest_cache/
 .ruff_cache/
+
+# --- editor/agent session data ---
+.opencode/
+
