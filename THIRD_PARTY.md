@@ -67,3 +67,14 @@ Vetted and rejected: `wshobson/agents@protocol-reverse-engineering`
 (network-protocol scope, out of mission), `gavmor/x86-cpp-reversing-skill`
 (9 installs, unvetted reputation), copycat `systematic-debugging` mirrors
 (obra's is fine but duplicative of diagnosing-bugs).
+
+## Local toolkit patches (applied by scripts/build.sh)
+
+We keep the toolkit at the pinned upstream commit; local changes live as
+`.patch` files under `patches/xboxrecomp/` and are (re)applied by
+`scripts/build.sh` — the checkout stays verifiable against the pin, and
+each patch is one reviewed, documented diff.
+
+| patch | what | why |
+|---|---|---|
+| `0001-io-write-trace.patch` | `[WRITE]` trace in `bridge_NtWriteFile`, env-gated `RECOMP_IO_WRITE_LOG=1` (first 60 calls, then every 10,000th) | mirror of the existing `[READ]` line; settled the boot.Baf write-loop diagnosis (note 0004). Candidate for upstream PR. |

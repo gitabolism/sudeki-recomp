@@ -3,93 +3,90 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-21 (session 2)
+**Last updated:** 2026-11-21 (session 3)
 **Stage:** LIFT complete, ENTRY evidence strong. Current wall: **XAPILIB
-loader cluster stalls after reading 657,408/679,936 bytes of `boot.Baf`.**
+utility-drive bootstrap — Partition5 FATX bring-up retry loop** (old
+"loader stalls mid-read" framing is dead; the read completes — note 0004).
 
 ## Where things are verified
 
-- Toolkit: `xboxrecomp/` @ v0.18.0 / `37b61d589168adee3680fabd51805ee81427bf07` (`scripts/doctor.sh` all ok).
-- XBE: `game/default.xbe` pinned SHA-256 ✔. **`game/` now holds the full
-  disc tree** (442 files, 3.6 GB, gitignored; `tools.xiso unpack`, XBE
-  re-hashed after).
+- Toolkit: `xboxrecomp/` @ v0.18.0 / `37b61d589168adee3680fabd51805ee81427bf07` (`scripts/doctor.sh` all ok). Checkout kept clean; local changes are patch files, see below.
+- Local toolkit patches: `patches/xboxrecomp/0001-io-write-trace.patch`
+  (`[WRITE]` trace, env `RECOMP_IO_WRITE_LOG=1`) — auto-applied by
+  `scripts/build.sh`, recorded in THIRD_PARTY.md.
+- XBE: `game/default.xbe` pinned SHA-256 ✔. `game/` = full disc tree
+  (442 files, 3.6 GB, gitignored).
 - Generated tree unchanged since session 1 (432 stubs agree; note 0001).
-- Executable unchanged: `build/sudeki`.
+- Executable: `build/sudeki` (rebuilt this session with the [WRITE] patch).
+- Skills: five pinned skills installed, digest gate in `doctor.sh` green
+  (commits `3b10d34`, `73a8d93`).
 
 ## Last run
 
-`scripts/run.sh 90 RECOMP_WATCHDOG_SECS=80 RECOMP_KERNEL_LOG_BUDGET=60`
-→ `logs/run-20261121-015639.log`: **HANG (watchdog abort)**, 196,640
-kernel calls total. Facts:
+`scripts/run.sh 60 RECOMP_WATCHDOG_SECS=50 RECOMP_MISSING_FILES=all RECOMP_IO_WRITE_LOG=1 RECOMP_KERNEL_LOG_BUDGET=10`
+→ `logs/run-20261121-022812.log`: **HANG (watchdog abort)**. Facts:
 
-- `[READ]` log advances @0 → … → **@624640 (24 reads, all `st=0`
-  STATUS_SUCCESS), then stops** at 657,408 of 679,936 bytes of `D:\boot.Baf`.
-- `tid=1003` loops `[WAIT] NtWaitForSingleObjectEx handle=0x5a000024
-  timeout=500ms result=258 (STATUS_TIMEOUT)` forever, interleaved with
-  `NtWriteFile` calls returning success.
-- Write-loop callers map to lifted fns (XAPILIB loader cluster, all
-  statically-detected, dispatch entries fine):
-  `sub_002717D6` (write loop @0x2719B9/@0x271A4E), `sub_00271466`
-  (opens @0x27158E), `sub_00270FBD` (read loop @0x271012), `sub_00270877`
-  (@0x270AAF). All near entry region 0x26C703 — this is XAPILIB title/
-  asset bring-up code running lifted.
-- `Z:\badger.plap` (XDK debug plugin shipped on disc) now **opens
-  successfully** since the full tree exists (was FILE_NOT_FOUND).
-- Threads: 3× `PsCreateSystemThreadEx routine=0x0026D3E4` (XAPI launcher
-  thunk, HAS dispatch entry; workers spawn and run — worker esp in the
-  summary). H1's simple form is dead.
-- Unresolved ICALLs: only 2× `0x00273EEF`, which sits **mid-function** in
-  `sub_00273EC5` → coalescence/alias case, do NOT seed it
-  (`docs/technical/function-coalescence.md`).
+- `boot.Baf` fully read from `D:\` (24 sync reads, last `@624640 want=22528
+  got=22528` = 679,936 total — session-2's "stops at 657,408" was a miscount).
+- Copy to `Z:\boot.baf` (`~/.local/share/xboxrecomp/Cache/boot.baf`),
+  4096-byte positioned writes, all `st=0`, **offset grows unbounded** —
+  ~614.4 MB per 10k writes, file hit 4,295,024,640 B (≈ 2^20+4 blocks,
+  near a 4 GiB/32-bit wrap). Deleted at handoff (sparse, harmless).
+- Sequence: open `Partition5` → `NtFsControlFile(0x90020)` → **stub →
+  STATUS_NOT_SUPPORTED** → mount/copy proceeds → retry-ish forever, with a
+  poller thread in 500 ms `NtWaitForSingleObjectEx` timeouts on event
+  `0x5A000024` (guest token `0x48000004`, manual-reset created unsignalled
+  at log line 227).
+- gdb-on-bridge probing is a dead end: ptrace breaks the runtime's
+  SIGSEGV/SEH emulation (spurious `sub_0026D079` crash). Use env-gated
+  instrumentation instead (`scripts/gdb_probe.sh` kept for host-side-only
+  debugging).
 
 ## Live hypotheses
 
-1. **H3 (primary):** the 500 ms-timeout waits on event handle
-   `0x5a000024` (token `0x48000004`) are the boot worker waiting for an
-   I/O completion that the runtime never signals for the *last* (22,528-byte
-   remainder) read, or for the write whose event the loop polls. Falsifier:
-   trace shows the completion path firing correctly while the guest still
-   stalls → then it's a guest-side predicate (badger/console path).
-2. **H4:** the write loop is debug-plugin (badger.plap) logging enabled by
-   the plugin now being found; removing/renaming `game/badger.plap` (host
-   data only!) would falsify/confirm. One variable at a time — do this as
-   a probe run, revert after.
+1. **H6 (primary):** the copy/mount loop's exit predicate depends on FATX
+   volume facts the stub never gives — FSCTL `0x90020` (FILE_ANY_ACCESS
+   function 8) returns `STATUS_NOT_SUPPORTED`, and POSIX writes never fail
+   at partition capacity, so the guest never sees "volume ready / disk
+   full" and loops. Falsifier: implement/answer `0x90020` correctly (or
+   cap the Partition5 image) and the loop terminates or errors forward.
+2. **H5 (secondary):** a guest-side 32-bit block-count wrap (host file
+   stopped exactly near 2^20 blocks ≈ 4 GiB) — if the guest would stop at
+   capacity on real hardware, the only host defect is *allowing* the
+   overshoot; fixing capacity semantics alone may suffice.
 
 ## Queue (next concrete actions)
 
-1. Read the lifted C of `sub_002717D6` + `sub_00271466` (gen tree, read
-   only) to identify the write handle/event and which XAPI API they
-   implement (likely `XapiLaunchComplete`/`XapiInitFileSystem` family).
-   Note 0004 first.
-2. Probe A (host data, reversible): rename `game/badger.plap` → run → diff.
-3. Probe B: find where the runtime signals I/O completion events
-   (toolkit `kernel_file.c` / `IofCompleteRequest` path) and check against
-   what the guest waits on; if the toolkit's HLE misses the completion,
-   fix host-side (never guest).
+1. Identify FSCTL `0x90020` from public XDK/XAPILIB headers (GitHub code
+   search is auth-gated; fetch raw header files, e.g. cxbx/xbe headers —
+   webfetch proxy is flaky, prefer `curl`). Note 0005 before code changes.
+2. Implement `bridge_NtFsControlFile` host-side for that code against the
+   Partition5 image (`~/.local/share/xboxrecomp/Partition5.img`); one
+   variable at a time. Consider FATX capacity semantics for cache images.
+3. After the loop resolves, re-run and check whether event `0x5A000024`
+   finally gets SetEvent (launch-complete) → next wall (APU poll, note 0002).
 4. Reference baseline (xemu) still queued; ask user before installing
-   software (approval gate).
+   software (approval gate). Session paused by user frequently — machine is
+   also used for Kodi; keep GPU-heavy steps off (game never touches GPU,
+   but keep runs bounded and clean the toolkit cache between long loops).
 
 ## Blockers / open questions
 
-- Need to identify handle `0x5a000024`/token `0x48000004` creation — the
-  creation line fell outside the kernel log budget; raise
-  `RECOMP_KERNEL_LOG_BUDGET` or find the object at startup (NtCreateEvent
-  lines near boot show handles `0x5A00002C/0x5A000030` — 24 predates them).
-- Windowed runs may open a window on the user's Wayland/Xwayland desktop;
-  capture stays file-based (`RECOMP_FB_DUMP` etc.).
+- FSCTL 0x90020 identity unknown (headers fetch pending). Candidates in
+  the FATX FSCTL family (mount/dismount/lock/geometry) — do not guess,
+  read the guest's input buffer at the call instead if headers stay elusive.
+- Toolkit checkout is dirty *after* a build (patches auto-applied) — by
+  design; `doctor.sh` verifies the pin commit, not tree cleanliness.
 
 ## Housekeeping facts
 
-- Harness: `scripts/{doctor,pipeline,build,run,stubs,new_note,env}.sh`
-  (usage in headers). Logs → `logs/`, captures → `reference/` (gitignored).
-- OpenCode layer: `opencode.jsonc` (instructions auto-inject BRIEF.md +
-  STATE.md; hard denies on editing `src/recomp/gen/`, `git push`,
-  `reset --hard`, `rebase`; `sudo` asks). Commands: `/resume /status
-  /run /cycle /note /lift /handoff /setup`.
-- run.sh: exit classification fixed for watchdog-abort (game exits 3 from
-  watchdog abort; verdict now "HANG (watchdog abort)").
-- kernel_calls census counts only detailed lines (RECOMP_KERNEL_LOG_BUDGET
-  caps them; totals are in `[KERNEL] summary:` lines).
+- Harness: `scripts/{doctor,pipeline,build,run,stubs,new_note,env,skills_check,gdb_probe}.sh`.
+  Logs → `logs/`, captures → `reference/` (gitignored).
+- Useful env: `RECOMP_MISSING_FILES=all` (every open logged),
+  `RECOMP_IO_WRITE_LOG=1` (needs patch 0001, auto), `RECOMP_KERNEL_LOG_BUDGET`,
+  `RECOMP_WATCHDOG_SECS`.
+- OpenCode layer: `opencode.jsonc` + commands `/resume /status /run /cycle
+  /note /lift /handoff /setup`; skills under `.opencode/skills/` (pinned).
 - Remote origin push URL is `NO_PUSH`. Do not "fix" this.
 
 ## Session log
@@ -97,4 +94,5 @@ kernel calls total. Facts:
 | date | what happened | commit |
 |---|---|---|
 | 2026-11-21 s1 | pinned v0.18.0, hashes verified, full pipeline, lift 14,741 fn / 432 stubs, Linux exe builds, first run alive at timeout | `eca6f9f` |
-| 2026-11-21 s2 | autonomy layer (AGENTS/STATE/scripts/notes); full disc tree extracted (notes 0002-0003); wall is now the XAPILIB loader read/write/wait cluster | (this commit) |
+| 2026-11-21 s2 | autonomy layer (AGENTS/STATE/scripts/notes); full disc tree extracted (notes 0002-0003); wall framed as XAPILIB read/write/wait cluster | `55b8693` |
+| 2026-11-21 s3 | skills pinned + drift gate (`3b10d34`,`73a8d93`); note 0004: read completes, wall = Partition5 FATX bootstrap retry loop (FSCTL 0x90020 stub, unbounded cache writes); [WRITE] patch + gdb-probe lessons; Kodi GPU incident investigated (not repo-caused) | (this commit) |

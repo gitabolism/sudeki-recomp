@@ -1,0 +1,38 @@
+diff --git a/src/kernel/kernel_bridge.c b/src/kernel/kernel_bridge.c
+index b6e73e0..5a7e61a 100644
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -4840,6 +4840,33 @@ static void bridge_NtWriteFile(void)
+     }
+     g_eax = (uint32_t)xbox_NtWriteFile(handle, NULL, NULL, NULL, &ios,
+                 XBOX_TO_NATIVE(buffer_va), length, poff);
++
++    /* [WRITE] trace, mirror of the [READ] line above. Env-gated
++     * (RECOMP_IO_WRITE_LOG=1): a title in a copy loop writes thousands of
++     * times and the line is only wanted when diagnosing one. It settles the
++     * two questions a write loop leaves open -- which host file the handle
++     * is, and whether the offset advances or the guest rewrites one block
++     * forever. (sudeki-recomp local patch, see THIRD_PARTY.md.) */
++    if (getenv("RECOMP_IO_WRITE_LOG")) {
++        static long s_wr_logged = 0, s_wr_seen = 0;
++        s_wr_seen++;
++        if (s_wr_logged < 60) {
++            s_wr_logged++;
++            fprintf(stderr, "  [WRITE] from=0x%08X n=%ld ev=%08X apc=%08X @%s%lld want=%u got=%u st=0x%08X path=%s\n",
++                    g_xbox_kernel_caller, s_wr_seen, STACK_ARG(1), STACK_ARG(2),
++                    poff ? "" : "seq", poff ? (long long)off.QuadPart : -1LL,
++                    length, (uint32_t)ios.Information, (uint32_t)ios.Status,
++                    w32_handle_path(handle) ? w32_handle_path(handle) : "?");
++            fflush(stderr);
++        } else if (s_wr_seen % 10000 == 0) {
++            fprintf(stderr, "  [WRITE] ... %ld writes so far (last from=0x%08X @%lld path=%s)\n",
++                    s_wr_seen, g_xbox_kernel_caller,
++                    poff ? (long long)off.QuadPart : -1LL,
++                    w32_handle_path(handle) ? w32_handle_path(handle) : "?");
++            fflush(stderr);
++        }
++    }
++
+     bridge_write_iostatus(iostatus, ios.Status, (uint32_t)ios.Information);
+     bridge_complete_file_io(STACK_ARG(1), STACK_ARG(2), STACK_ARG(3),
+                             iostatus);
