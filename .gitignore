@@ -1,49 +1,101 @@
-# Prerequisites
+# ---------------------------------------------------------------------------
+# This repository is PUBLIC. Two categories must never be committed here:
+#
+#   1. Anything from the disc: executables, assets, audio, video, saves.
+#   2. Code translated from the game binary: the generated C, and anything
+#      derived from it (hand-written copies, decompiled bodies, symbol dumps
+#      of game code).
+#
+# (2) is not a formality. Static recomp output is a derivative work of the
+# game in the same practical sense as a matching decompilation, and it is the
+# category that has drawn takedowns before. Keep it out and the repository
+# stays on the same footing as every other bring-your-own-disc project.
+# ---------------------------------------------------------------------------
+
+# --- game files: never here ---
+*.iso
+*.xiso
+*.xbe
+*.xex
+*.dat
+*.fat
+*.bik
+*.xwb
+*.xpr
+*.caf
+*.sf
+/game/
+/disc/
+/assets/
+
+# --- generated C translated from the game: never here ---
+src/recomp/gen/
+/gen/
+recomp_gen/
+recomp_*.c
+recomp_dispatch.c
+recomp_funcs.h
+recomp_types.h
+
+# --- analysis artifacts about the game binary: keep local ---
+/analysis/
+/functions.json
+/xrefs.json
+/strings.json
+/abi_functions.json
+image_symbols.h
+*.seeds.json
+
+# --- the toolkit is fetched and pinned, not vendored ---
+/xboxrecomp/
+/tools/xboxrecomp/
+
+# --- Prerequisites ---
 *.d
 
-# Compiled Object files
+# --- Compiled object files ---
 *.slo
 *.lo
 *.o
 *.obj
 
-# Precompiled Headers
+# --- Precompiled headers ---
 *.gch
 *.pch
 
-# Linker files
+# --- Linker files ---
 *.ilk
 
-# Debugger Files
+# --- Debugger files ---
 *.pdb
 
-# Compiled Dynamic libraries
+# --- Compiled dynamic libraries ---
 *.so
 *.dylib
 *.dll
 *.so.*
 
-# Fortran module files
+# --- Fortran module files ---
 *.mod
 *.smod
 
-# Compiled Static libraries
+# --- Compiled static libraries ---
 *.lai
 *.la
 *.a
 *.lib
 
-# Executables
+# --- Executables ---
 *.exe
 *.out
 *.app
 
-# Build directories
+# --- Build directories ---
 [Bb]uild/
 [Bb]uild-*/
 cmake-build-*/
 
-# CMake generated files
+# --- CMake generated files ---
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
@@ -51,18 +103,21 @@ Makefile
 install_manifest.txt
 compile_commands.json
 
-# Temporary files
+# --- Temporary files ---
 *.tmp
-*.log
 *.bak
 *.swp
 
-# vcpkg
+# --- vcpkg ---
 vcpkg_installed/
 
-# debug information files
+# --- debug information files ---
 *.dwo
 
-# test output & cache
+# --- test output & cache ---
 Testing/
 .cache/
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
