@@ -43,13 +43,25 @@ no network calls; the `diagnosing-bugs` skill explicitly mandates secret
 redaction. Pins are the commits the review was performed at — when bumping,
 re-read before accepting.
 
-| skill | source @ commit | folder digest (sha256 of files) | why |
+Third-party audit status (skills.sh `/audits` data: Gen Agent Trust Hub,
+Socket, Snyk): `gdb` — **Pass ×3** (source repo 296 stars, first seen
+2026-02). Verdicts for the other four are on skills.sh pages our fetch
+proxy blocked at check time — re-check before any bump (the audit endpoint
+also needs a Vercel OIDC token).
+
+| skill | source @ commit | folder digest (path-canonical sha256) | why |
 |---|---|---|---|
-| gdb | `mohitmishra786/low-level-dev-skills` @ `18f29518a47fda070e6ec1268cb577692fae9a10` | `f60d52bfe3b88d58…` | host crash work: watchpoints, multi-thread, core dumps |
-| assembly-x86 | same repo | `aa9db3fa1bdc0961…` | reading objdump/GDB asm, ABI questions |
-| valgrind | same repo | `f6ff5ac6eef907c8…` | host-side memory errors in the runtime glue |
-| reverse-engineering | same repo | `589000b10fa30a12…` | Ghidra/radare2 workflows; pairs with toolkit's `ghidra_naming` |
-| diagnosing-bugs | `mattpocock/skills` @ `abeeaf95660ba9e8b7c753eb38f441ca707a8823` | `d4232388a3b66c60…` | methodology: tight feedback loops — matches the run.sh work loop |
+| gdb | `mohitmishra786/low-level-dev-skills` @ `18f29518a47fda070e6ec1268cb577692fae9a10` | `eff839c95b0f4aa8…` | host crash work: watchpoints, multi-thread, core dumps |
+| assembly-x86 | same repo | `f67e97fbbca4aed3…` | reading objdump/GDB asm, ABI questions |
+| valgrind | same repo | `8b42151431d1faa1…` | host-side memory errors in the runtime glue |
+| reverse-engineering | same repo | `67811f1e842d8509…` | Ghidra/radare2 workflows; pairs with toolkit's `ghidra_naming` |
+| diagnosing-bugs | `mattpocock/skills` @ `abeeaf95660ba9e8b7c753eb38f441ca707a8823` | `4a5a6a4c2468fdea…` | methodology: tight feedback loops — matches the run.sh work loop |
+
+Digests are computed by `scripts/skills_check.sh` (`cd <skill>; find . -type f
+| sha256sum`, path-canonical) and verified byte-for-byte against the pinned
+commits via `diff -r` before being recorded. (An earlier digest column used
+repo-root-relative hashing and was meaningless; replaced 2026-11-21 after
+the drift check correctly flagged its own tooling bug.)
 
 Vetted and rejected: `wshobson/agents@protocol-reverse-engineering`
 (network-protocol scope, out of mission), `gavmor/x86-cpp-reversing-skill`

@@ -83,6 +83,27 @@ moves" — is yours. If you stop, say precisely what you need and why.
 2. Commit any doc/script changes. Never leave uncommitted source changes;
    finish or revert them, and say in STATE.md which you did.
 
+## Skill supply policy
+
+Third-party skills are instruction files with real influence over this
+agent — they get the same supply-chain treatment as code:
+
+1. **Accept** a skill only if (a) it comes from a first-party/curated
+   source (the maker of the technology — see skills.sh `/official`), OR
+   (b) it passes ALL of: full manual read of every file, a payload scan
+   (network/eval/credential/injection patterns), a public security audit
+   verdict (Trust Hub / Socket / Snyk) where available, pinned upstream
+   commit + per-folder digest recorded here.
+2. Nothing auto-installs: no `npx skills add`. Clone → read → copy the
+   pinned folder. Updates mean diffing the new commit and re-reading.
+3. The curated `/official` catalogue is vendor-specific (anthropics,
+   microsoft, nvidia, …) and has no coverage of our domain (gdb/x86/RE/
+   valgrind); the two sources in THIRD_PARTY.md are currently the only
+   credible domain coverage found — that is a thin ecosystem, so this
+   policy is load-bearing.
+4. Rejected sources and reasons stay recorded (THIRD_PARTY.md) so the
+   next session doesn't re-litigate them.
+
 ## Slash commands (the harness in OpenCode form)
 
 `.opencode/commands/`: `/resume` (session start), `/status`, `/run <args>`,

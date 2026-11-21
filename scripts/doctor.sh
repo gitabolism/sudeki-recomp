@@ -63,4 +63,11 @@ else
     warn "build/sudeki missing (scripts/build.sh)"
 fi
 
+# 7. third-party skill digests (supply-chain drift)
+if "$ROOT/scripts/skills_check.sh" >/dev/null 2>&1; then
+    ok "installed skill digests match THIRD_PARTY.md"
+else
+    bad "skill drift — run scripts/skills_check.sh and re-vet before trusting skills"
+fi
+
 exit $fail
