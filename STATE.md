@@ -4,19 +4,18 @@
 > even interrupted ones. Protocol in `AGENTS.md`.
 
 **Last updated:** 2026-11-21 (session 4f)
-**Stage:** LIFT complete, ENTRY evidence strong. Wall refined hard (note
-0010): the boot-archive **data side is solved** — the real LZ77 stream is
-file [0x800, 0x9E000) (decoded ≈ 1,489,655 B); the disc file's last
-30,720 B (0x9E000..0xA6000) are **padding**, and note 0009's
-"END@0xA5E0D / output == header" result was a padding false-positive.
-The guest (and xemu, identically) stops reads at 0x9E000 with a closed
-budget, the decoder has **no EOF termination** (only the dist==0 END
-token exits), so it consumes ring residue/stale heap past the valid end
-→ garbage output inflation → writer floods the cache → output cursor
-overruns the contiguous window → CRASH (xemu: same overrun, STOP 0x7E).
-Classification with default env: **CRASH** (deterministic, rip in
-`sub_000223F0`); the 1 GiB cache-cap experiment rules out disk-full as
-the trigger.
+**Stage:** LIFT complete, ENTRY evidence strong. **Decoded the boot
+archive end-to-end for the first time (note 0010, post-script 3):**
+with a diagnostic +0x8000 file-size padding, `Z:\boot.baf` came out at
+exactly 1,820,672 B **byte-identical** to the offline golden decode; no
+flood, no crash. The stream is the whole file [0x800, 0xA6000) with END
+at 0xA5E0D (note 0009 was right; an earlier "padding" reading this
+session was falsified by the experiment). Wall now = the game's stream
+byte-accounting starves reads **exactly one 0x8000 segment** short of
+the END token (phantom refill charge `budget -= [+0x3C]` on the
+consume path) under our/xemu kernel answers — find the answer
+hardware gives differently, host-side. Beyond that: events
+`0x48000001/04/06` still never signalled post-decode (next layer).
 
 ## Where things are verified
 
@@ -39,19 +38,23 @@ the trigger.
 
 ## Last run
 
-`scripts/run.sh 60 RECOMP_WATCHDOG_SECS=55 RECOMP_KERNEL_LOG_BUDGET=200
-RECOMP_CACHE_CAP_BYTES=1073741824 RECOMP_EVENT_LOG=1`
-→ `logs/run-20261121-174222.log`: **CRASH** — same decoder overrun
-(rip = `sub_000223F0`+0), launch events still never signalled. Large
-cache cap does NOT change the failure → disk-full is not the trigger.
+Padded diagnostic: `scripts/run.sh 45 RECOMP_WATCHDOG_SECS=40
+RECOMP_KERNEL_LOG_BUDGET=0 RECOMP_EVENT_LOG=1` with `game/boot.baf`
+temporarily +0x8000 (reverted; sha `b6e5751c…` confirmed)
+→ `logs/run-20261121-175351.log`: **HANG (post-decode idle)** — decode
+completed byte-exact, cache 1.8 MB, no crash; main polls
+`0x48000004`, worker ctx `0x00021AD0` waits INFINITE on {1,6}; only
+`0x48000002` ever set. Prior cap-off run
+(`logs/run-20261121-175151.log`) HANG 4.1 GB: no natural termination
+when reads are starved.
 
 ## Solved / established this session (note 0010)
 
-1. **Stream boundary**: real LZ77 stream = file [0x800, 0x9E000); tail
-   0x9E000..0xA6000 is padding inside the recorded file (XDVFS entry
-   size 0xA6000, LBA 0x4BFD). Guest output matches the offline decoder
-   byte-exact to output 0x16BAF6 (input ≈ 0x9E000), i.e. through the
-   whole valid stream.
+1. **Stream boundary** *(superseded by item 7 below — tail is real
+   stream)*: reads/prefetch/budget close at 0x9E000 under our kernel
+   answers; disc XDVFS entry size 0xA6000, LBA 0x4BFD; guest output
+   matches the offline decoder byte-exact to output 0x16BAF6 (where the
+   starved runs diverge).
 2. **Read/budget accounting closes**: budget init 0xA5800
    (filesize−0x800), 3×0x8000 prefetch, chunk ops to zero; 21 file reads
    (header + 19×0x8000 + 0x5800) end at file 0x9E000. One 0x8000 budget
@@ -74,6 +77,14 @@ cache cap does NOT change the failure → disk-full is not the trigger.
    very wide watch windows destabilize the run — keep windows small and
    pick the stack parity (0x02681/0x02691/0x02692 pages) from a probe
    run first.
+7. **CORRECTION (post-script 3 of note 0010, decisive):** padding
+   `game/boot.baf` +0x8000 (diagnostic, since reverted — sha back to
+   `b6e5751c…`) made the decode **complete**: `Z:\boot.baf` = 1,820,672
+   B, `cmp` byte-exact vs golden; reads covered the whole file
+   (final `@657408 want=22528`). The 0x9E000 read-stop is the game's
+   accounting being exactly 0x8000 short (phantom charge), not a file
+   boundary; the tail is real stream. Post-decode the title still
+   waits on unsignalled events `0x48000001/04/06` — the next wall.
 
 ## Established earlier (notes 0005-0009)
 
@@ -120,52 +131,55 @@ cache cap does NOT change the failure → disk-full is not the trigger.
    heap) and diverges. The exact token mechanism (tag-bit carry across
    the valid end? the phantom 0x8000 budget charge?) needs a guest
    token trace.
-2. **H13c (platform geometry): hardware may see a different `boot.baf`
-   size** (e.g. a re-packed archive whose payload ends where the stream
-   does, with a real END token). Disc says 0xA6000 and both worlds agree
-   on every observed byte, so this is now the *reference-side* question:
-   check the SpiritBoot HDD image's own `boot.baf` entry/size on the
-   xemu side (cheap image parse, no run needed).
-3. **H13a dead in its cheap form**: 1 GiB cache cap changes nothing;
-   disk-full flag is an amplifier only.
+2. **H15 (new lead): the hardware read path must reach file end
+   (0xA6000) and the END token at 0xA5E0D** — then output == header
+   exactly (note 0009's exact-size result is the hardware path, not a
+   coincidence). Our budget starves exactly 0x8000 short via one
+   phantom refill charge (double-charge structure at 0x2236F/0x223D1,
+   `budget -= [+0x3C]` on both the consume and post-read paths). The
+   question narrows to: which host-visible answer (read return,
+   position write, IoStatus.Information) makes the game's own
+   accounting stop charging early?
+3. **H13b/H13c dead**: the xemu HDD image holds only an erased
+   `boot.baf` cache-dir entry; xemu runs the title from the same ISO
+   XDVFS (size 0xA6000) we do — hence byte-identical read totals.
+   Unlimited-cap run (cache cap off): the decoder writes forever
+   (4.1 GB @ 45 s) — no natural termination exists on this geometry.
 4. H9 (FATX mount/geometry) still queued behind these.
 
 ## Queue (next concrete actions)
 
-1. **gdb token trace of the decoder around the divergence** (recipe in
-   note 0010): conditional breakpoints at guest 0x226C0 / 0x226A0 /
-   0x22635 (host = `sub_000223F0` + offsets), condition on the output
-   cursor field `[rbp-0xA4]+0x18` in the window around
-   `0x80004000+0x16A000`; capture ~200 tokens, diff against
-   `tools/baf_decode_offline.py --tokens` (clamped stream).
-2. Same probe run also settles the phantom charge: 16-byte
-   `RECOMP_WATCH` at the object's `+0x3C/+0x40` slots using the parity
-   seen in that run's own crash esp (object = esp+0x58 at the fault).
-3. xemu-side cheap check: parse the SpiritBoot HDD image for its
-   `boot.baf` entry (size/LBA) — if its payload is exactly 0x9D800,
-   H13b/H13c collapse into "the game reads its own repacked archive;
-   hardware's D: copy must end at the stream".
-4. If token trace shows a lift divergence (not shared with xemu):
-   fix host-side per rules; if shared: the answer is in file geometry,
-   and the next lever is providing `D:\boot.Baf` as payload-only
-   (0x9E800 B) as an experiment — host-side file choice, no code
-   change, and legitimate (both are disc-derived slices; try in logs
-   only, verdict needs reference).
-5. Cleanup between runs: `rm -f ~/.local/share/xboxrecomp/Cache/*`.
+1. **Event-creation trace (patch 0014):** log `NtCreateEvent`/
+   `NtOpenEvent` with token + caller VA; re-run the padded diagnostic
+   (revert file after!) and map who creates `0x48000001/04/06` and
+   which code path should signal them post-decode → frame the next wall.
+2. **Phantom 0x8000 hunt (static):** full disasm of `sub_00022340`
+   (0x22340–0x223F0 captured in note 0010) + find every `call 0x22160`
+   site (capstone scan for E8 rel32) — the decoder object carries
+   events 0x48000009/0A at +0x8/+0xC and T=0x8000 (size arg 0x18000),
+   so its construction site is not the 0x1f328 one; reconcile the
+   refill double-charge with the observed slot history. Question:
+   which kernel-visible quantity feeds the off-by-one-segment math.
+3. If no kernel-answer explanation survives: presenting the file with
+   +0x8000 (or size-0xA6000-with-slack semantics) is an
+   architectural/legally-tinted decision → STOP and ask per gate.
+4. Keep the offline tool as the oracle: `--eof 0xA6000` is now the
+   correct clamp (whole file); golden = 1,820,672 B confirmed by guest.
+5. Cleanup between runs: `rm -f ~/.local/share/xboxrecomp/Cache/*`
+   (cap-off runs write GBs).
 
 ## Blockers / open questions
 
-- Token-level mechanism of the H14 divergence (gdb trace queued).
-- The tension to resolve: hardware boots, yet both observed environments
-  stop reading at 0x9E000 with no END token in reach. Either (a) the
-  phantom 0x8000 budget charge is an artefact of a kernel answer both
-  xemu and us give (if hardware's reads reach 0xA6000, the stream ends
-  cleanly at END@0xA5E0D with output == header — note 0009's exact-size
-  result gains meaning again), or (b) the game genuinely handles the
-  residue/EOF region differently based on data we have not compared.
-  The object watch on `+0x3C/+0x40` plus the token trace decide.
+- Which kernel-visible answer produces the phantom 0x8000 charge in
+  the game's refill accounting (us and xemu both starve reads one
+  segment short; hardware evidently doesn't). Static CFG + call-site
+  hunt queued.
+- Post-decode events `0x48000001/04/06`: who creates them, who should
+  signal them, and what stage they gate (event-creation trace queued).
 - Whether the 786 MB of `Z:\boot.baf` written before disk-full is even
-  correct behaviour — unanswerable without the reference capture (rule 6).
+  correct behaviour — now largely explained (starved decoder eating
+  ring residue), but the verdict stays reserved until the pipeline
+  completes against the reference.
 
 ## Housekeeping facts
 
@@ -196,4 +210,4 @@ cache cap does NOT change the failure → disk-full is not the trigger.
 | 2026-11-21 s4b | notes 0006-0007: placement patch 0006 (canonical-limit), contig-alias probe 0007; core-dump analysis pins the fault to the boot-archive decoder; **wall = decoder never terminates → launch events never signalled (HANG)**; build.sh patch series made deterministic | `0f5068d` |
 | 2026-11-21 s4c | note 0008 + patch 0008 (`[READ] buf=`): reads land in the decoder's own arena (H12 dead), output is valid decoded data (triplet→8-byte expansion), refill returns 0 on every path; watch pre-arming ruled out (stack jitter); SIGABRT-core recipe added | (this commit) |
 | 2026-11-21 s4e | **xemu reference installed (user-approved) & boots the title to OUR wall**: SpiritBoot-release + `-m 128` → `STOP 0x7E` inside `sub_000223F0` byte loop (EIP 0x226D8, flush `call 0x22270`) — same decoder, same runaway cursor as note 0007; VRAM-forensics recipe (FB @0x3C00000, pitch 720) reconstructs the bugcheck screen as `reference/xemu/` artefact; VRAM contention with inference engine ruled out; note 0009 + `scripts/xemu_{ref,kill,boot_probe,standalone}.sh` + THIRD_PARTY reference table | (this commit) |
-| 2026-11-21 s4f | **data side of the boot-archive wall solved (note 0010)**: real stream = [0x800, 0x9E000), tail 30,720 B = padding; END@0xA5E0D was a padding false-positive; guest == offline decoder byte-exact to output 0x16BAF6; QINFO (patch 0011) shows kernel size answers correct — 0x9E000 read-stop is game budget logic (identical in xemu STOP RAM); decoder has no EOF exit (only dist==0 END); ring reconstruction from core; 1 GiB cache cap → same CRASH (disk-full not the trigger); tool `--eof/--tokens` modes; patches 0011-0013 | (this commit) |
+| 2026-11-21 s4f | **boot archive decoded end-to-end (note 0010)**: padded-size diagnostic (+0x8000, reverted) → `Z:\boot.baf` = 1,820,672 B byte-exact vs golden, no flood/crash; wall = game's byte accounting starves reads exactly one 0x8000 segment (phantom refill charge) under our+xemu kernel answers; QINFO patch 0011 (size answers correct), watch fixes 0012/0013, core final-state recipe (`obj = esp+0x78`), tool `--eof/--tokens`, xemu-HDD H13b dead, cap-off run proves no natural termination (4.1 GB/45 s); next: events 0x48000001/04/06 unsignalled post-decode | (this commit) |
