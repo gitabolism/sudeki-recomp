@@ -69,6 +69,13 @@ overrides, regenerate, test. **Stop and ask the user only when:**
 Everything else — including "this run crashed and here's my next five
 moves" — is yours. If you stop, say precisely what you need and why.
 
+**Hard rule (user directive, 2026-11-21): do not stop working while the
+user is away.** Keep running the work loop — analyse, probe, fix,
+regenerate, record — until the user returns or one of the three stop
+conditions above (security / architectural / legally-loaded) applies.
+Progress reports are for when they're back, not pauses in the work.
+Commit at stage boundaries, not at stopping points.
+
 ## Session protocol (pause/resume without loss)
 
 **Start of session:**
