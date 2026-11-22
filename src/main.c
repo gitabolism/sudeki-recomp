@@ -318,6 +318,21 @@ int main(int argc, char **argv)
                 g_apu_state ? "up" : "FAILED to initialise");
     }
 
+    /* Note 0020: arm the toolkit's MCPX USB OHCI models. Sudeki's
+     * LTCG'd-in XAPILIB is a full USB host stack: it probes the OHCI
+     * controllers at 0xFED00000/0xFED08000 by MMIO. Without this call
+     * the MCPX aperture is plain RAM, the probe reads HcRevision==0 and
+     * the title never opens a pad device (the "Press START" idle).
+     * xbox_OhciInit is itself gated on RECOMP_USB and idempotent; the
+     * fault routers in xbox_memory_layout.c already route these pages
+     * to xbox_OhciHandleMmio. */
+    {
+        extern void xbox_OhciInit(void);
+        extern void xbox_OhciReport(void);
+        xbox_OhciInit();
+        atexit(xbox_OhciReport);
+    }
+
     /* Step 4: Initialize Xbox kernel */
     printf("Initializing Xbox kernel replacement...\n");
     xbox_kernel_init();

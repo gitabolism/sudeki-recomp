@@ -3,7 +3,7 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-21 (session 4l)
+**Last updated:** 2026-11-22 (session 4m)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached** — frame
 dumps carry content and `reference/fb/frame00016.bmp` is the title screen
 ("SUDEKI / Press START", 219 distinct colours). The wild-pointer wall (H23)
@@ -330,9 +330,16 @@ arr=0).
    retest of the mid-movie freeze (likely VRAM contention: strata holds
    ~23.9/24.5 GB); re-measure FB offset on the new dump (note 0009 recipe
    pinned old layout); then capture title/menu for the side-by-side.
-2. **Input wall:** pad device never opened ("Press START" idle). Trace the
-   device-open/IOCTL attempts (`[FILE]`, `NtDeviceIoControlFile`) and
-   answer host-side.
+2. **Input wall CLOSED (note 0020, session 4m):** the toolkit's OHCI +
+   Xbox-pad model existed but `xbox_OhciInit()` was never called by our
+   project; arming it in `src/main.c` (+ `RECOMP_USB=1`, now part of the
+   recipe) made the title's XAPILIB USB stack enumerate the virtual pad
+   fully; patch 0023 fixed the scripted-pad START bit to real hardware
+   (0x0200). Evidence: movies skip on press, title→New Game (Buki card
+   `reference/fb/skipframe00003.bmp`), attract demo loads
+   (`badger.plap` + speech_buki) — and the zero-input baseline run never
+   self-advances. Feeder lesson: press DENSELY across the whole
+   post-boot window (a pad3 timing miss looked like a failure).
 3. **Unhandled-method inventory (GPU wall):** enable the executor's
    unhandled table (already counting: 150 distinct) and dump
    method+count+last_param; cross-reference `nv2a_regs.h`. Identify the
@@ -415,4 +422,5 @@ arr=0).
 | 2026-11-21 s4h | **Boot reaches the title intro + first GPU flips (note 0011 post-scripts 3-5):** post-decode "deadlock" was an unresolved task-completion ICALL `0x0011C640` (measured seed; siblings 1E330/273EEF same cause) → token 4 set → main proceeds; XGRAPHCL flip-pending `ctx+0x8700` solved by `RECOMP_PB_EXEC=1`+`RECOMP_VBLANK=1`+ host `xbox_Nv2aMirrorFence(0x2E3638,0x2C,0x30)` in `src/main.c`; opens `MS Game Studios Logo-final.bik`; 7 frame dumps (black) = first framebuffer artefacts; poster wrappers + RECOMP_POST_TRACE; new wall = NV2A draw-method coverage (150 distinct unhandled) | (this commit) |
 | 2026-11-21 s4i | **level streaming reached + audio wall root-caused (notes 0016/0017)**: flip-done settle chain (patch 0017 + `main.c` chain `0x2E3638→+0x934→ctx+0x8700`) clears post-movie wait → `SOLWORLDM.gex`/wavebanks/`BS_brightwater.xwb` stream; 4 measured seeds more (`0550A0 0FD7D0 135AA0 092010`) lift remaining boot ICALL misses; the "TLS teardown poison" crash **falsified and root-caused**: DSOUND voice `sub_002854B3(this=029A00F4)` slot +0x14=0 → `sub_0028EA91` 24 KB wavebank copy to guest 0x818 tramples exception page + TIB page; TLS guard kept, audio census wrappers (`RECOMP_DS_COPY/DS_VOICE`, `!`=impossible-address auto-log); watch upgraded (guest-stack chain 0019, TF single-step + panic core 0020); surviving crash = `sub_000B08F0+0xDFB2` wild write `esi=0x89D8458B` (same audio subsystem, H22) | (this commit) |
 | 2026-11-21 s4k | **H23 CLOSED (note 0018) + MENU artefact reached**: "wild allocator pointer" = 4-byte esp drift from an unresolved-ICALL skip (`0x27430`, real `ret 4` thiscall; `ICALL_SAFE_AT_CC` skip assumes caller-cleanup) corrupting saved-register pops — proven by esp-delta probes, fixed by seeding measured targets (18-seed file); runs now: no crash @240 s, 152k draws, first content frames incl. **title screen** `reference/fb/frame00016.bmp`; ICALL feedback instrument wired (CMake `SUDEKI_ICALL_FEEDBACK`, `build-fb` probe, SIGTERM dump) for batch seeding; xemu ref investigation: 0.8.139 = latest release, HDD pristine, upstream shows title running (no bugcheck reports) -> our STOP is environment-specific; user taking over xemu playability test manually | (this commit) |
+| 2026-11-22 s4m | **input wall CLOSED (note 0020) + xemu boot fixed (note 0019)**: xemu playability = official SpiritBoot v1.1.0-64MB ROM (unofficial 128MB dev ROM was the STOP; user verified FMVs/audio/pad/rumble on xemu); recomp input = arm toolkit OHCI model (`xbox_OhciInit` in `main.c`, `RECOMP_USB=1`) + patch 0023 (script-pad START bit 0x0200 = real hardware); press-driven proofs (movie skip, Buki loading card, attract demo) vs zero-input baseline; XPP input-chain map (ISR 0x31428B, DPC 0x31495F, glue 0x31052E/0x31053A state fetch); JP disc (`Sennen no Akatsuki`, XBE `1f8a9611…`, same LTCG libs, parked outside git) as second regression sample; next wall = NV2A 3D draw coverage (demo scene freezes at 0 fps when VSH batches skipped) | (this commit) |
 | 2026-11-21 s4j | **audio wall CLOSED (patch 0022)**: DDS9 master open `sub_0028F8C3` needs AC97 bus-master trap; upstream armed it only on aarch64 (x86-64 Linux fell to NULL-VEH stub) → DSERR_NODRIVER → 'SdaD' create skipped → null-voice 24 KB copy = the whole note-0017 chain. Patch widens POSIX arm to x86-64; with `RECOMP_AC97_READY=1` MCPX APU (SDL2) + AC97 trap up, all 5 sub-inits 0, DS-VOICE!/DS-COPY! 0, wavebanks stream, ~1250 flips. New wall H23: deterministic allocator crash — free-list link `0xFE087E8D` (NV2A aperture value) spliced at real `0x1A9C1D` (`sub_001A9B60` family, misattributed `sub_001A9A50+0x1CD`); census wrappers `sub_0028F8C3/sub_002885AE/sub_0028AF42`, patch 0021 `RECOMP_LOG_ORDS` | (this commit) |
