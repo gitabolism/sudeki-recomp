@@ -1411,10 +1411,11 @@ churn + 0038, new 0039 = queue depth):
     the swap-slot credit gate (sub_002D3420, wait at 0x2D3497 on
     ctx+0x1DBC=0x2E2F4C) parked with only 2 slot completions set
     (0x2DB0BE) and 1 swap-NOP mark dispatched.
-  frz66 (same code rerun): SIGSEGV ~100 s into boot, 1 flip, no
-    fault banner, no core stored. Two samples = strict hold is
-    boot-toxic (timing-fragile 2-deep swap credit vs slower ack
-    regime). v4's re-arm churn is empirically boot-load-bearing.
+  frz66 (same code rerun): boot-era SIGSEGV claim WITHDRAWN — the
+    run was actually still alive (misread 137); at ~220 s it had
+    passed boot and was climbing (2 -> 184 flips, drop=0, enq==pop
+    72/72, but rearm=5120 churn at ack rate). Strict hold passes
+    boot; frz64's 1-flip freeze remains a single stochastic sample.
 Reframed plateau culprit (all frozen census runs share ONE number):
   drop=609 (frz62), 1546 (frz65) — the 64-deep pending queue
   OVERFLOWS and swap-completion marks are lost; every healthy run
