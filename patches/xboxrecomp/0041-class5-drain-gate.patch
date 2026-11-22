@@ -1,0 +1,20 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -980,6 +980,17 @@
+     }
+     if (!p || !pb_swmethod_on())
+         return;
++    /* Patch 0041 (note 0023, frz68): back-pressure on the class-5
++     * generator. Hardware's PM ring-free source re-raises only while
++     * D3D keeps it armed, and D3D re-arms AFTER servicing; our drain
++     * edge fired unconditionally, so a busy service window generated
++     * marks faster than the guest could service them (frz68: enq=1659
++     * vs consume=335 -> 1500-mark backlog). While a mark is armed and
++     * not yet consumed, this edge is INVISIBLE: skip the latch. */
++    if (s_sw_latched) {
++        InterlockedIncrement(&s_rering_gate);
++        return;
++    }
+     InterlockedIncrement(&s_rering_lat);
+     nv2a_pb_swmethod_latch((uint32_t)p);
+ }
