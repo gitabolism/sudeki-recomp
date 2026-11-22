@@ -1591,3 +1591,20 @@ bit on; frz79.core + frz79_all.out):
   sub_002D57D0's writer loop (credit gate + the ctx+0x1DC0/0x1DC4
   slot bookkeeping at the snapshot: 0x00828000 word at ctx+0x1DB0)
   and what condition it re-tests before writing swap N+1.
+
+frz80/frz82 BISECTION (the frz66 question): frz82 ran the EXACT
+frz66 binary (pin+0001..0039 rebuilt from the series head-39) and
+froze at 231 flips — the 7113-flip climb was RUN LUCK, not a
+property of the 0001..0039 series. No patch 0040..0045 caused a
+regression; plateau depth is stochastic (189..7113) around one
+stable wall. frz82 census at the wall: [PRES] ring writer ALIVE
+(submit 616 climbing, iGET advancing), marks latching/consuming,
+but the guest's DISPATCH of swap marks stops: [SWM] 135 swap-NOP
+dispatches vs 231 flip-writes vs 150 KeSetEvent(4C) from 0x2DB0BE.
+The engine and the credit gate wait for completion #151; the DPC
+body runs but its last passes show TRAP armed then cleared WITHOUT
+a dispatch line. Next static target: the pump/dispatcher pair
+(sub_002DB250 gate at loc_002DB2CF, sub_002DB4A0 dispatcher, the
+service loop's re-entry condition at loc_002DB2EB) — why the chain
+stops dispatching armed marks, and what the 0x2DB0BE set-path
+condition (which swap slot) tests. frz83 = post+PF+v4 probe arm.
