@@ -1,0 +1,40 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -685,6 +685,37 @@
+ 
+     if (!pmc || !intr || !prm || !trap || !tdat)
+         return;
++    /* Patch 0038 (note 0023, frz56 core): the guest's own service gate
++     * (pump sub_002DB250, loc_002DB2CF) reads the PGRAPH PARAM word and
++     * bails without dispatching whenever bit6 of its low byte is set:
++     * `test LO8([regs+0x400108]), 0x40 -> jne exit`. We arm PARAM with
++     * the NOP's data word, so a NOP whose data has bit6 set (frz56:
++     * 0x06D00141) is latched, arms the whole trap quartet, and is
++     * STRUCTURALLY undispatchable by the guest — while PGRAPH_INTR stays
++     * busy, so the real swap/ring-free marks queue behind it. The v4
++     * hold-until-seen rule then keeps it armed forever: the boot-era
++     * swap chain deadlocked at 1 flip in frz56; the same junk marks are
++     * the bulk of the rearm census in frz53/54 (1132/1333 of the acks).
++     * Hardware analogue: those NOPs are executed by the front-end
++     * without raising a software-method trap at all; only the protocol
++     * NOPs (bit6 clear) trap. Do not arm what the guest would reject.
++     * RECOMP_SWMARK_GATE=0 opts out for the A/B. */
++    {
++        static int gate = -1;
++        if (gate < 0) {
++            const char *e = getenv("RECOMP_SWMARK_GATE");
++            gate = !(e && e[0] == '0');
++        }
++        if (gate && (param & 0x40u)) {
++            static volatile LONG s_ignored;
++            LONG n = InterlockedIncrement(&s_ignored);
++            if (n <= 3 || (n % 5000) == 0)
++                fprintf(stderr, "  [NOPSW] gate: param=%08X bit6-set, "
++                                "not a service mark (x%ld)\n",
++                        param, (long)n);
++            return;
++        }
++    }
+     if (*intr) {
+         /* Trap register busy: the hardware pipeline serialises NOPs and
+          * each one traps once its predecessor is serviced; dropping the

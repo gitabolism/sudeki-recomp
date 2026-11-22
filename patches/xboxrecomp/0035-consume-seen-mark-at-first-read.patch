@@ -103,7 +103,7 @@
 -             * pop the queue — an unserviced re-arm loop must not eat
 -             * FIFO slots. */
 -            nv2a_pb_swmethod_latch((uint32_t)s_last_param);
-+             * not consumed. Patch 0038 (note 0023, frz49 core): do NOT
++             * not consumed. Patch 0035 v4 (note 0023, frz49 core): do NOT
 +             * clear-and-re-arm — that churn was measured at 107/344
 +             * acks and the race window (clear lands between the walk's
 +             * latch and the guest pump's read) is what created it.

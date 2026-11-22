@@ -827,6 +827,37 @@ void sub_002DAE40(void)
 
 static volatile unsigned long long g_flip_issue, g_flip_wait;
 static volatile unsigned long long g_swap_pump, g_eng_submit;
+static volatile unsigned long long g_swap_pump2, g_eng_submit2;
+
+/* frz60 (note 0023 H30): per-caller-site histograms for the swap pump
+ * and engine submit, logged when a site's count doubles (power-of-two
+ * cadence = O(log) lines). Which caller sites are still live at the
+ * plateau is the H30 question; the last site lines before the freeze
+ * name the feeder that went quiet. */
+static void swap_site(const char *tag, uint32_t cal,
+                      const volatile unsigned long long *n,
+                      const volatile unsigned long long *m)
+{
+    struct ent { uint32_t va; unsigned long long n, pow; } *e = 0;
+    static struct ent tab[24];
+    int i;
+    if (!cal || cal >= 0x8000000u)
+        return;
+    cal |= (tag[0] == 'E') ? 0x8000000u : 0;   /* separate PUMP/ENG keys */
+    for (i = 0; i < 24; i++) {
+        if (tab[i].va == cal) { e = &tab[i]; break; }
+        if (!tab[i].va) { e = &tab[i]; e->va = cal; break; }
+    }
+    if (!e)
+        return;
+    e->n++;
+    if (e->n >= e->pow) {
+        e->pow = e->pow ? e->pow * 2 : 1;
+        fprintf(stderr, "[%s] n=%llu from=%08X m=%llu\n",
+                tag, e->n, cal, m ? *m : 0ull);
+        fflush(stderr);
+    }
+}
 
 /* ── device-message handler census (note 0023 H30, RECOMP_ED20_TRACE=1) ──
  *
@@ -844,12 +875,12 @@ static volatile unsigned long long g_swap_pump, g_eng_submit;
  * "handler stops being invoked" vs "invoked but the pump branch is
  * skipped". */
 extern void sub_0011ED20_gen(void);
+static volatile unsigned long long g_ed20_calls;
 
 void sub_0011ED20(void)
 {
     extern __thread uint32_t g_esp;
     static int on = -1;
-    static unsigned long long n;
     static uint32_t lp = 0xFFFFFFFFu;
     static unsigned run;
     if (on < 0) {
@@ -857,7 +888,7 @@ void sub_0011ED20(void)
         on = (e && *e && *e != '0') ? 1 : 0;
     }
     if (on) {
-        n++;
+        g_ed20_calls++;
         uint32_t cal = MEM32(g_esp);
         uint32_t c = MEM32(0x2E3638);
         uint32_t sh = (c >= 0x1000u && c < 0x4000000u)
@@ -868,14 +899,14 @@ void sub_0011ED20(void)
             run = 0; lp = cal;
             fprintf(stderr, "[ED20] n=%llu from=%08X sh8700=%08X "
                             "pump=%llu eng=%llu\n",
-                    n, cal, sh, g_swap_pump, g_eng_submit);
+                    g_ed20_calls, cal, sh, g_swap_pump, g_eng_submit);
             fflush(stderr);
         }
         if (run < 0xFFFFu)
             run++;
-        if ((n % 2000u) == 0)
+        if ((g_ed20_calls % 2000u) == 0)
             fprintf(stderr, "[ED20] n=%llu from=%08X sh8700=%08X\n",
-                    n, lp, sh);
+                    g_ed20_calls, lp, sh);
     }
     sub_0011ED20_gen();
 }
@@ -986,6 +1017,8 @@ void sub_002D5BF0(void)
                                     g_eng_submit, idx, slot,
                                     MEM32(c + 0x8D4), MEM32(c + 0x8D8),
                                     MEM32(0xFD008700), MEM32(0xFD008704));
+                        fprintf(stderr, "[SWAP2] pump2=%llu eng2=%llu\n",
+                                g_swap_pump2, g_eng_submit2);
                         }
                     }
                     fflush(stderr);
@@ -1227,14 +1260,27 @@ void sub_002D3CC0(void)
 
 void sub_002D35A0(void)
 {
-    if (swap_census_on())
+    extern __thread uint32_t g_esp;
+    /* frz60 discrimination (note 0023): count UNCONDITIONALLY too.
+     * frz59 paradox: [PRES] shows the ring writer called 64/s from the
+     * pump's own site 0x2D3640 while g_swap_pump reads frozen at 1511 —
+     * either the census gate (swap_census_on) is lying or the site
+     * attribution is stale-stack fiction. pump2 settles it. */
+    g_swap_pump2++;
+    if (swap_census_on()) {
         g_swap_pump++;
+        swap_site("PUMP", g_esp, &g_swap_pump, NULL);
+    }
     sub_002D35A0_gen();
 }
 
 void sub_001E0390(void)
 {
-    if (swap_census_on())
+    extern __thread uint32_t g_esp;
+    g_eng_submit2++;
+    if (swap_census_on()) {
         g_eng_submit++;
+        swap_site("ENG", g_esp, &g_eng_submit, NULL);
+    }
     sub_001E0390_gen();
 }
