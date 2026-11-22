@@ -786,3 +786,97 @@ recipe + caller attribution + consecutive-run dedup in [SWM]
 (names the re-dispatching pump call site; proves the x-count).
 One-variable order: frz36 (census only, current binary) first to
 confirm caller + run-lengths; then 0034, frz37.
+
+frz35 FINAL (full 450 s window): the engine FALLS BACK to the
+title/attract loop at ~t=390 s — dumps frz3500036-43 differ per
+dump, dump 43 = title art + animating rain, 22,898 colors (visual
+proof, /tmp/opencode/frz35_43.png) — watchdog climbs to 1.85 fps /
+3650 flips, but `[SWAP] pump/eng/idx` stay FROZEN at 1843 and the
+re-service storm continues in that era (21,597 more SWM entries
+after line 300k). So the "recovery" = presentation loop alive with
+attract draws; the load-era swap pump never resumes. frz36 run
+SKIPPED (diagnostic attribution not decision-relevant for where
+0034 lands — toolkit ack path; caller attribution census stays
+compiled-in and its data rides the frz37 log for free).
+
+Patch 0034 (implemented): nv2a_pb_swmethod_done() idles the full
+trap quartet after a SEEN service (INTR+PARAM+TRAP+TRAP_DATA, not
+just INTR/PMC) AND idles stale trap words on a was==0 ack pass
+(TRAP!=0 while nothing latched and FIFO empty = serviced-then-
+abandoned mark — exactly the 0x0DF80101 plateau residue). Env
+RECOMP_TRAP_IDLE=0 opts out for A/B. Hardware basis: PGRAPH TRAP
+auto-idles on the service read (same coalescing rule 0025 uses at
+latch time). Expect: SWM plateau rate 1k/s → mark-rate only,
+arm-0 bookkeeping stops drifting, pump/eng climb past the freeze,
+and level frames present (fb dumps change to a 3D level scene).
+
+frz37 (0034 v1 live): plateau persists (1728 flips, no attract
+fallback inside 420 s). Census proves 0034 FIRES (idle=1107) yet
+the storm SURVIVES: dispatcher entries arrive as consecutive runs
+of the SAME (param,caller) — run=65,306 / 59,362 / 168,959... —
+ALL from `from=002DB2E9` (the pump sub_002DB250 dispatch site),
+while latch direct+enq = only ~3.6k. Lifting the pump body
+(loc_002DB250): gate = PGRAPH_INTR bit0|bit20 at entry, PARAM
+(0x400108) != 0 with bit6 clear, TRAP(0x400704)&0x1FFC == 0x100,
+then dispatch reads TRAP_DATA (0x400708) FRESH each pass. [GSVC]
+pump-entry shows INTR=00000001 TRAP=00000100 PARAM=0DF80101 — a
+live INTR bit 0 per pass; [DPC] entry lines show PARAM MOVING
+(5A400141, 5C980141 — latches ARE still flowing into the aperture)
+while TRAP_DATA stays stuck on the old marks. So idle() fires only
+inside done() paths (thousands) while ~1M dispatches see freshly
+live gate words — the per-pass INTR bit 0 comes from the guest's
+own w1c store resurrecting the bit (the exact failure class the
+NV2A_ACK table comment names) inside the 0026 hold window, or from
+re-arm churn in done(). frz38 = 0034 + full attribution counters
+(rearm / seen_l / seen_n) — one run decides which.
+
+Harness near-miss recorded (build determinism WORKING): during the
+0033 v3 re-extraction the whole patch file was replaced by the
+scan-only diff, silently dropping 0033's exec (A/B switch) and mem
+(settle) hunks; build.sh's reset-and-reapply caught it as a 0034
+context failure at nv2a_pb_exec.c:740. 0033 rebuilt from the
+stored v2 bases (v4: scan v3 fix + exec + mem = 11 hunks). Lesson
+for future patch bumps: regenerate from the stored per-file bases
+and diff-verify the applied tree, never assume one-file patches.
+
+frz38 (0034 + full attribution counters): REAL SIGNAL — pump/eng
+climbed to 4340 (vs 1687 frz37) and 4C sets 5209 before a later
+plateau (1.70 fps attract at exit). Decisive counters: `seen_l=
+606,716` service-chain entries WHILE latched vs `ack=4,840` done()
+calls — consume is ~100x rarer than service. done() only runs from
+dpc_run_here / the ack thread when a DPC actually ran; the guest's
+DPC body (sub_002DAE40 re-loops while services return nonzero) and
+pump re-dispatch the live TRAP_DATA in between (runs of 90k+).
+`drop=1741`: the 64-deep pending FIFO overflowed = marks genuinely
+lost. Hardware model again: every real service read ends with the
+driver RAM-storing the INTR word back (w1c), which IDLES the trap
+before any further pass can re-dispatch it.
+
+Patch 0035 v1 (ack-tick consume in kernel_drain_dpcs) — frz39
+VERDICT INERT: pump froze at 4321 again (same as 4340 = run noise),
+seen_l=743,480 vs ack=7,489, and the decisive line: `run=84,884` —
+consecutive same-(param,caller) dispatcher entries counted WITHIN
+ONE wrapper call: the guest's own service chain re-dispatches
+84,884 times inside a single call (loc_002DB2EB dispatch loop), so
+no host thread tick can ever interleave. Consume must be SYNCHRONOUS
+with the first READ.
+Patch 0035 v2 (implemented): consume at the s_sw_seen 0→1 edge —
+`nv2a_pb_swmethod_done()` called from `nv2a_pb_swmethod_seen()`
+(the manual wrappers call seen() right before the guest body reads
+the PGRAPH words), so the mark is consumed at the earliest legal
+point; 0034's trap idle then idles the quartet and the pump's
+re-loop gate (TRAP==0x100 && PARAM!=0 && INTR bit0) fails after
+ONE service — exactly hardware's TRAP-auto-idle-on-read rule that
+0025's latch gate already encodes. Counter consume= added. frz40
+= same recipe, 0034+0035v2 live. Expect: SWM runs collapse to ~1
+per mark, seen_l ≈ latch total, drop=0, pump/eng climb, level
+frames present. Our consume waits for
+the next dpc_run_here (seconds); hardware's equivalent is the
+service write-back itself (instant).
+Patch 0035 (fix candidate, implemented): nv2a_pb_swmethod_service_
+consume() — same 0026 ownership rule (hold until SEEN), but driven
+every kernel_drain_dpcs() tick in kernel_bridge.c (ms cadence),
+consuming a seen mark exactly where the old done() calls under-ran.
+RECOMP_ACK_CONSUME=0 opts out. Expect: SWM run-lengths collapse to
+1, seen_l/ack ratio -> ~1, drop=0, pump/eng climb past 4340-level
+freeze, level frames present. frz39 = same recipe, 0034+0035 live.

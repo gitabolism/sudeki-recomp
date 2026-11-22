@@ -1,0 +1,111 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -588,6 +588,7 @@
+  * seen_l/seen_n = service-chain entries with / without a latch out. */
+ static volatile LONG s_done_rearm;
+ static volatile LONG s_seen_l, s_seen_n;
++static volatile LONG s_seen_consume;
+ 
+ /* Whether a latched mark has been seen by the guest's GPU service chain
+  * (its DPC body or a pump call — both read the aperture words). The
+@@ -609,7 +610,22 @@
+ {
+     if (s_sw_latched) {
+         InterlockedIncrement(&s_seen_l);
+-        InterlockedExchange(&s_sw_seen, 1);
++        if (!InterlockedExchange(&s_sw_seen, 1)) {
++            /* Patch 0035 (note 0023, H29): on hardware the PGRAPH TRAP
++             * register auto-idles the moment the service chain reads it,
++             * so the pump's re-loop gate fails immediately after the
++             * first service. frz39 caught 84,884 consecutive re-services
++             * INSIDE one guest call (loc_002DB2EB re-dispatch loop): no
++             * host-side tick can interleave with that. Consume the mark
++             * synchronously at the first read — the earliest point where
++             * the 0026 ownership rule ("until SEEN") is satisfied. */
++            extern int pb_consume_on(void);
++            extern void nv2a_pb_swmethod_done(void);
++            if (pb_consume_on()) {
++                InterlockedIncrement(&s_seen_consume);
++                nv2a_pb_swmethod_done();
++            }
++        }
+     } else {
+         InterlockedIncrement(&s_seen_n);
+     }
+@@ -714,7 +730,6 @@
+ {
+     volatile uint32_t *pmc, *intr;
+     int was = (int)InterlockedExchange(&s_sw_latched, 0);
+-
+     if (was) {
+         InterlockedIncrement(&s_ack_done);
+         if (!InterlockedExchange(&s_sw_seen, 0)) {
+@@ -756,6 +771,34 @@
+     }
+ }
+ 
++/* Patch 0035 (note 0023, H29): consume a SERVICED mark at ack-pass rate.
++ * frz38 attribution: the guest's service chain entered with a mark
++ * latched 606,716 times while done() ran only 4,840 — dpc_run_here (the
++ * historical done() driver) drains far rarer than the DPC body runs, so
++ * each un-consumed pass re-dispatched the live TRAP_DATA (pump site
++ * 0x002DB2E9, runs of 90k+ in frz37/38): the arm-0 completion
++ * bookkeeping (loc_002DB4C4) is additive, drift froze the swap pump
++ * (4340 swaps in frz38 vs 1687 in frz37 — 0034's idle widened the
++ * margin), and drop=1741 shows the 64-deep pending queue overflowing.
++ * Same ownership rule as 0026 — hold until the chain has SEEN the mark
++ * — but the consume then happens on the ack tick (ms), not the next
++ * dpc_run_here (seconds). RECOMP_ACK_CONSUME=0 opts out (A/B). */
++int pb_consume_on(void)
++{
++    static int on = -1;
++    if (on < 0) {
++        const char *e = getenv("RECOMP_ACK_CONSUME");
++        on = !(e && e[0] == '0');
++    }
++    return on;
++}
++
++void nv2a_pb_swmethod_service_consume(void)
++{
++    if (pb_consume_on() && s_sw_latched && s_sw_seen)
++        nv2a_pb_swmethod_done();
++}
++
+ /* Census (note 0021): the classes the title actually emits. The jump
+  * table of the guest's dispatcher (sub_002DB4A0) keys on param & 0x1F
+  * minus one; class 5 (table slot 4, target 0x2DB60E) is the ring-free
+@@ -824,10 +867,12 @@
+         }
+     fprintf(stderr, "%s\n", any ? "" : " none");
+     fprintf(stderr, "  [NOPSW] latch direct=%ld enq=%ld drop=%ld pop=%ld "
+-                    "ack=%ld idle=%ld rearm=%ld seen_l=%ld seen_n=%ld\n",
++                    "ack=%ld idle=%ld rearm=%ld seen_l=%ld seen_n=%ld "
++                    "consume=%ld\n",
+             (long)s_lat_direct, (long)s_lat_enq, (long)s_lat_drop,
+             (long)s_lat_pop, (long)s_ack_done, (long)s_trap_idle,
+-            (long)s_done_rearm, (long)s_seen_l, (long)s_seen_n);
++            (long)s_done_rearm, (long)s_seen_l, (long)s_seen_n,
++            (long)s_seen_consume);
+     fprintf(stderr, "  [NOPSW] rering calls=%ld latched=%ld ev=%ld\n",
+             (long)s_rering_call, (long)s_rering_lat, (long)s_rering_ev);
+ }
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -3416,6 +3416,16 @@
+     *ran = 0;
+     for (;;) {
+         PendingDpc d;
++        /* Patch 0035 (note 0023, H29): a software-method mark the guest's
++         * service chain has already READ is consumed here, every tick.
++         * The done() calls below only fire when a DPC actually ran this
++         * pass, and frz38 measured 606k chain entries against 4.8k done()
++         * calls — re-dispatching a seen mark 100+ times per consume drifts
++         * the title's additive completion bookkeeping (pump site
++         * 0x002DB2E9). Every hardware service read is followed by a RAM
++         * write-back that idles the mark; this is that write-back. */
++        extern void nv2a_pb_swmethod_service_consume(void);
++        nv2a_pb_swmethod_service_consume();
+         /* A DPC runs only while the one-CPU gate is free (no thread at
+          * DISPATCH_LEVEL, no ISR or KeSynchronizeExecution routine), and
+          * never waits for it: this thread is also the vblank and timer

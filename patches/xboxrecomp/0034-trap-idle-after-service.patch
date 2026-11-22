@@ -1,0 +1,132 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -584,6 +584,11 @@
+ /* Census counters (note 0021). */
+ static volatile LONG s_lat_direct, s_lat_enq, s_lat_drop, s_lat_pop;
+ static volatile LONG s_ack_done;
++/* Census (0034 ext, note 0023): rearm = done() with an unserviced mark;
++ * seen_l/seen_n = service-chain entries with / without a latch out. */
++static volatile LONG s_done_rearm;
++static volatile LONG s_seen_l, s_seen_n;
++
+ /* Whether a latched mark has been seen by the guest's GPU service chain
+  * (its DPC body or a pump call — both read the aperture words). The
+  * guest's service loop spins until PGRAPH_INTR reads clear, and its own
+@@ -602,8 +607,12 @@
+  * sub_002DAE40 DPC body, sub_002DB250 pump) on entry. */
+ void nv2a_pb_swmethod_seen(void)
+ {
+-    if (s_sw_latched)
++    if (s_sw_latched) {
++        InterlockedIncrement(&s_seen_l);
+         InterlockedExchange(&s_sw_seen, 1);
++    } else {
++        InterlockedIncrement(&s_seen_n);
++    }
+ }
+ 
+ /* Whether the aperture ack pass must leave the swmethod bits alone. */
+@@ -662,6 +671,45 @@
+     InterlockedIncrement(&s_lat_direct);
+ }
+ 
++/* Patch 0034 (note 0023, H29): the PGRAPH trap quartet auto-idles once
++ * a mark has been serviced — the same coalescing rule patch 0025 uses
++ * at latch time ("trap register idle"). The ack path used to idle only
++ * PGRAPH_INTR + the PMC line, leaving PARAM/TRAP/TRAP_DATA in aperture
++ * RAM; the guest pump (sub_002DB250) dispatches on TRAP regardless of
++ * INTR, so an abandoned mark re-dispatched forever: frz35 measured
++ * 228k re-services of params 10500101/0DF80101 at the plateau, whose
++ * arm-0 ring bookkeeping is ADDITIVE (loc_002DB4C4: ctx+0x1C4 =
++ * edi+ebp each pass) — D3D's swap-completion indices drift, the
++ * branch that signals event 0x2E2F4C stops firing, the engine parks
++ * INFINITE (frz34 core), the load never completes. RECOMP_TRAP_IDLE=0
++ * opts out for A/B. */
++/* Census (0034 ext, note 0023): full attribution of the plateau storm —
++ * who latches/re-arms and who sees. rearm = done() with an unserviced
++ * mark (the word was set but no service read it); seen_l/seen_n =
++ * service-chain entries with / without a latch outstanding. */
++static volatile LONG s_trap_idle;
++
++static int pb_trap_idle_on(void)
++{
++    static int on = -1;
++    if (on < 0) {
++        const char *e = getenv("RECOMP_TRAP_IDLE");
++        on = !(e && e[0] == '0');
++    }
++    return on;
++}
++
++static void nv2a_pb_trap_idle(void)
++{
++    volatile uint32_t *prm  = xbox_Nv2aRegPtr(0x400108);
++    volatile uint32_t *trap = xbox_Nv2aRegPtr(0x400704);
++    volatile uint32_t *tdat = xbox_Nv2aRegPtr(0x400708);
++    if (prm)  *prm = 0;
++    if (trap) *trap = 0;
++    if (tdat) *tdat = 0;
++    InterlockedIncrement(&s_trap_idle);
++}
++
+ void nv2a_pb_swmethod_done(void)
+ {
+     volatile uint32_t *pmc, *intr;
+@@ -670,6 +718,7 @@
+     if (was) {
+         InterlockedIncrement(&s_ack_done);
+         if (!InterlockedExchange(&s_sw_seen, 0)) {
++            InterlockedIncrement(&s_done_rearm);   /* census (0034 ext) */
+             /* The DPC drained without the service chain ever reading
+              * the words (they were ack-cleared first): the mark was
+              * not consumed. Re-arm it instead of consuming, and do not
+@@ -684,6 +733,15 @@
+             *intr = 0;
+         if (pmc)
+             *pmc &= ~0x00001000u;
++        if (pb_trap_idle_on())
++            nv2a_pb_trap_idle();      /* 0034: service idles the quartet */
++    } else if (pb_trap_idle_on() && !s_sw_latched && s_sw_head == s_sw_tail) {
++        /* Nothing latched here and no queued marks, yet the trap words
++         * outlive their service (ack happened on an earlier pass): the
++         * mark is abandoned. Idle it so the pump stops re-dispatching. */
++        volatile uint32_t *trap = xbox_Nv2aRegPtr(0x400704);
++        if (trap && *trap)
++            nv2a_pb_trap_idle();
+     }
+     /* With the trap word free the next queued mark re-arms: each
+      * trapped NOP re-arrests PGRAPH on the console once its
+@@ -740,12 +798,6 @@
+         fprintf(stderr, "  [RERING] drain-edge #%ld param=%08X\n",
+                 (long)n, (uint32_t)p);
+     if (s_ringfree_ev) {
+-        static int rf_on = -1;   /* A/B switch for patch 0033 runs */
+-        if (rf_on < 0) {
+-            const char *e = getenv("RECOMP_RINGFREE_EVENT");
+-            rf_on = (e && *e == '0') ? 0 : 1;
+-        }
+-        if (rf_on) {
+         extern void xbox_host_signal_event(uint32_t);
+         uint8_t *mem = (uint8_t *)xbox_GetMemoryOffset();
+         uint32_t hdr = *(volatile uint32_t *)(mem + s_ringfree_ev);
+@@ -754,7 +806,6 @@
+             InterlockedIncrement(&s_rering_ev);
+             xbox_host_signal_event(s_ringfree_ev);
+         }
+-        }
+     }
+     if (!p || !pb_swmethod_on())
+         return;
+@@ -773,9 +824,10 @@
+         }
+     fprintf(stderr, "%s\n", any ? "" : " none");
+     fprintf(stderr, "  [NOPSW] latch direct=%ld enq=%ld drop=%ld pop=%ld "
+-                    "ack=%ld\n",
++                    "ack=%ld idle=%ld rearm=%ld seen_l=%ld seen_n=%ld\n",
+             (long)s_lat_direct, (long)s_lat_enq, (long)s_lat_drop,
+-            (long)s_lat_pop, (long)s_ack_done);
++            (long)s_lat_pop, (long)s_ack_done, (long)s_trap_idle,
++            (long)s_done_rearm, (long)s_seen_l, (long)s_seen_n);
+     fprintf(stderr, "  [NOPSW] rering calls=%ld latched=%ld ev=%ld\n",
+             (long)s_rering_call, (long)s_rering_lat, (long)s_rering_ev);
+ }
