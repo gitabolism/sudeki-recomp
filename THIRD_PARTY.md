@@ -20,6 +20,37 @@
   libepoxy 1.5.10). Graphics via the toolkit's OpenGL 3.3 back end
   (`src/d3d/d3d8_gl.c`).
 
+### Toolkit forks considered (as base/feature sources) — not adopted, 2026-11-22
+
+Reviewed on user question "why aren't we using xboxrecomp-vulkan?". Base
+changes are an architectural gate (AGENTS.md); recorded so the next
+session doesn't re-litigate:
+
+- `almost-drowned-rat/xboxrecomp-vulkan` (toolkit of THPS2X-Recompiled;
+  14 commits, 1 star): fork frozen at **v0.13.1**, i.e. five releases
+  *behind* our v0.18.0 pin. It is the upstream `vulkan-backend` branch
+  state: Vulkan NV2A renderer (`src/nv2a_vk/`, from antoxa2584x/
+  burnout3-sw) + SDL3 + an XDK HLE layer (`src/xdk/`, design after
+  TGP482). Not adopted: (i) base-switch loses v0.14-v0.18 kernel/lifter
+  work our boot depends on and rebases our 26-patch series; (ii) the
+  current GPU wall is NV2A *semantics* coverage (pb-exec methods, VSH,
+  the sw-method interrupt chain, note 0021), backend-independent; the
+  GL executor already flips/draws/decodes. Mainline v0.18.0 has no
+  `src/nv2a_vk/` — Vulkan is a separate branch there too.
+- `almost-drowned-rat/xboxrecomp-option-c`: same family, "per-thread
+  __restrict register model in the lifter" — a lifter change that would
+  invalidate the whole gen tree; no evidence we need it (432 stubs).
+- `AntAir267/antbox`: fork of takedawn's xboxrecomp with a Vulkan
+  renderer + frame capture; different lineage, frame-capture need
+  already met by `RECOMP_FB_DUMP`.
+- Revisit trigger: **direction approved by user 2026-11-22** — Vulkan is
+  the accepted end-state backend, but only as Stage B *after* vanilla
+  gameplay under the current GL back end (STATE.md queue 8). Execution
+  = cherry-pick/backport upstream's `vulkan-backend` **branch** onto the
+  v0.18.0 pin (with a re-audited pin entry), accepted at parity of
+  frame-dump artefacts and gameplay; never a base-switch to the fork,
+  never mid-wall.
+
 ## Pipeline tools
 
 The Python pipeline (`tools.xbe_parser`, `tools.disasm`, `tools.func_id`,
@@ -125,3 +156,6 @@ each patch is one reviewed, documented diff.
 | `0021-log-ords.patch` | `RECOMP_LOG_ORDS=44,98,...`: per-ordinal call trace without the `RECOMP_KERNEL_LOG_BUDGET` limit | targeted ordinal census for the audio hunt. |
 | `0022-ac97-trap-x86_64.patch` | widen the AC'97 bus-master write trap arm from aarch64-only to `(POSIX && aarch64) || (Linux x86-64)`; the POSIX VEH-fallback is replaced with the real SIGSEGV-routed handler path | **the audio fix**: on Linux x86-64 the trap never armed, DSOUND master open answered DSERR_NODRIVER, and the null-voice fallback produced the whole note-0017 poison chain. With `RECOMP_AC97_READY=1` the MCPX APU + AC97 trap come up and all five DDS9 sub-inits return 0 (note 0017/session 4j). |
 | `0023-pad-start-bit16.patch` | `usb_gamepad.c`: scripted/synthetic digital masks widen to the real 16-bit report field (bytes 2..3): `start`=0x0200, `back`=0x0100 (were 0x10/0x20, reserved low-byte bits); applies through `out[2]`/`out[3]` split | the virtual pad's START was inlined at a bit no XDK title reads: Sudeki's enumerated pad received 8 "start" reports and ignored them (note 0020 evidence run `logs/run-pad2-*.out`); host-pad path was already correct. |
+| `0024-vsh-io-trace.patch` | `nv2a_vsh_interp.c`: `nv2a_vsh_run` wrapper; `RECOMP_VSH_IO=1` prints first runs' v0..v2 inputs + oPos (input-shaped filter) | separate wrong vertex data from wrong program emulation when batches report no valid coordinates (note 0021 side census: S32K decode matches xemu; Sudeki's short-space positions are legitimate). |
+| `0025-pgraph-swmethod-latch.patch` | `nv2a_pb_exec.c` + `kernel_hal.c` (+ census): at `NV097_NO_OPERATION` with non-zero param the executor latches the aperture words `[0xFD000100] |= 0x1000` (PMC PGRAPH source = the vblank-DPC gate), `[0xFD400100] = 1` (software-method bit), `[0xFD400704] = 0x100` (trap method), `[0xFD400108]/[0x400708] = param`; a 64-deep FIFO queues marks while the trap register is busy (hardware serialises NOPs; dropping lost Sudeki's only ring-space mark); `dpc_run_here()` acks (clears w1c words, re-arms next queued) after each drain. Census: `[NOPSW]` class histogram + latch counters, `[VBLDBG]` tick/DPC-depth line. Env `RECOMP_PB_GFAULT` (on with executor, `=0` off) | D3D8LTCG wakes its ring/present waits via GPU software-method NOPs (DPC `sub_002DAE40` → pump `sub_002DB250` → `sub_002DB4A0` jump table keyed `(param&0x1F)-1`; class 5 → `KeSetEvent(0x2E2F5C)`); the executor consumed NOPs and raised nothing → attract-demo ring wait froze at `PUT==GET` (note 0021). |
+| `0026-swmethod-ack-ownership.patch` | `xbox_memory_layout.c` + `kernel_bridge.c`: (1) the aperture ack pass (`NV2A_ACK` busy-bit table, "nothing raises GPU interrupts") would zero the latched `PGRAPH_INTR` bit 0 / `PMC_INTR_0` bit 12 before any service reads them — mask them out **only from latch until the guest's service chain reads the words once** (`nv2a_pb_swmethod_hold()`; `seen` set by manual wrappers at `sub_002DAE40` DPC entry / `sub_002DB250` pump entry). v1 held "while pending" instead — that wedged the guest's PGRAPH service loop (which spins until the word reads clear; guest w1c is a RAM no-op, the ack pass is the only clearer) inside the timer thread: freeze at 179 flips, gfault8; (2) `kernel_drain_dpcs()` (timer-thread drain, the TICK-mode path) performs the swmethod ack — if seen: clear + pop FIFO; if unseen: re-arm the same param without popping (mark was ack-eaten, retry; FIFO drains only at real service rate) | gfault6/7 race: only 75 of 2437 marks ever seen (`ack=0`, class-5 queued never serviced); gfault8 wedge above (note 0021). |

@@ -52,6 +52,10 @@ settle chain (patch 0017) intact.
 - XBE: pinned SHA-256 ✔. Gen tree regenerated session 4g with
   `--exclude-manual` (one body renamed `sub_00022340_gen`; 432 stubs).
 - Skills: five pinned, digest gate green.
+- JP second sample lives at `~/Downloads/xbox/sudeki-jap/default.xbe`
+  (3,842,048 B, SHA-256 `1f8a9611…`, XPP section identical size to World);
+  naming convention for parked disc artefacts: `<game>-<region>/` (user
+  directive 2026-11-22).
 
 ## Last run
 
@@ -320,6 +324,18 @@ arr=0).
     `esi`/`edi`. Fix: seed measured targets (feedback-dump pipeline).
     Lesson: audit every `[ICALL] Failed to resolve VA` line — the skip
     can corrupt the stack far from where it fires.
+8. **H26 (note 0021, active — attract-demo freeze):** D3D ring/present
+    waits wake on GPU software-method NOPs. Chain mapped and made to
+    run host-side (patch 0025 latch + FIFO + drain ack): DPC
+    `sub_002DAE40` gate = `[0xFD000100] & 0x1000`; pump `sub_002DB250`;
+    dispatcher `sub_002DB4A0` jump table `(param&0x1F)-1`; **class 5 →
+    `KeSetEvent(0x2E2F5C)`** (the waited object; earlier "arm 4 /
+    0x80-0x9F" was wrong). Dense-press repro emits exactly ONE
+    class-5 mark/run; it reaches the pending queue but **no post-freeze
+    DPC drain/ack ever runs** (`enq=12 pop=0`). vblank mode in our
+    recipe = TICK ~45 Hz with a 10 ms timer-thread DPC drain that
+    should not starve — gfault7 census (DPC-body gate lines + `ack=`
+    counter) decides: drain starvation vs latch visibility.
 
 ## Queue (next concrete actions)
 
@@ -361,6 +377,26 @@ arr=0).
    probe run (SIGTERM flushes `build-fb/icall_targets.dump`) →
    `tools.recomp.icall_feedback merge` → `seeds --xbe` → union in.
 7. Cleanup between runs: `rm -rf ~/.local/share/xboxrecomp/Cache/*`.
+8. Enhancement roadmap (user doc `docs/chats/recompile-features.leo.md`,
+   scope-banned; commit `ddaaa08`): **user directive 2026-11-22 —
+   "vanilla first, then features"; Vulkan accepted as the END-STATE
+   backend, staged:**
+   - **Stage A (now):** vanilla works under the current GL back end +
+     current process (nothing changes; gfault9 etc. continue).
+   - **Stage B (after vanilla Gameplay):** swap the renderer to Vulkan
+     by backporting upstream's `vulkan-backend` *branch* onto our
+     v0.18.0 pin — NOT the stale v0.13.1 fork. Acceptance gate =
+     parity: identical `RECOMP_FB_DUMP` artefacts + same gameplay under
+     both back ends. Pin-change mechanics already gated (AGENTS); this
+     directive pre-approves the direction, each build still gets its
+     own pin/audit entry.
+   - **Stage C (post-Stage-B, opt-in flags only):** texture replacement
+     (dump hook exists: `RECOMP_TEX_DUMP`) → resolution scale (real
+     work; `RECOMP_GL_SCALE` does NOT exist at our pin) → HDR →
+     upscaling → RT. Menu/Gameplay artefacts stay disc-faithful
+     (side-by-side rule); no enhancement code in any default path.
+   Leo's chat has title-specific errors (calls it RenderWare; it is the
+   custom SOL engine) — re-verify any claim from it before acting.
 
 ## Blockers / open questions
 

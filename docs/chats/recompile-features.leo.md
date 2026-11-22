@@ -1,3 +1,13 @@
+> **SCOPE BANNER (added by the agent, 2026-11-22):** brainstorming record
+> only — **not** current scope. Nothing in this chat may influence the
+> bring-up stages in `BRIEF.md`. Triage + decisions live in `STATE.md`
+> queue item 8 and `THIRD_PARTY.md` ("Toolkit forks considered"). Known
+> factual errors in this chat: calls Sudeki a RenderWare game (it is the
+> custom SOL engine); claims `RECOMP_GL_SCALE`/`RECOMP_VK_ANISO` exist
+> at our v0.18.0 pin (they do not — no Vulkan backend in mainline).
+> User directive, same date: **vanilla first, features after** — see
+> STATE.md queue 8 for the A/B/C staging.
+
 # User
 
 sudeki pc versus xbox
