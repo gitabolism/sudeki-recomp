@@ -1260,3 +1260,40 @@ not "did not fix". The plateau wall (1511 flips, engine alive,
 pump/eng counters frozen vs 64/s body-site activity) is the target;
 frz60's [PUMP]/[ENG] per-site histograms + [SWAP2] unconditional
 counters decide whether the wrappers run at the plateau.)
+
+frz60 (site census, 0038 NOT in the binary — the extraction reset
+had stripped the tree; clean 0038 rebuild landed after frz60
+started; frz61 is the first clean 0038 run) — movie-era plateau at
+186 flips, and the CORE completes the mechanism chain end to end:
+
+  (1) the PUMP/ENG per-site histograms log `from=00F7FD6C/
+      08F7FD70` = guest STACK slots: the engine's task machinery
+      calls pump/eng-submit indirectly (function pointers on the
+      task frame). Both wrappers count (pump2==pump==186,
+      eng2==eng==186): the frz59 "body runs while counter frozen"
+      paradox is FALSIFIED — counters were never lying.
+  (2) core mark machinery: `sw_latched=1 last_param=0DF80101` but
+      the quartet words (PARAM/TRAP/TRAP_DATA) read ZERO while
+      PMC_INTR=0x1000 and PGRAPH_INTR=1 — an inconsistent state the
+      guest pump structurally cannot service (its dispatch requires
+      TRAP==0x100 and PARAM!=0; PARAM=0 -> exit without consume).
+  (3) the FIFO overflowed: enq=76, pop=13, drop=79 — 79 marks
+      DROPPED (64-deep queue full). Dropped marks include the swap
+      completions -> swap chain dies -> pump/eng feed dies ->
+      plateau. drop=79 with 0038 ABSENT vs drop=0 with 0038 live
+      (frz59): the bit6 junk marks are the queue poison, and the
+      hold-until-seen rule makes them immortal.
+  (4) kernel profile at the frz59/frz60 plateau: NtWaitForSingle-
+      ObjectEx+NtReleaseMutant x7.2M and KeRaiseIrqlToDpcLevel+
+      KfLowerIrql x2.4M = the starved consumers + a driver spinning
+      at DISPATCH (consistent with a swap wait that never completes).
+
+Verdict: two distinct walls, one machinery, one engine:
+  W-A (movie/boot era): junk marks latch -> never seen -> PGRAPH
+  held -> FIFO overflow -> real marks dropped -> swap dead. 0038
+  (gate) + bigger FIFO = the candidate fix; frz61 decides.
+  W-B (level era, frz59 1511-flip): machinery HEALTHY
+  (drop=0, seen==consume), yet the engine task machinery stops
+  invoking pump/eng (indirect task-frame calls go quiet) while the
+  frame loop Presents keep ticking. That is the engine's own
+  device-message/task layer — H30 proper — still open.
