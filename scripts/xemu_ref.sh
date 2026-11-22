@@ -36,7 +36,8 @@ STAMP=$(date +%Y%m%d-%H%M%S)
 LOG="logs/xemu-${TAG}-${STAMP}.log"
 
 timeout --signal=INT "$SECS" "$XEMU_BIN" \
-    -monitor "telnet:127.0.0.1:${MON_PORT},server,nowait" \
+    -qmp "telnet:127.0.0.1:${MON_PORT},server,nowait" \
+    ${XEMU_MEM:+-m "$XEMU_MEM"} \
     > "$LOG" 2>&1 &
 XPID=$!
 

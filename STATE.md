@@ -3,7 +3,7 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-21 (session 4k)
+**Last updated:** 2026-11-21 (session 4l)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached** — frame
 dumps carry content and `reference/fb/frame00016.bmp` is the title screen
 ("SUDEKI / Press START", 219 distinct colours). The wild-pointer wall (H23)
@@ -323,11 +323,13 @@ arr=0).
 
 ## Queue (next concrete actions)
 
-1. **xemu reference (user-driven):** user is testing xemu playability
-   manually. On resume: fix `scripts/xemu_ref.sh` QMP-vs-HMP, complete a
-   clean `-m 64` headless capture, re-check the STOP (open suspects:
-   EEPROM language/AV fields, xemu-dashboard interaction, memory-flag
-   doubling). Upstream evidence: title runs on xemu, no bugcheck reports.
+1. **xemu reference (note 0019 CLOSED for boot):** STOP was our unofficial
+   256 KiB SpiritBoot dev ROM forcing 128 MB (Def Jam #75 failure class).
+   Official `SpiritBoot-v1.1.0-64MB.bin` + xemu default 64 MB **boots the
+   title** (user saw loading card + intro FMV). Next: single-instance
+   retest of the mid-movie freeze (likely VRAM contention: strata holds
+   ~23.9/24.5 GB); re-measure FB offset on the new dump (note 0009 recipe
+   pinned old layout); then capture title/menu for the side-by-side.
 2. **Input wall:** pad device never opened ("Press START" idle). Trace the
    device-open/IOCTL attempts (`[FILE]`, `NtDeviceIoControlFile`) and
    answer host-side.
@@ -361,10 +363,10 @@ arr=0).
   toolkit, that is a large upstream feature — note it as a possible
   architectural-gate moment, but the inventory itself is pure analysis
   and proceeds autonomously.
-- xemu's bugcheck (note 0009) must be re-checked against the async
-  semantics before using its STOP screen as a "same wall" baseline —
-  xemu likely mis-answers the same convention; a corrected xemu
-  reference may be possible (config/quirks) or may need its own patch.
+- xemu reference: **RESOLVED (note 0019)** — boots on official
+  SpiritBoot v1.1.0-64MB profile; the note-0009/0011 "xemu reproduces
+  our wall" reading was an artifact of the 128 MB dev ROM. Outstanding:
+  mid-movie freeze (retest single-instance) and FB capture offsets.
 
 ## Housekeeping facts
 

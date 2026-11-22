@@ -45,16 +45,20 @@ prerequisite (brief rule 6). No sudo used.
 |---|---|---|
 | xemu (upstream) | v0.8.139, commit `aa54c34cae1c09410d74c69a44210a9867fe2d16`, AppImage x86_64 | sha256 `220282aacf09b30b35c55ba900a774fb6940c70deca1408bc70a4c9cc67c322f` (matches GitHub release asset digest) |
 | xemu fork (SpiritBoot-qualified) | Mainkill1/xemu `v0.8.136-0-g458730bf5373` AppImage | sha256 OK vs release `SHA256SUMS`; kept as fallback — ignores new config keys, `-m 128` passthrough needed, `-qmp` never opens |
-| flash image (BIOS) | **SpiritBoot v1.1.0** clean-room `optimized-xemu/SpiritBoot-release.bin` (262144 B) at commit `9bd0d975…`; `SpiritBoot-checked.bin` also fetched | `sha256sum --check` against upstream SHA256SUMS.txt: both OK. **No Microsoft BIOS/MCPX bytes were downloaded** — clean-room firmware keeps our posture identical to the recomp side |
-| HDD image | `xemu-project/xemu-dashboard` `xbox_hdd.qcow2` (1,638,400 B) | sha256 `00d7df7a2bc235f8801764f00b7f40e194d1e392f7a9619d6b2396c89770f6dd` |
+| flash image (BIOS) | **SpiritBoot v1.1.0 official releases** — `SpiritBoot-v1.1.0-64MB.bin` (524288 B, sha256 `75f0680d7a32e8264c3f496eb48c071bd4a9fe8b7e9285e59461f6e35f194f4e`) — THE WORKING PROFILE (xemu default 64 MB) — plus `SpiritBoot-v1.1.0-128MB-64MB-game-memory.bin` (262144 B, sha256 `c403570c4ea613bb0d64fed745c6f08ba0ca118a734a32c3556d24bb907c62a0`, experimental 128-backed/64-visible) | digests verified against the v1.1.0 release SHA256SUMS/asset digests. **No Microsoft BIOS/MCPX bytes were downloaded** — clean-room firmware keeps our posture identical to the recomp side. The earlier `optimized-xemu/SpiritBoot-release.bin` / `-checked.bin` were unofficial dev builds (256 KiB profiles requiring 128 MB) — superseded; they caused the `STOP 0x7E` (see note 0019) |
+| HDD image | `xemu-project/xemu-dashboard` `xbox_hdd.qcow2` (1,638,400 B) | sha256 `00d7df7a2bc235f8801764f00b7f40e194d1e392f7a9619d6b2396c89770f6dd`; working copy in `~/Applications/xemu/firmware/` grows with use — local SHA256SUMS.txt tracks current state; verified pristine 2026-11-21 (`6aaa6a37b36bb053dcd875039bfad20005cdd588a0d3ba8abe828c2af4dacdda`) |
 | EEPROM | xemu auto-generated (`~/.local/share/xemu/xemu/eeprom.bin`) | not a disc/BIOS derivative |
 
-Boot state found: **SpiritBoot-release + `-m 128`** is the only combo that
-reaches the kernel (title loads and bugchecks `STOP 0x7E` inside the
-boot-archive decoder — see note 0009; the reference environment hits *our*
-wall too). Reference captures: `scripts/xemu_ref.sh` /
-`scripts/xemu_boot_probe.sh`; standalone (agent-off) experiment:
-`scripts/xemu_standalone.sh`.
+Boot state (corrected 2026-11-21, note 0019): **SpiritBoot v1.1.0-64MB +
+xemu 64 MB (default) boots Sudeki normally** — loading cards, intro FMVs,
+title reachable. The old `STOP 0x7E` was the unofficial 256 KiB SpiritBoot
+dev profiles forcing 128 MB and reporting 128 MB to a 64-MB-budget title
+(known failure class: SpiritBoot #75 Def Jam — `GlobalMemoryStatus`-derived
+allocations exceed the 64 MB allocation domain). `scripts/xemu_ref.sh` /
+`scripts/xemu_boot_probe.sh` drive captures; standalone (agent-off)
+experiment: `scripts/xemu_standalone.sh`. FB-reconstruction VRAM offset
+0x3C00000/pitch 720 (note 0009) matches the old ROM layout — re-measure
+against the v1.1.0-64MB dump before relying on it.
 
 ## Agent skills (fetched, reviewed, pinned)
 
