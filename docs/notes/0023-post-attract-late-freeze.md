@@ -1479,3 +1479,26 @@ CLOSED and the first presented level frame is the next artefact.
 (Shell-hygiene lesson: never edit census_run.sh while a run is
 using it — the live bash re-reads it; frz66's tail threw
 syntax-error noise from my mid-run feed edit.)
+
+REGIME RELABEL (binary forensics — build/sudeki mtime vs launch):
+frz66 ran the 11:14:20 binary = v4-churn + depth-2048 (the strict
+0040 landed AFTER its launch). frz68 = strict + depth-2048. So:
+  v4 + 2048  : 7113 flips still climbing (frz66)  <- healthiest
+  strict+2048: froze at 1850, drop=0 but enq=1659 >> pop=158:
+               the no-pop-while-armed rule BACKLOGS the queue;
+               the guest's service edge (consume=335) never drains
+               it — strict hold is the weaker regime after all.
+Also: drop>0 at depth 2048 (frz66 drop=1695) = the full-check's
+pre-lock probe double-counts benign races; the depth fix removed
+real losses (frz68 drop=0) and the freeze survived it -> OVERFLOW
+was a symptom, not the cause. Cause candidate now: mark GENERATION
+outruns the service chain's consume (frz68: 1659 enq vs 335
+consume) — the walk's class-5 re-latch (0030) fires per drain edge
+and every one becomes a mark the guest must service; hardware has
+ONE trap-data word and the pipeline is suspended at the NOP until
+serviced, i.e., generation must be gated by consume (back-pressure
+IN the walk), not queued. That is the 0041 candidate: while an
+unconsumed mark is armed, the dma walk PARKS (does not advance past
+the trapped NOP) instead of continuing to write and re-latch.
+frz69 = v4 + 2048 + extended menu feed, 600 s window (in flight):
+how far does the healthiest regime actually get?
