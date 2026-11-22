@@ -1,0 +1,181 @@
+--- a/src/kernel/nv2a_pb_scan.c
++++ b/src/kernel/nv2a_pb_scan.c
+@@ -176,6 +176,9 @@
+          * pending work, and how many finished drained (GET==PUT). */
+         fprintf(stderr, "[PB] walk calls: work=%u drained=%u\n",
+                 s_walk_work, s_walk_drained);
++        fprintf(stderr, "[PB] guest-GET moves=%u lag seen=%u head=%u got=%08X pub=%08X\n",
++                s_guest_get_moves, s_lag_seen, s_lag_head,
++                s_lag_dbg_got, s_lag_dbg_pub);
+     }
+     if (!s_seen_count || !getenv("RECOMP_PB_SCAN"))
+         return;
+@@ -212,6 +215,66 @@
+ #define PB_PHYS_MASK 0x0FFFFFFCu
+ #define PB_RAM_BYTES (64u * 1024u * 1024u)   /* XBOX_CONTIG_SIZE */
+ 
++/* Patch 0033 (note 0023, H29): finite-GPU GET publication. The walk executes
++ * methods synchronously, so publishing GET==PUT makes the GPU infinitely
++ * fast; D3D8LTCG's ring writer (sub_002D57D0) computes free = (block+4) -
++ * GET and parks in an INFINITE KeWaitForSingleObject loop when GET has run
++ * PAST the block it is about to serve — which is permanent for us because
++ * our GET never lags (frz30 core: GET 48 KB past the queued block, free
++ * negative). Hardware keeps GET behind PUT at GPU speed, so the block queue
++ * always sits ahead of GET. Emulate the lag on the PUBLISHED register only:
++ * RECOMP_PB_GET_LAG=<bytes> publishes GET = consumption trail minus that
++ * many bytes; the walk's internal position is unchanged. A snapshot ring of
++ * visited positions gives the trail through JUMP/CALL segments. */
++static uint32_t s_get_lag_bytes;              /* RECOMP_PB_GET_LAG */
++static uint32_t s_last_put;                   /* last PUT the walk saw */
++#define PB_LAG_STRIDE 64u                     /* walk steps per snapshot */
++#define PB_LAG_HIST 1024u                     /* ...covers 256 KB */
++static uint32_t s_lag_hist[PB_LAG_HIST];
++static uint32_t s_lag_seen, s_lag_head;
++
++static uint32_t s_guest_get_moves, s_lag_dbg_got, s_lag_dbg_pub;
++
++static void pb_lag_init(void)
++{
++    static int done;
++    if (done)
++        return;
++    done = 1;
++    {
++        const char *e = getenv("RECOMP_PB_GET_LAG");
++        if (e && *e)
++            s_get_lag_bytes = (uint32_t)strtoul(e, 0, 0);
++    }
++}
++
++static void pb_lag_note(uint32_t pos)
++{
++    if (!s_get_lag_bytes)
++        return;
++    s_lag_seen++;
++    if ((s_lag_seen & (PB_LAG_STRIDE - 1u)) == 0) {
++        s_lag_hist[s_lag_head & (PB_LAG_HIST - 1u)] = pos;
++        s_lag_head++;
++    }
++}
++
++/* The trail position s_get_lag_bytes behind the just-consumed end. */
++static uint32_t pb_lag_pub(uint32_t got)
++{
++    uint32_t back;
++    if (!s_get_lag_bytes || s_lag_head == 0)
++        return got;
++    back = s_get_lag_bytes / (PB_LAG_STRIDE * 4u);
++    if (s_lag_head <= back + 1u)              /* history shorter than the lag */
++        return s_lag_hist[(s_lag_head - (s_lag_head < PB_LAG_HIST
++                                        ? s_lag_head : PB_LAG_HIST))
++                          & (PB_LAG_HIST - 1u)];
++    s_lag_dbg_got = got;
++    s_lag_dbg_pub = s_lag_hist[(s_lag_head - 1u - back) & (PB_LAG_HIST - 1u)];
++    return s_lag_dbg_pub;
++}
++
+ /* A jump or call outside RAM means the walk is reading data as commands. */
+ /* The last command headers decoded, so a desync can be traced back to the
+  * command that caused it. */
+@@ -254,6 +317,14 @@
+     return 1;
+ }
+ static uint32_t s_get = 0xFFFFFFFFu, s_ret;
++
++/* True engine idle (internal position, not the lagged register): used by
++ * the patch-0017 flip-done settle so a lagged GET does not stall flips. */
++int nv2a_pb_true_idle(void)
++{
++    return s_get != 0xFFFFFFFFu && s_get == s_last_put;
++}
++
+ static int      s_in_call;
+ 
+ /* A method whose parameters the walk has not all reached: the header said
+@@ -321,6 +392,8 @@
+ 
+     if (!pb_walk_enabled())
+         return;
++    pb_lag_init();
++    s_last_put = put;
+     if (s_get == 0xFFFFFFFFu) {               /* never resynced: start at PUT */
+         s_get = put, s_pend_left = 0;
+         return;
+@@ -337,10 +410,12 @@
+         uint32_t at, target;
+         uint32_t w;
+ 
++        pb_lag_note(s_get);
+         if (get_reg) {
+             uint32_t g = *get_reg;
+ 
+             if (g != s_pub) {                 /* the title moved GET mid-walk */
++                s_guest_get_moves++;
+                 pb_flow(s_get, 0xFFFFFFFFu, g & PB_PHYS_MASK);
+                 s_get = g & PB_PHYS_MASK;
+                 s_in_call = 0;
+@@ -348,8 +423,8 @@
+                 s_pub = s_get;
+                 continue;
+             }
+-            *get_reg = s_get;
+-            s_pub = s_get;
++            *get_reg = pb_lag_pub(s_get);     /* patch 0033: finite-GPU lag */
++            s_pub = *get_reg;
+         }
+         at = s_get;
+ 
+@@ -438,8 +513,8 @@
+     }
+ 
+     if (get_reg) {                            /* what the poll thread writes too */
+-        *get_reg = s_get;
+-        s_pub = s_get;
++        *get_reg = pb_lag_pub(s_get);         /* patch 0033: finite-GPU lag */
++        s_pub = *get_reg;
+     }
+     /* Patch 0030 (note 0023, H29): the walk just consumed everything
+      * between the GET it started from and PUT — the hardware ring-free
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -740,6 +740,12 @@
+         fprintf(stderr, "  [RERING] drain-edge #%ld param=%08X\n",
+                 (long)n, (uint32_t)p);
+     if (s_ringfree_ev) {
++        static int rf_on = -1;   /* A/B switch for patch 0033 runs */
++        if (rf_on < 0) {
++            const char *e = getenv("RECOMP_RINGFREE_EVENT");
++            rf_on = (e && *e == '0') ? 0 : 1;
++        }
++        if (rf_on) {
+         extern void xbox_host_signal_event(uint32_t);
+         uint8_t *mem = (uint8_t *)xbox_GetMemoryOffset();
+         uint32_t hdr = *(volatile uint32_t *)(mem + s_ringfree_ev);
+@@ -748,6 +754,7 @@
+             InterlockedIncrement(&s_rering_ev);
+             xbox_host_signal_event(s_ringfree_ev);
+         }
++        }
+     }
+     if (!p || !pb_swmethod_on())
+         return;
+--- a/src/kernel/xbox_memory_layout.c
++++ b/src/kernel/xbox_memory_layout.c
+@@ -1548,11 +1548,16 @@
+          * has arrived; hardware would be raising the write back then. */
+         {
+             extern void nv2a_pb_idle_clear_flip_done(void);
++            extern int nv2a_pb_true_idle(void);
+             uint32_t put_v = *(volatile uint32_t *)
+                              ((char *)regs + NV2A_USER_DMA_PUT);
+             uint32_t get_v = *(volatile uint32_t *)
+                              ((char *)regs + NV2A_USER_DMA_GET);
+-            if ((put_v & 0x0FFFFFFFu) == (get_v & 0x0FFFFFFFu))
++            /* Patch 0033: with RECOMP_PB_GET_LAG the published GET runs
++             * behind the walk's real position on purpose; the settle
++             * moment is the internal one, not the register equality. */
++            if (nv2a_pb_true_idle() ||
++                (put_v & 0x0FFFFFFFu) == (get_v & 0x0FFFFFFFu))
+                 nv2a_pb_idle_clear_flip_done();
+         }
+         dsp_ack_tick();

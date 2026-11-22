@@ -581,3 +581,123 @@ H28's healthy load state self-recovered at ~110 s; frz24/26/27 never
 recover within 500 s. Next: frz28 plateau CORE (ABRT detector) full
 thread map to name the waiter that should be pumping device messages
 and what it blocks on.
+
+frz28 CORE RESULT — the pump-freeze IS the parked writer: thread 1
+backtrace `sub_00011560 -> sub_000122C0 -> sub_001E0390 (engine
+submit) -> sub_002D57D0 -> bridge_KeWaitForSingleObject`, r12 =
+`0x2E2F5C` again; the same thread hosts the swap pump, so `eng` and
+`pump` freeze together (they were one symptom, not two). Timeline
+refined: the class-5 NOP is NOT a boot one-shot — census position
+`#2630` of 2632 means D3D pushed it at the FIRST park (by
+`sub_002D54E0`, the writer's wait path, together with the BEW
+marker). Park #1 woke (NOP service + one 0030 re-latch on the single
+post-NOP drain edge: `5C` count 2, `rering latched=1` of 6935 calls
+— the other 6934 edges PRECEDE the NOP). After the re-park, PUT
+freezes, no drain edges remain, no wakes exist: terminal. So D3D
+parks again immediately after being woken — with `iGET == cursor`
+(ring fully drained) and `i0` tracking, its free-space math must
+still come out `< 0x2000` or negative. frz29 adds the `sub_002D55B0`
+census wrapper (`[FREE] GETv= w= size= blk+4= -> free=`) to name the
+stuck term in that arithmetic; core + log per run.
+
+frz29 RESULT — D3D8LTCG ring-writer protocol FULLY lifted (the
+free-calc alone never explained the park; the lift does):
+- `sub_002D57D0` (writer, runs ON the engine-submit thread): alloc
+  block `sub_002D55E0`, GET from `sub_002D5760` (inst+0x44 |
+  0x80000000 — the walk-published DMA GET; arg!=0 selects a
+  hw-register spin variant polling (inst-aperture)+0x400B10 first);
+  writes the block trailer (marker 0x40110 + 0x40100/param-5 words —
+  the class-5 ring-free marks), submits via `sub_002D5C80`, then
+  RE-COMPUTES free = (block+4) − GET via `sub_002D55B0`.
+- free >= 0x2000 (GPU behind at the submit instant) → `loc_002D5911`:
+  `edi=MEM32(0x3157E4)` = kernel thunk **KeWaitForSingleObject**
+  (ordinal 159, import table verified), loop
+  `while (KeWaitForSingleObject(ctx+0x1DCC, 6, 1, 0, 0))` — event
+  0x2E2F5C, INFINITE, and the loop has NO free re-check: it exists
+  only while the event keeps firing.
+- frz29 core: event header 0x2E2F5C = 0x00040000 → **Type 1
+  synchronization event**, SignalState 0 (consumed); thread 1 in the
+  first wait of that loop; inst block GET==PUT==0x13A084, cursor
+  0x8013A0AC, BEW sem +0=0x3371 (patch 0031 working); the [FREE]
+  census fired once per run = the park itself (free=0x353C, GET
+  176 KB behind cursor).
+- Plateau recipe: one big block crosses the 0x2000 free gate while
+  our per-tick GET publication is stale → park → the single class-5
+  wake (patch 0030 re-latch / walk-drain NOP) fires once →
+  synchronization event consumed → the loop re-waits forever; the
+  writer IS the engine submit + swap pump, so every [SWAP] counter
+  freezes together. frz18 (healthy) = the gate never tripped.
+- On hardware the PM raises ring-free on EVERY pushbuffer drain, so
+  the standing arm keeps the event coming and the loop spins in
+  lock-step with the GPU. Our emulation drains the ring inside one
+  tick and signals once. Fix = patch 0032: register the event object
+  (ctx+0x1DCC = 0x2E2F5C) with the executor; on each walk drain edge
+  (`nv2a_pb_rering_free_drained`, the 0030 hook) write SignalState
+  and `SetEvent` the ke shadow — the PM ring-free interrupt wiring we
+  do not model, same class of host fix as the 0017 flip-done mirror.
+  Verify frz30.
+
+frz30 RESULT — patch 0032 fires (rering `ev=8761`: every drain edge
+signals the shadow event + guest SignalState) but the plateau
+SURVIVES: thread 1 still parked in the `while
+(KeWaitForSingleObject(0x2E2F5C,6,1,0,0))` loop (lift byte-verified
+by capstone: `test eax,eax; jne loop` — exit ONLY when the wait
+returns 0/Failed; a synchronization event cannot keep that loop
+alive as a spin-and-recheck; it simply re-waits). Guest stack
+decoded from the core: args frame at esp = (0x2E2F5C, 6, 1, 0, 0) —
+the thunk pops its own return address; saved esi=ctx+0x1DCC,
+ebp=0x2E12C4 (block descriptor), block+4 = 0x8022F620, cursor
+0x8023B228, published GET 0x8023B200, size 0x2FF900 — the writer's
+gate arithmetic evaluates free = (block+4) − GET = **−0xBBE0: the
+GPU (us) already consumed 48 KB PAST the block the writer is
+serving.** The queue of submitted-but-unprocessed blocks lags GET.
+
+That is the real asymmetry: hardware's GPU is SLOWER than the CPU
+block-pump, so GET never overtakes the queue and the js/jb gate is
+never true; our synchronous walk publishes GET==PUT (infinitely
+fast GPU), overtakes the queue, and the gate parks the engine
+thread in a wait that can only end on wait-FAILURE. frz18 (card
+presented) = timing luck: the queue stayed ahead of GET.
+- Patch 0033: publish GET behind the consumption trail by
+  `RECOMP_PB_GET_LAG` bytes (snapshot ring of visited positions, so
+  JUMP/CALL segments are followed); internal walk position
+  unchanged; `nv2a_pb_true_idle()` keeps the 0017 flip-done settle
+  honest while the register lags; 0032 gets an A/B switch
+  (`RECOMP_RINGFREE_EVENT=0`). frz31 = lag 0x20000, 0032 OFF:
+  expect js/jb never trips, no 5911 wait, pump/eng climb, first
+  PRESENTED level frame.
+
+frz31/32 RESULT — the register-lag lever is BLIND: the title itself
+writes the channel-block GET mirror. Instrumented probe (frz32):
+`guest-GET moves=5036` ≈ one per walk call (5039) — D3D's KickOff
+restart path stores its OWN optimistic GET (≈ last PUT, cursor−0x30)
+into `inst+0x44` every kick, overwriting our lagged publication
+(`pub` trail lag verified working: got=002CB568 pub=0025F338 while
+census iGET=002CB568 = the guest's own value). So D3D's free calc
+reads its own optimistic GET, not our register: the js gate trips
+whenever D3D's own block queue lags its own bookkeeping by >0x2000
+(frz30 core: 48 KB) — a pacing starvation of the guest's pump under
+our emulated-CPU contention, not something the GET register can
+influence. frz31 also shows ctx+0x44 (ring size word) never
+programmed (size=0 in every census line, even try=1) while frz29/30
+cores read 0x2FF89x there — D3D's init path diverged under 0033;
+and the wait branch reached was the POST-WRITE gate (58B1:
+free=0x57A0 ≥ 0x2000 → 5911 loop), thread 1 via caller
+`sub_002D0E60` — a third caller of the writer.
+Deeper puzzle logged: the 5911 loop `while (KeWait(5C,6,1,0,0));`
+has NO exit except wait-FAILURE, and the event object at ctx+0x1DCC
+was never created through a bridge (no [EVENT] create line) —
+hand-built KEVENT. On hardware this branch is either never taken or
+the wait must fail instantly; the frz29/30 cores prove our wait
+BLOCKS. So the gate reaching 5911 is the anomaly in our timing.
+Next levers: (a) reduce guest pump starvation — flip/vblank pacing
+and IO-thread contention (the queue lag grows during the load
+phase); (b) audit WHY the writer's queue lags: callers 002D3640 /
+001E03D8 / 001F8D41 cadence vs submit (w2C−blk0 delta census);
+(c) reconsider 0032 with a per-drain DELIVERY audit — the event
+fires (ev=8761) but the waiting thread never returns; maybe the
+wait should FAIL (return 0) for a hand-built event with no shadow,
+matching hardware's instant-exit branch — check what
+ke_shadow_lookup(0x2E2F5C) returns in our runs (if a shadow exists
+it blocks; if not, XBOX_TO_NATIVE(handle) wait may be failing with
+WaitFailed=0 → loop exits → matches hardware!).

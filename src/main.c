@@ -310,6 +310,15 @@ int main(int argc, char **argv)
     extern void nv2a_pb_set_flip_done_chain(unsigned, unsigned, unsigned);
     nv2a_pb_set_flip_done_chain(0x002E3638u, 0x934u, 0x8700u);
 
+    /* Patch 0032 (note 0023, H29): the D3D8LTCG ring-free event object
+     * ctx + 0x1DCC = 0x002E2F5C (synchronization KEVENT, header read
+     * 0x00040000 in the frz29 core). Hardware re-raises PM ring-free on
+     * every pushbuffer drain; without a per-drain signal the ring
+     * writer's INFINITE wait loop at sub_002D57D0+0x2141 parks the
+     * engine-submit thread and the whole swap chain freezes (frz26-29). */
+    extern void nv2a_pb_set_ring_free_event(unsigned);
+    nv2a_pb_set_ring_free_event(0x002E2F5Cu);
+
     /* Step 3: Bring up the emulated APU, gated on the same variable that
      * unmaps its registers for trapping. */
     if (getenv("RECOMP_AC97_READY")) {

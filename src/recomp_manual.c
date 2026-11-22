@@ -990,6 +990,39 @@ void sub_002D5C80(void)
     sub_002D5C80_gen();
 }
 
+/* H29 census (note 0023, frz29): the ring free-space calculator
+ * sub_002D55B0 (lifted): eax = GET VA on entry; edx = MEM32(esi)
+ * CPU cursor; wraps via MEM32(esi+0x44) (ring size); arg block+4 =
+ * the allocation's start cursor; returns wrapped free (clamped to 0
+ * when negative). The writer's wait branch is (free < 0x2000). Print
+ * the whole tuple during the plateau so the stuck term is named. */
+extern void sub_002D55B0_gen(void);
+void sub_002D55B0(void)
+{
+    extern __thread uint32_t g_eax;
+    uint32_t in_eax, w, size, blk4;
+    if (!pres_trace_enabled()) {
+        sub_002D55B0_gen();
+        return;
+    }
+    in_eax = g_eax;
+    w = MEM32(0x2E3638u);
+    {
+        uint32_t ctx = w;
+        w = (ctx >= 0x1000u) ? MEM32(ctx) : 0u;
+        size = (ctx >= 0x1000u) ? MEM32(ctx + 0x44) : 0u;
+        blk4 = MEM32(MEM32(g_esp + 4) + 4);
+    }
+    sub_002D55B0_gen();
+    {
+        static unsigned n;
+        if (n++ < 40 || (n & 0xFFFu) == 0)
+            fprintf(stderr, "  [FREE] GETv=%08X w=%08X size=%08X blk+4=%08X"
+                            " -> free=%08X\n",
+                    in_eax, w, size, blk4, g_eax);
+    }
+}
+
 void sub_002D55E0(void)
 {
     if (!pres_trace_enabled()) {

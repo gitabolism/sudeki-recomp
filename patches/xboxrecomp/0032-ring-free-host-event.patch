@@ -1,0 +1,77 @@
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -9236,6 +9236,24 @@
+ }
+ 
+ /* --- KeSetEventBoostPriority (ordinal 146, 2 args = 8 bytes) --- */
++/* Patch 0032 (note 0023, H29): host-signalled KeSetEvent for a guest event
++ * object, used by the NV2A walk on each ring-drain edge (hardware raises the
++ * PM ring-free interrupt there; Sudeki's D3D8LTCG ring-free event 0x2E2F5C is
++ * its software equivalent, and its ring writer parks forever without the
++ * per-drain signal). Same guest-state update as bridge_KeSetEvent above; the
++ * shadow lookup is lock-guarded (patch 0027). Call only from host threads
++ * outside guest code, never as a bridge. */
++void xbox_host_signal_event(uint32_t guest_va)
++{
++    HANDLE h;
++
++    if (BRIDGE_MEM32(guest_va + 4) == 0)
++        BRIDGE_MEM32(guest_va + 4) = 1;
++    h = ke_shadow_lookup(guest_va);
++    if (h)
++        SetEvent(h);
++}
++
+ static void bridge_KeSetEventBoostPriority(void)
+ {
+     uint32_t guest_va = STACK_ARG(0);
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -717,6 +717,19 @@
+ static volatile LONG s_class5_param;
+ static volatile LONG s_rering_call;   /* drain edges seen by the walk */
+ static volatile LONG s_rering_lat;    /* ...that reached the latch */
++static volatile LONG s_rering_ev;     /* ...that reached the host event (0032) */
++
++/* Patch 0032 (note 0023, H29): the D3D8LTCG ring-free event object (its
++ * wait loop at sub_002D57D0 loc_002D5911 is `while (KeWaitForSingleObject(
++ * ctx+0x1DCC, 6, 1, 0, 0))` — INFINITE, synchronization event, frz29 core).
++ * D3D arms its ring-free NOP exactly once; hardware re-raises the PM
++ * ring-free source on EVERY pushbuffer drain, and the guest's standing
++ * chain converts that to KeSetEvent. The NOP re-latch (patch 0030) models
++ * the same edge through the guest service chain but delivered zero second
++ * wakes in frz25/26; wire the edge straight to the event object instead,
++ * like the flip-done mirror (0017) wires the flip completion word. */
++static uint32_t s_ringfree_ev;
++void nv2a_pb_set_ring_free_event(uint32_t guest_va) { s_ringfree_ev = guest_va; }
+ 
+ /* Called by the DMA walk each time it drains to PUT. */
+ void nv2a_pb_rering_free_drained(void)
+@@ -726,6 +739,16 @@
+     if (n <= 5)
+         fprintf(stderr, "  [RERING] drain-edge #%ld param=%08X\n",
+                 (long)n, (uint32_t)p);
++    if (s_ringfree_ev) {
++        extern void xbox_host_signal_event(uint32_t);
++        uint8_t *mem = (uint8_t *)xbox_GetMemoryOffset();
++        uint32_t hdr = *(volatile uint32_t *)(mem + s_ringfree_ev);
++        if (((hdr & 0xFFu) == 0 || (hdr & 0xFFu) == 1)
++                && ((hdr >> 16) & 0xFFu) == 4) {
++            InterlockedIncrement(&s_rering_ev);
++            xbox_host_signal_event(s_ringfree_ev);
++        }
++    }
+     if (!p || !pb_swmethod_on())
+         return;
+     InterlockedIncrement(&s_rering_lat);
+@@ -746,8 +769,8 @@
+                     "ack=%ld\n",
+             (long)s_lat_direct, (long)s_lat_enq, (long)s_lat_drop,
+             (long)s_lat_pop, (long)s_ack_done);
+-    fprintf(stderr, "  [NOPSW] rering calls=%ld latched=%ld\n",
+-            (long)s_rering_call, (long)s_rering_lat);
++    fprintf(stderr, "  [NOPSW] rering calls=%ld latched=%ld ev=%ld\n",
++            (long)s_rering_call, (long)s_rering_lat, (long)s_rering_ev);
+ }
+ 
+ /* Is [addr, addr + bytes) inside memory the guest owns? That is ordinary RAM
