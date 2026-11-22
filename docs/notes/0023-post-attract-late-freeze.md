@@ -1127,3 +1127,123 @@ frz59 = 0038 live, single instance, PID-targeted ABRT. Question:
 does the boot era stop dead-locking on the bit6 junk mark, and does
 the run reach the level era (frz45's 217 s / 4636-flip territory) at
 all?
+
+frz56 (v5 + ED20 census, regenerated tree) — REGRESSION FOUND AND
+ROOT-CAUSED, and it exposes a real H29/H30 mechanism:
+
+(a) Harness/regression note: frz56 froze in the BOOT era (1 flip, 9
+threads, main thread inside the swap chain sub_001E0680 ->
+sub_002D35A0 -> sub_002D3560 -> sub_002D3420). The regeneration I
+ran without `--seed` was NOT the cause (tools.recomp has no seed
+flag; the seeds live in the disasm/func_id outputs which were not
+regenerated — verified: sub_0011C640/sub_00027430/sub_0004FCD0 are
+in recomp_funcs.h, stubs 432/432 agree). The ED20 wrapper is inert
+(0 calls at that stage). So this is a run-level variant of the same
+disease, caught much earlier than frz49/51.
+
+(b) The core (sudeki.frz56.core) is the cleanest picture of the wall
+we have: mark machinery `sw_latched=1 sw_seen=0 last_param=06D00141`
+and the aperture words ALL ARMED (PMC_INTR=0x1000, PGRAPH_INTR=1,
+PGRAPH 0x400108=0x06D00141, 0x400704 TRAP=0x100, 0x400708
+TRAP_DATA=0x06D00141); DPC queue empty (6/6), gate free,
+irql_raised_count=1; census `[GSVC]` pump entries >=400 with
+`INTR=00000001 TRAP=00000100 PARAM=06D00141` (gate words
+satisfied!) but only 3 `[SWM]` dispatcher entries all run.
+=> the guest's service chain ENTERS the pump with our mark visible
+and leaves without dispatching it.
+
+(c) Lifting the pump body explains it exactly (recomp_005x
+sub_002DB250_gen, loc_002DB2CF):
+    test LO8([regs+0x400108]), 0x40   -> jne exit (no dispatch)
+    cmp  [regs+0x400704]&0x1FFC, 0x100 -> jne -> call sub_002DB760
+    else call dispatcher sub_002DB4A0 (the 0x2DB2E9 site)
+So the guest's own service gate rejects any mark whose PARAM word has
+bit6 SET. Our latch arms the aperture with the NOP's *data* word, so
+NOPs whose data has bit6 set (0x06D00141: LO8=0x41) are latched,
+arm the trap quartet, are structurally undispatchable by the guest,
+and (because the latch queues while PGRAPH_INTR is busy) they sit in
+front of the real swap/ring-free marks. The v4 hold-until-seen rule
+then keeps them armed forever by design -> the swap wait never
+completes -> at the worst moment it is the boot chain that dies.
+Corollary for the earlier censuses: `rearm=1333/ack=1885` (frz54)
+and `rearm=1132` (frz53) are largely THESE ignored NOPs, not
+servicing noise: the walk latches every non-zero class-5 NOP, the
+guest ignores bit6-set ones by protocol.
+
+Fix candidate 0038 (host-side, in nv2a_pb_swmethod_latch): do not
+arm a mark the guest's own gate would reject — `if (param & 0x40)
+return` (counted, `RECOMP_SWMARK_GATE=0` opts out for A/B). Hardware
+analogue: those NOPs are executed by the front-end without raising a
+software-method trap at all; only the protocol NOPs (bit6 clear,
+low-5-bit class = 1/8/9...) trap. Expect: rearm -> ~0, the real
+swap marks stop queueing behind junk, boot-era freeze gone, and the
+frz45/frz53 plateau (same mechanism, later era) with it.
+
+frz57 (no 0038, ED20 census live): plateau at 203 flips — the
+MS-logo-movie-era variant. `[GSVC]` pump entries show the
+DISPATCHABLE params (0DF80101 x43, 10500101 x39, 00000009 x13),
+`latch direct=215 ack=215 rearm=163 seen_l=52 consume=52` — so this
+variant is not the bit6 class; and the ED20 census printed NOTHING:
+the device-message handler sub_0011ED20 is not in play yet in this
+era (the swap pump is driven from the engine-submit site 0x1E0687
+instead — the 0x11EDCC/EF3E/EF4D sites belong to the later load
+era). Its core is symbol-unmatched (I rebuilt build/sudeki while the
+run was live — harness error) so no state read; superseded.
+
+frz58 = VOID, harness error #2: frz57's detector used
+`pkill -ABRT -f 'build/sudeki'`, a pattern, and frz58 was live at the
+time — the sibling's detector aborted frz58 at ~15 s (single fps
+report, 1 flip, `timeout: the monitored command dumped core`, no
+plateau line). Two-instance overlap is the root error again. Probe
+scripts now (a) refuse to start if any sudeki is running and (b)
+ABRT their OWN pid. Useful salvage from the void run: the 0038 gate
+FIRED (`[NOPSW] gate: param=06D00141 bit6-set, not a service mark`)
+and the mark accounting in those 15 s was clean
+(latch direct=13 ack=13 idle=12 rearm=1 seen_l=12 consume=12).
+
+frz59 (0038 LIVE, single instance) — 0038 did NOT fix the disease,
+but the run is the deepest census we have: boot era froze at 1 flip
+for ~4 minutes (same 06D00141 armed-but-undispatchable mark — in
+that build the patch file was helper-only, never called: extraction
+bug, fixed; gate lines prove the inline version was live in frz58,
+yet ONE junk mark still sat armed — check: `gate: param=06D00141`
+count=1 in frz59, i.e. the filter fired once, and the boot-era freeze
+still happened at 1 flip). Then the run climbed to 1511 flips
+(MS-logo + ClimaxLogo movies played, speech_xwb/TSA streaming,
+501 [FILE] opens — deeper than frz53) and plateaued again
+(pump=1511=eng=1511=flips=1511, issue climbing at 30/s).
+
+frz59 CORE (sudeki.frz59.core, matches build/sudeki):
+  - main thread NOT parked: sub_001DE310 -> sub_002C3200 (frame loop
+    calling the Present API) -> sub_002C31A0. Engine alive.
+  - mark machinery QUIET (latched=0, FIFO empty); 1523 latches,
+    only 353 ever seen (rearm=1170, trap_idle=658);
+  - ring walk fully drained (GET==PUT=0x2603F8);
+  - the corrected aperture probe (0x1000704/0x1000708, not 0x400704 —
+    frz56's bt read the WRONG window there, correction recorded
+    below) shows TRAP=0x100, TRAP_DATA=06D00141: a latched mark that
+    the guest never consumes;
+  - threads: 20 raster workers idle, IO readers in XAPILIB waits.
+
+frz59 LOG PARADOX (drives the next census): at the plateau the
+[PRES] histogram still attributes 64/s ring-writer calls to site
+0x2D3640 (INSIDE the pump body sub_002D35A0) and 64/s to 0x1E03D8
+(INSIDE the engine-submit body sub_001E0390), while the wrapper
+counters pump/eng read frozen. Either swap_census_on() is lying on
+those entries, or the return-site attribution is stale-stack fiction
+(calls reaching sub_002D57D0 without a fresh return VA). frz60
+census resolves it: g_swap_pump2/g_eng_submit2 count UNCONDITIONALLY
+(`[SWAP2]` line) + per-caller-site doubling histograms `[PUMP]
+n=… from=` / `[ENG] n=… from=` name the feeder sites and prove
+whether the wrappers run at the plateau.
+
+(CORRECTION to the frz56 section above: `PGRAPH 0x400108` etc. are
+offsets into the PGRAPH window; the host aperture addresses are
+0x…000100 (PMC) and 0x…100100/108/1000704/1000708 — the earlier bt
+probe read 0x400100/400704 inside the aperture = the SW-method TRAP
+quartet IS at aperture+0x1000704 in this build. frz56's
+"PGRAPH 0x400108=06D00141" line actually read offset 0x400108 =
+aperture+0x400108, which is a different (unused) window; the correct
+reading of frz56's own data: PMC_INTR=0x1000, PGRAPH_INTR=1 at
+0x…4600100, TRAP=0x100 + TRAP_DATA=06D00141 at 0x…600704/08. Same
+conclusion: mark armed, undispatchable.)
