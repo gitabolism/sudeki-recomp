@@ -1,0 +1,45 @@
+diff --git a/src/kernel/kernel_bridge.c b/src/kernel/kernel_bridge.c
+index b6e73e0..01eafc7 100644
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -1991,9 +1994,9 @@ static void bridge_NtCreateEvent(void)
+         bridge_write_handle(handle_ptr, local_handle);
+     }
+ 
+-    fprintf(stderr, "  [BRIDGE] NtCreateEvent: handle_ptr=0x%08X type=%u init=%u → status=0x%08X handle=0x%08X\n",
++    fprintf(stderr, "  [BRIDGE] NtCreateEvent: handle_ptr=0x%08X type=%u init=%u → status=0x%08X handle=0x%08X from=0x%08X\n",
+             handle_ptr, event_type, initial_state, (uint32_t)status,
+-            (uint32_t)(uintptr_t)local_handle);
++            (uint32_t)(uintptr_t)local_handle, g_xbox_kernel_caller);
+ 
+     g_eax = (uint32_t)status;
+ }
+@@ -2158,10 +2182,11 @@ static void bridge_NtWaitForSingleObjectEx(void)
+     uint32_t timeout_ptr = STACK_ARG(3);
+ 
+     static int logged = 0;
+-    if (logged++ < 20) {
++    if (logged++ < 300) {
+         fprintf(stderr, "  [KERNEL] NtWaitForSingleObjectEx: token=0x%08X "
+-                "handle=%p timeout=%s\n",
+-                STACK_ARG(0), handle, timeout_ptr ? "finite" : "INFINITE");
++                "handle=%p timeout=%s from=0x%08X\n",
++                STACK_ARG(0), handle, timeout_ptr ? "finite" : "INFINITE",
++                g_xbox_kernel_caller);
+         fflush(stderr);
+     }
+ 
+@@ -2228,9 +2253,10 @@ static void bridge_NtWaitForMultipleObjectsEx(void)
+ 
+     {
+         static int logged;
+-        if (logged++ < 20) {
+-            fprintf(stderr, "  [KERNEL] NtWaitForMultipleObjectsEx: count=%u type=%u timeout=%s\n",
+-                    count, wait_type, timeout_ptr ? "finite" : "INFINITE");
++        if (logged++ < 300) {
++            fprintf(stderr, "  [KERNEL] NtWaitForMultipleObjectsEx: count=%u type=%u timeout=%s from=0x%08X\n",
++                    count, wait_type, timeout_ptr ? "finite" : "INFINITE",
++                    g_xbox_kernel_caller);
+             for (i = 0; i < count; i++)
+                 fprintf(stderr, "      [%u] token=0x%08X host=%p\n", i,
+                         BRIDGE_MEM32(handles_va + i * 4), handles[i]);

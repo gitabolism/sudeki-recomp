@@ -1,0 +1,37 @@
+diff --git a/src/kernel/kernel_bridge.c b/src/kernel/kernel_bridge.c
+index b6e73e0..f874ee2 100644
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -4727,19 +4754,28 @@ static int bridge_handle_is_async(uint32_t token)
+     for (i = 0; i < BRIDGE_ASYNC_MAX; i++)
+         if (g_async_handles[i] == token)
+             return 1;
+     return 0;
+ }
+ 
+-/* Off unless RECOMP_ASYNC_IO is set, so the two behaviours stay comparable
+- * rather than one being swapped in blind. */
++/* Patch 0014 (sudeki-recomp — note 0010 post-script 4): ON by default.
++ *
++ * A real Xbox kernel returns STATUS_PENDING for reads on an async handle
++ * even when the data is already in hand, and titles written against that
++ * contract carry their completion bookkeeping in the caller (Sudeki's boot
++ * archive reader double-charges its byte budget when the read answers
++ * synchronously — one 0x8000 segment never gets read, and the decoder
++ * starves). The upstream default stays comparable via RECOMP_ASYNC_IO=0,
++ * which now opts OUT. Opting out reproduces the pre-0014 behaviour. */
+ static int bridge_async_io_enabled(void)
+ {
+     static int on = -1;
+-    if (on < 0)
+-        on = getenv("RECOMP_ASYNC_IO") ? 1 : 0;
++    if (on < 0) {
++        const char *v = getenv("RECOMP_ASYNC_IO");
++        on = (v && (!*v || *v == '0')) ? 0 : 1;
++    }
+     return on;
+ }
+ 
+ /* ── NtReadFile (ordinal 219, 8 args = 32 bytes) ──────── */
+ static void bridge_NtReadFile(void)
+ {

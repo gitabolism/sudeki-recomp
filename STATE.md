@@ -3,19 +3,18 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-21 (session 4f)
-**Stage:** LIFT complete, ENTRY evidence strong. **Decoded the boot
-archive end-to-end for the first time (note 0010, post-script 3):**
-with a diagnostic +0x8000 file-size padding, `Z:\boot.baf` came out at
-exactly 1,820,672 B **byte-identical** to the offline golden decode; no
-flood, no crash. The stream is the whole file [0x800, 0xA6000) with END
-at 0xA5E0D (note 0009 was right; an earlier "padding" reading this
-session was falsified by the experiment). Wall now = the game's stream
-byte-accounting starves reads **exactly one 0x8000 segment** short of
-the END token (phantom refill charge `budget -= [+0x3C]` on the
-consume path) under our/xemu kernel answers — find the answer
-hardware gives differently, host-side. Beyond that: events
-`0x48000001/04/06` still never signalled post-decode (next layer).
+**Last updated:** 2026-11-21 (session 4g)
+**Stage:** LIFT complete, ENTRY evidence strong. **SOLVED the boot-archive
+wall (note 0011, patch 0014):** the phantom 0x8000 was our bridge
+returning `STATUS_SUCCESS` synchronously for reads on **async** handles.
+Real kernel answers `STATUS_PENDING (0x103)`; the game's init
+(`sub_000221C0`) then does the completion charge once instead of
+double-charging (refill + init). Patch 0014 flips upstream
+`RECOMP_ASYNC_IO` to default-ON. With default env + disc-exact
+`game/boot.baf`: 22 reads cover the whole file, `Z:\boot.baf` =
+1,820,672 B **byte-exact golden**, cache 1.8 MB, **no crash, no flood,
+no padding games**. Wall now = post-decode events `0x48000001/04/06`
+never signalled (HANG, idle wait).
 
 ## Where things are verified
 
@@ -31,24 +30,49 @@ hardware gives differently, host-side. Beyond that: events
   `RECOMP_CONTIG_ALIAS=1` aperture probe (default off), `0008` `[READ]
   buf=` VA, `0009` `RECOMP_IO_WRITE_DUMP` content dump, `0010` `[READ]
   sz=/path=`, `0011` `[QINFO]` size-query trace, `0012`/`0013`
-  `RECOMP_WATCH` arm fixes (errno, multi-page window). Table in
-  THIRD_PARTY.md.
-- XBE: pinned SHA-256 ✔. Gen tree unchanged since session 1 (432 stubs).
+  `RECOMP_WATCH` arm fixes (errno, multi-page window), **`0014` async-IO
+  return convention = the boot-archive fix**. Table in THIRD_PARTY.md.
+  Manual overrides: `--exclude-manual src/recomp_manual.c` now wired into
+  `scripts/pipeline.sh`; first wrapper = `sub_00022340` (stream refill) +
+  `RECOMP_REFILL_TRACE=1`; gen tree emits the body as `sub_00022340_gen`,
+  stubs still 432.
+- XBE: pinned SHA-256 ✔. Gen tree regenerated session 4g with
+  `--exclude-manual` (one body renamed `sub_00022340_gen`; 432 stubs).
 - Skills: five pinned, digest gate green.
 
 ## Last run
 
-Padded diagnostic: `scripts/run.sh 45 RECOMP_WATCHDOG_SECS=40
-RECOMP_KERNEL_LOG_BUDGET=0 RECOMP_EVENT_LOG=1` with `game/boot.baf`
-temporarily +0x8000 (reverted; sha `b6e5751c…` confirmed)
-→ `logs/run-20261121-175351.log`: **HANG (post-decode idle)** — decode
-completed byte-exact, cache 1.8 MB, no crash; main polls
-`0x48000004`, worker ctx `0x00021AD0` waits INFINITE on {1,6}; only
-`0x48000002` ever set. Prior cap-off run
-(`logs/run-20261121-175151.log`) HANG 4.1 GB: no natural termination
-when reads are starved.
+Default env, disc-exact `game/boot.baf` (sha `b6e5751c…`), patch 0014
+in the series: `scripts/run.sh 40 RECOMP_WATCHDOG_SECS=35
+RECOMP_KERNEL_LOG_BUDGET=0 RECOMP_EVENT_LOG=1`
+→ `logs/run-20261121-191748.log`: **HANG (post-decode idle)** — 22
+reads cover the whole real file (final `@657408 want=22528` = END-token
+region); `Cache/boot.baf` = 1,820,672 B `cmp` **byte-exact vs golden**;
+cache 1.8 MB, no flood, no crash. Steady state: 70 finite waits on
+`0x48000004` (worker B poll), pump INFINITE `{0x48000007,1}`, main
+INFINITE on `0x48000002` (its own rendezvous event, set once, consumed).
 
-## Solved / established this session (note 0010)
+## Solved this session (session 4g, note 0011)
+
+1. **The phantom 0x8000 = the sync-read return convention (patch 0014).**
+   First manual-override wrapper (toolkit `--exclude-manual` contract,
+   now in `pipeline.sh`; `RECOMP_REFILL_TRACE=1`) showed refill #1
+   charging 0x8000 AND init (`sub_000221C0` @0x22215) charging it again —
+   double-charge of the prefetch segment, only reachable when NtReadFile
+   answers `STATUS_SUCCESS` synchronously on an **async** handle (open
+   options `0x4C`: no FILE_SYNCHRONOUS bit; bridge already records such
+   handles). Hardware answers `STATUS_PENDING`; the game's flag-2 consume
+   path then charges once. Patch 0014 = upstream `RECOMP_ASYNC_IO`
+   default-ON, `=0` opts out.
+2. Consequence: boot archive decodes **byte-exact on the disc-exact file**
+   with default env (44 refill calls vs 9,948; no flood, no crash). The
+   note-0010 padded-file result was compensating errors, not a lever.
+   H14/H15 closed; no file-slack decision needed (queue item 3 dropped).
+3. xemu's identical 0x9E000 stop is xemu answering the same convention
+   wrongly — consistent, not corroborating. Reference-comparison caveat
+   updated in note 0011.
+
+## Established in session 4f (note 0010)
 
 1. **Stream boundary** *(superseded by item 7 below — tail is real
    stream)*: reads/prefetch/budget close at 0x9E000 under our kernel
@@ -124,62 +148,67 @@ when reads are starved.
 
 ## Live hypotheses
 
-1. **H14 (primary, note 0010): token-level divergence at the stream
-   EOF.** Guest and offline parser agree through the entire valid stream
-   (common output prefix ends exactly at input 0x9E000 = first padding
-   byte); then the guest consumes non-file bytes (ring residue / stale
-   heap) and diverges. The exact token mechanism (tag-bit carry across
-   the valid end? the phantom 0x8000 budget charge?) needs a guest
-   token trace.
-2. **H15 (new lead): the hardware read path must reach file end
-   (0xA6000) and the END token at 0xA5E0D** — then output == header
-   exactly (note 0009's exact-size result is the hardware path, not a
-   coincidence). Our budget starves exactly 0x8000 short via one
-   phantom refill charge (double-charge structure at 0x2236F/0x223D1,
-   `budget -= [+0x3C]` on both the consume and post-read paths). The
-   question narrows to: which host-visible answer (read return,
-   position write, IoStatus.Information) makes the game's own
-   accounting stop charging early?
-3. **H13b/H13c dead**: the xemu HDD image holds only an erased
+1. **H14/H15 CLOSED (session 4g, note 0011):** the phantom 0x8000 was
+   the sync `STATUS_SUCCESS` return on async handles; patch 0014
+   (async PENDING default) makes the boot-archive decode complete
+   byte-exact on the disc-exact file. No file-slack/geometry theory
+   needed at all.
+2. **H16 (primary, post-decode wall, refined by core+budget runs):**
+   three-way deadlock after the pump drains the boot-archive task:
+   worker A pump `sub_001EABD0` INFINITE `{0x48000007, 0x48000001}`;
+   worker B `sub_00021B90` polls `0x48000004` forever; main INFINITE on
+   `0x48000002` (set once by main itself @esp `0x00F7FB0C`, auto-reset,
+   consumed by an earlier wait). Task posters that set 1/4
+   (`sub_00021CD0`@0x21D7F, `sub_000220E0`@0x22147) never run because
+   main is parked. Open question: main's `sub_00011DE0` waits token 2
+   *after* setting it once itself — likely it waits **twice** by design
+   and expects a second set from a producer that our semantics starved,
+   or the XAPI create (all `type=0` Notification) conflates a
+   manual-reset/semaphore variant. Investigate main's chain
+   `sub_00011560 → sub_00012090 → sub_00011DE0` + `sub_0026D47C`.
+3. **H17 (check first, cheap): async reads may have unblocked other
+   subsystems too** — compare the new run's ordinal histogram and file
+   activity vs `logs/run-20261121-172449.log`: more ordinals / new
+   opens (D:, X:, Y:) would say the title gets further overall.
+4. **H13b/H13c dead**: the xemu HDD image holds only an erased
    `boot.baf` cache-dir entry; xemu runs the title from the same ISO
    XDVFS (size 0xA6000) we do — hence byte-identical read totals.
    Unlimited-cap run (cache cap off): the decoder writes forever
-   (4.1 GB @ 45 s) — no natural termination exists on this geometry.
-4. H9 (FATX mount/geometry) still queued behind these.
+   (4.1 GB @ 45 s) — that was the starved-geometry behaviour only.
+5. H9 (FATX mount/geometry) still queued behind these.
 
 ## Queue (next concrete actions)
 
-1. **Event-creation trace (patch 0014):** log `NtCreateEvent`/
-   `NtOpenEvent` with token + caller VA; re-run the padded diagnostic
-   (revert file after!) and map who creates `0x48000001/04/06` and
-   which code path should signal them post-decode → frame the next wall.
-2. **Phantom 0x8000 hunt (static):** full disasm of `sub_00022340`
-   (0x22340–0x223F0 captured in note 0010) + find every `call 0x22160`
-   site (capstone scan for E8 rel32) — the decoder object carries
-   events 0x48000009/0A at +0x8/+0xC and T=0x8000 (size arg 0x18000),
-   so its construction site is not the 0x1f328 one; reconcile the
-   refill double-charge with the observed slot history. Question:
-   which kernel-visible quantity feeds the off-by-one-segment math.
-3. If no kernel-answer explanation survives: presenting the file with
-   +0x8000 (or size-0xA6000-with-slack semantics) is an
-   architectural/legally-tinted decision → STOP and ask per gate.
-4. Keep the offline tool as the oracle: `--eof 0xA6000` is now the
-   correct clamp (whole file); golden = 1,820,672 B confirmed by guest.
-5. Cleanup between runs: `rm -f ~/.local/share/xboxrecomp/Cache/*`
-   (cap-off runs write GBs).
+1. **Read main's stall chain statically**: `sub_0026D47C` (XAPI
+   launch?), `sub_00011560`, `sub_00012090`, `sub_00011DE0` — what
+   should produce the second `0x48000002` set; check XAPI
+   `XCreateEvent`/`XCreateEventEx` (manual reset) usage in the game.
+2. **H17 cheap diff:** ordinal histogram + `[FILE]` opens of
+   `logs/run-20261121-191748.log` vs the 4f reference run.
+3. If main's wait is legitimately first-set-by-another-thread, find the
+   producer path (likely `sub_00012090`'s callee list) and why it never
+   posts (event 1/4 posters `sub_00021CD0/220E0` never called).
+4. The decoder-object construction-site question is no longer load-
+   bearing (T=0x8000 site + events 0x48000009/0A at +0x8/+0xC) — keep
+   only if H16 needs it.
+5. Keep the offline tool as the oracle: `--eof 0xA6000` clamp; golden =
+   1,820,672 B confirmed by guest (two independent worlds now: padded
+   run AND async-default run, same bytes).
+6. Cleanup between runs: `rm -f ~/.local/share/xboxrecomp/Cache/*`
+   (no longer GBs with the fix, but keep the habit).
 
 ## Blockers / open questions
 
-- Which kernel-visible answer produces the phantom 0x8000 charge in
-  the game's refill accounting (us and xemu both starve reads one
-  segment short; hardware evidently doesn't). Static CFG + call-site
-  hunt queued.
-- Post-decode events `0x48000001/04/06`: who creates them, who should
-  signal them, and what stage they gate (event-creation trace queued).
-- Whether the 786 MB of `Z:\boot.baf` written before disk-full is even
-  correct behaviour — now largely explained (starved decoder eating
-  ring residue), but the verdict stays reserved until the pipeline
-  completes against the reference.
+- Post-decode 3-way event deadlock (note 0011 post-scripts): who owns
+  the second `0x48000002` set, and why task-posters `sub_00021CD0/
+  sub_000220E0` (events 1/4) never run — main parked first.
+- xemu's bugcheck (note 0009) must be re-checked against the async
+  semantics before using its STOP screen as a "same wall" baseline —
+  xemu likely mis-answers the same convention; a corrected xemu
+  reference may be possible (config/quirks) or may need its own patch.
+- Whether the 786 MB of `Z:\boot.baf` written before disk-full was ever
+  correct behaviour — explained (starved decoder under the old sync
+  answers); verdict reserved until the reference pipeline matches.
 
 ## Housekeeping facts
 
@@ -211,3 +240,4 @@ when reads are starved.
 | 2026-11-21 s4c | note 0008 + patch 0008 (`[READ] buf=`): reads land in the decoder's own arena (H12 dead), output is valid decoded data (triplet→8-byte expansion), refill returns 0 on every path; watch pre-arming ruled out (stack jitter); SIGABRT-core recipe added | (this commit) |
 | 2026-11-21 s4e | **xemu reference installed (user-approved) & boots the title to OUR wall**: SpiritBoot-release + `-m 128` → `STOP 0x7E` inside `sub_000223F0` byte loop (EIP 0x226D8, flush `call 0x22270`) — same decoder, same runaway cursor as note 0007; VRAM-forensics recipe (FB @0x3C00000, pitch 720) reconstructs the bugcheck screen as `reference/xemu/` artefact; VRAM contention with inference engine ruled out; note 0009 + `scripts/xemu_{ref,kill,boot_probe,standalone}.sh` + THIRD_PARTY reference table | (this commit) |
 | 2026-11-21 s4f | **boot archive decoded end-to-end (note 0010)**: padded-size diagnostic (+0x8000, reverted) → `Z:\boot.baf` = 1,820,672 B byte-exact vs golden, no flood/crash; wall = game's byte accounting starves reads exactly one 0x8000 segment (phantom refill charge) under our+xemu kernel answers; QINFO patch 0011 (size answers correct), watch fixes 0012/0013, core final-state recipe (`obj = esp+0x78`), tool `--eof/--tokens`, xemu-HDD H13b dead, cap-off run proves no natural termination (4.1 GB/45 s); next: events 0x48000001/04/06 unsignalled post-decode | (this commit) |
+| 2026-11-21 s4g | **THE phantom 0x8000 solved (note 0011): patch 0014 async-IO PENDING default = upstream-correct return convention on async handles → decode completes byte-exact with default env on disc-exact boot.baf (22 reads, 1.8 MB cache, HANG not CRASH)**; manual-override contract wired (`--exclude-manual` + `sub_00022340` wrapper + REFILL_TRACE); refill/init double-charge proven; patch 0015 event create/wait/set caller trace; SIGABRT-core thread-map recipe; post-decode wall reframed = 3-way event deadlock (worker pump {7,1}, worker B polls 4, main INFINITE on its own-consumed 2) | (this commit) |

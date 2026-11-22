@@ -44,10 +44,10 @@ extern volatile uint64_t g_icall_count;
 
 typedef void (*recomp_func_t)(void);
 
-/* ── Register state (defined in xbox_memory_layout.c) ──────── */
-
-extern uint32_t g_eax;
-extern ptrdiff_t g_xbox_mem_offset;
+/* ── Register state ────────────────────────────────────────── */
+/* Declared (thread-local, matching the runtime's definitions) by the
+ * generated runtime header — do not re-declare here without RECOMP_TLS. */
+#include "gen/recomp_types.h"
 
 /* ── Manual function overrides ─────────────────────────────── */
 
@@ -85,6 +85,56 @@ extern ptrdiff_t g_xbox_mem_offset;
  *       g_eax = result;
  *   }
  */
+/* ── Boot-archive stream refill wrapper (note 0010, RECOMP_REFILL_TRACE=1) ──
+ *
+ * sub_00022340 is the ring refill of the boot-archive reader. The wall is
+ * one phantom 0x8000 budget charge (20 charges vs 19 chunk reads); the
+ * flag-2 branch at +0x22345 (consume path, charge at +0x2236F) is the
+ * suspect. The toolkit's --exclude-manual scan sees the `extern ... _gen`
+ * line below, emits the lifted body as sub_00022340_gen, and links every
+ * caller against this hand-written wrapper — the original stays reachable,
+ * nothing in gen/ is edited by hand. Prints the object's accounting slots
+ * around every call, so a phantom charge is a (pre,post) delta with no
+ * [READ] line beside it. Slots (crash-core semantics):
+ *   +0x3C last transfer count, +0x40 budget, +0x44 flags byte,
+ *   +0x24/+0x28 ring read/write bufs, +0x10/+0x14 active segment.
+ */
+#include <stdlib.h>   /* getenv (recomp_types.h above declares the state) */
+
+extern void sub_00022340_gen(void);
+
+static int refill_trace_enabled(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        const char *e = getenv("RECOMP_REFILL_TRACE");
+        cached = (e && *e && *e != '0') ? 1 : 0;
+    }
+    return cached;
+}
+
+void sub_00022340(void)
+{
+    if (!refill_trace_enabled()) {
+        sub_00022340_gen();
+        return;
+    }
+    uint32_t obj = MEM32(g_esp + 4);   /* arg; caller's PUSH32 moved g_esp */
+    fprintf(stderr, "[REFILL] obj=%08X pre  bud=%08X cnt=%08X flg=%02X "
+                    "rbuf=%08X wbuf=%08X seg=%08X..%08X io=%08X..%08X\n",
+            obj, MEM32(obj + 0x40), MEM32(obj + 0x3C), MEM8(obj + 0x44),
+            MEM32(obj + 0x24), MEM32(obj + 0x28), MEM32(obj + 0x10), MEM32(obj + 0x14),
+            MEM32(obj + 0x60), MEM32(obj + 0x7C));
+    fflush(stderr);
+    sub_00022340_gen();
+    fprintf(stderr, "[REFILL] obj=%08X post bud=%08X cnt=%08X flg=%02X "
+                    "rbuf=%08X wbuf=%08X seg=%08X..%08X eax=%08X io=%08X..%08X\n",
+            obj, MEM32(obj + 0x40), MEM32(obj + 0x3C), MEM8(obj + 0x44),
+            MEM32(obj + 0x24), MEM32(obj + 0x28), MEM32(obj + 0x10), MEM32(obj + 0x14),
+            g_eax, MEM32(obj + 0x60), MEM32(obj + 0x7C));
+    fflush(stderr);
+}
+
 recomp_func_t recomp_lookup_manual(uint32_t xbox_va)
 {
     /*

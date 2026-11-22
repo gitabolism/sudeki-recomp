@@ -31,7 +31,8 @@ py tools.abi_analysis ../game/default.xbe -v
 
 echo "[pipeline] 5/5 recomp -> src/recomp/gen"
 py tools.recomp ../game/default.xbe --all --split 250 \
-    --gen-dir ../src/recomp/gen --game-name sudeki -v
+    --gen-dir ../src/recomp/gen --game-name sudeki \
+    --exclude-manual ../src/recomp_manual.c -v
 
 echo "[pipeline] done. stub tally:"
 "$ROOT/scripts/stubs.sh"
