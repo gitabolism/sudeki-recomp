@@ -1502,3 +1502,22 @@ unconsumed mark is armed, the dma walk PARKS (does not advance past
 the trapped NOP) instead of continuing to write and re-latch.
 frz69 = v4 + 2048 + extended menu feed, 600 s window (in flight):
 how far does the healthiest regime actually get?
+
+frz70 FINAL (v4 + depth 2048 + 0041 gate, short feed): plateau at
+1807 flips, drop=0 (depth did its job) but enq=1724 vs pop=371 ->
+1353-mark backlog; rering calls=4952 gate=0 latched=0 (the class-5
+param was never armed this era); [SWAP] issue=3537 wait=5
+pump=eng=1807: the engine keeps CALLING XgraphSwap (30/s) while the
+swap-slot credit gate (0x2D3497) and the engine (0x1DE5EF) wait on
+slot completions that need mark dispatch, which the service chain
+(consume=462 in ~245 s = ~2/s) cannot supply at generation rate
+(1807 flips = 7.4/s). CONCLUSION: queue depth and generator gating
+are secondary; the PRIMARY mismatch is that our walk generates
+service marks faster than the guest services them, while hardware
+SUSPENDS the channel at each trapped NOP. Patch 0042 = walk
+suspension: the next trapped NOP does not execute while a mark is
+armed-unconsumed (pb_consume leaves the param unconsumed, GET stays
+behind; census park=/s_park_stops; RECOMP_PB_PARK=0 A/B). frz71
+(strict+park) + frz72 (v4+park) in flight. Expect: slower flips
+(paced to the service rate) but NO plateau; the artefact target is
+unchanged = a presented level frame in reference/fb/frz7[12]*.
