@@ -1555,3 +1555,19 @@ suspension deadlocks even in v4 once the post changes the ack
 cadence. Killed early; 0042's default flipped to OPT-IN
 (RECOMP_PB_PARK=1) and the series re-extracted/verified. frz75 =
 v4 + post, park OFF (the frz66 baseline + 0043) is the live test.
+
+SESSION-4t REGIME MATRIX (all arms: queue depth 2048 unless noted;
+pad feed short unless noted; v4 = RECOMP_ARM_UNTIL_SEEN=0, strict =
+default 0040):
+  frz66  v4                 -> 7113 flips, still climbing at kill  BEST
+  frz68  strict             -> 1850 plateau, 1500-mark backlog
+  frz70  v4 + 0041 gate     -> 1807 plateau (gate=0: no class-5 era)
+  frz71  strict + park      -> 262 plateau (service 0.5/s exposed)
+  frz72  v4 + park          -> 203 plateau
+  frz73  strict + park + post -> 19 flips, boot deadlock
+  frz74  v4 + park + post   -> 0 flips at 47 s, boot deadlock
+  frz75  v4 + post          -> 212 flips, boot-era plateau (issue=0)
+Defaults now: park OPT-IN, post OPT-IN, lifecycle default=strict but
+the healthy regime runs v4 via env. frz77 = MARATHON (frz66 regime
++ sparse nav feed every 60 s, 1500 s window): the artefact hunt —
+first presented level frame in reference/fb/frz77*.
