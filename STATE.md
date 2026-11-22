@@ -3,7 +3,7 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-22 (session 4s)
+**Last updated:** 2026-11-22 (session 4t)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached** —
 `reference/fb/frz1600027.bmp` is the fully textured title screen
 (SUDEKI logo + character art + "Press START" + rain, 37,025 distinct
@@ -68,7 +68,28 @@ First presented level frame = next artefact.
 
 ## Last run
 
-Session 4r (latest): **H29 anatomy COMPLETE (commit `af91f07`)** —
+Session 4t (latest): **mark-machinery regime search (frz62-70, note
+0023)** — the terminal plateau's anatomy is now measured end to end:
+the walk's drain-edge class-5 generator (0030/0032) fires per drain
+(frz69: 3552 edges) far faster than the guest's single-trap service
+chain consumes; when the pending queue (64) overflowed it LOST
+class-5 ring-free + swap marks (frz62 drop=609, frz65 1546) = the
+H30 "feeder frozen" signature. Regime census:
+  v4-churn + queue-depth-2048 (0039) + SHORT pad feed = frz66:
+    3659->7113 flips STILL CLIMBING at kill, no plateau = best.
+  strict one-owner (0040): frz68 froze at 1850 with a 1500-mark
+    backlog (enq=1659 >> consume=335) — weaker regime.
+  dense post-movie pad feed = harmful (frz69 froze at the exact
+    frz62 point 1531; matches the older "dense START distorts the
+    state machine" finding) — feeds reverted to short cadence.
+  Patch 0041 = generator back-pressure (drain edge invisible while
+    a mark is armed; idle-gated pop). frz70 (v4+deep+0041, 600 s)
+    in flight — expect the climb to continue past 7113; first
+    PRESENTED level frame = next artefact.
+  Series 0001..0041 verifies from pin; stubs 432 stable.
+  Shell hygiene: never edit census_run.sh mid-run (live bash
+    re-reads); pin exact log paths in census greps.
+Session 4r (earlier): **H29 anatomy COMPLETE (commit `af91f07`)** —
 three patch-0030 iterations + censuses: v1 ack-thread poll edge never
 observed (drains finish inside a tick); v2/v3 walk-tail drain edge
 FIRES faithfully (`walk work==drained==6098`, `rering latched=1`,
@@ -448,21 +469,24 @@ arr=0).
 
 ## Queue (next concrete actions)
 
-* **PRIORITY (4s): engine device-message anatomy** — the GPU-side
-  H29 chapter is CLOSED (0034+0035: livelock gone, ring healthy at
-  plateau, frz40). Surviving wall: swap pump `sub_002D35A0` +
-  engine submit `sub_001E0390` frozen while their only caller
-  `sub_0011ED20` (device-message handler) stops being invoked
-  during the load era (H28 anatomy). frz41 plateau-core (ABRT at
-  15×0-fps) names the thread(s) and wait objects; then census the
-  `sub_0011ED20` call path (who dispatches device messages, which
-  queue/event feeds it) and find the missing wake. Verify on
-  frz42: pump/eng climb through the load, FIRST PRESENTED level
-  frame in `reference/fb/frz42*` = Gameplay artefact.
-* Then: confirm level-scene texture coverage on that presented frame
+* **PRIORITY (4t): verify frz70** (v4-churn + queue-2048 + 0041
+  back-pressure, short feed, 600 s). Pass = the flip climb continues
+  past frz66's 7113 with drop/gate sane (`gate=` grows, drop=0) and
+  the engine feed stays alive through the load era; the artefact
+  hunt then = `reference/fb/frz70*` late dumps (fbpeek + pixel-delta
+  between consecutive dumps = animated level scene) = GAMEPLAY
+  stage artefact -> README stage row + CHANGELOG.
+* If frz70 plateaus anyway: next candidate = walk back-pressure
+  (park the dma walk at the trapped NOP until the mark is consumed)
+  instead of queueing marks at all — bigger surgery in
+  `nv2a_pb_scan.c`, note-before-fix in 0023.
+* A/B still open: strict one-owner (0040) vs v4 churn with 0041 in
+  place (`RECOMP_ARM_UNTIL_SEEN` default vs =0).
+* Then: confirm level-scene texture coverage on the presented frame
   (the "0 textured batches" census line).
 * xemu title/menu side-by-side capture (queued since 4m; note 0019
-  boot fixed; FB-offset remeasure pending).
+  boot fixed; xemu_ref.sh QMP greeting fixed 4t; FB-offset remeasure
+  pending).
 
 1. **xemu reference (note 0019 CLOSED for boot):** STOP was our unofficial
    256 KiB SpiritBoot dev ROM forcing 128 MB (Def Jam #75 failure class).
