@@ -83,10 +83,20 @@ H30 "feeder frozen" signature. Regime census:
     frz62 point 1531; matches the older "dense START distorts the
     state machine" finding) — feeds reverted to short cadence.
   Patch 0041 = generator back-pressure (drain edge invisible while
-    a mark is armed; idle-gated pop). frz70 (v4+deep+0041, 600 s)
-    in flight — expect the climb to continue past 7113; first
-    PRESENTED level frame = next artefact.
-  Series 0001..0041 verifies from pin; stubs 432 stable.
+    a mark is armed; idle-gated pop). The whole 004x probe family
+    after it: 0042 walk-suspension and 0043 irq-post both FROZE boot
+    and are now OPT-IN probes; 0044 PMC-PF bit and 0045 regime-scoped
+    pop-gate (the 0040 gate had leaked into the v4 baseline and froze
+    frz77 at 187) are current. Series 0001..0045 verifies from pin;
+    stubs 432 stable.
+  frz79 CORE at plateau (v4+PF): events healthy (4C sets 1:1 with
+    flips, 5C signalled-idle), mark machinery idle — the wall is the
+    D3D ring WRITER not emitting the next swap NOP while the engine
+    (sub_001DE5C0, INFINITE) and the swap-slot credit gate
+    (sub_002D3420 @0x2D3497, INFINITE) wait on that completion.
+    Freeze depth is heavily run-luck (189..7113 across arms).
+  Arms in flight: frz80 = exact-frz66-regime core probe (PF off);
+    frz81 = same + RECOMP_PB_GET_LAG=0 (D3D fence-path selector).
   Shell hygiene: never edit census_run.sh mid-run (live bash
     re-reads); pin exact log paths in census greps.
 
@@ -624,3 +634,4 @@ arr=0).
 | 2026-11-22 s4q | H19 CLOSED (patch 0029 ranked `[UNH]` table + `tools/unh_names.py`: all 40 top unhandled methods benign; executor already rasterises level scene; frz16 dump 27 = fully textured title, 37k colors); frz18 nav recipe PROVED the Buki loading card presents + animates; frz19 proved the tail is a real hang (IO quiescent 150 s pre-plateau); `tools/fbpeek.py` frame forensics; README agent-contract + OpenCode sections drafted (user landed `a89c05a`); AGENTS rule 11 (user) | `8e7c8ed` |
 | 2026-11-22 s4r | **H29 anatomy COMPLETE**: frz20 core = ring writer parked in `KeWaitForSingleObject(0x2E2F5C)`; class-5 NOP arm fires once per run; patch 0030 (drain-edge re-latch) iterated v1 (ack-poll, blind) -> v2/v3 (walk-tail, FIRES: work==drained, latched=1) yet no second wake; frz26 `[PRES]` ring census: plateau BIMODAL (parked writer vs pump-freeze with ring alive, `iGET==cursor`); BEW chain convicted (`0x1D6C` offset 0, releases rejected `off!=0`, channel-block semaphors never written, `sh8700=51747D8B` constant); fix candidate 0031; pre-push audit green (tree+history+secrets+pins) | `af91f07` (push pending user approval) |
 | 2026-11-21 s4j | **audio wall CLOSED (patch 0022)**: DDS9 master open `sub_0028F8C3` needs AC97 bus-master trap; upstream armed it only on aarch64 (x86-64 Linux fell to NULL-VEH stub) → DSERR_NODRIVER → 'SdaD' create skipped → null-voice 24 KB copy = the whole note-0017 chain. Patch widens POSIX arm to x86-64; with `RECOMP_AC97_READY=1` MCPX APU (SDL2) + AC97 trap up, all 5 sub-inits 0, DS-VOICE!/DS-COPY! 0, wavebanks stream, ~1250 flips. New wall H23: deterministic allocator crash — free-list link `0xFE087E8D` (NV2A aperture value) spliced at real `0x1A9C1D` (`sub_001A9B60` family, misattributed `sub_001A9A50+0x1CD`); census wrappers `sub_0028F8C3/sub_002885AE/sub_0028AF42`, patch 0021 `RECOMP_LOG_ORDS` | (this commit) |
+| 2026-11-22 s4t | **mark-machinery regime matrix (frz62-83)**: queue-depth 0039 kills drop-overflow but not the plateau; strict one-owner (0040) weaker than v4 churn; walk-suspension (0042) and irq-post (0043) froze boot → opt-in probes; PMC-PF bit (0044) + regime-scoped pop-gate (0045, the 0040 gate had leaked: frz77 187-flip freeze); **frz82 bisect proved the frz66 7113-climb was run luck** (same binary froze at 231) — one stable wall: the guest's swap-mark DISPATCH stops (SWM 135 vs 231 flip-writes vs 150 slot-event sets) while the ring writer stays alive; frz79 core: events healthy, mark machinery idle, engine+credit-gate INFINITE on the next completion; next read = pump/dispatcher chain (sub_002DB250/4A0 + the 0x400700 busy flag + the 0x2DB0BE set condition) | (this commit) |
