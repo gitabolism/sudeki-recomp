@@ -1,0 +1,32 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -759,7 +759,19 @@
+     *prm  = param;
+     *trap = 0x00000100u;                /* method = NO_OPERATION */
+     *tdat = param;                      /* dispatcher's argument */
+-    *pmc |= 0x00001000u;                /* PMC: PGRAPH asserted */
++    /* Patch 0044 (note 0023): assert the PMC PF/PGRAPH SOURCE bit
++     * (0x1) alongside the 0x1000 bit the guest already honours: the
++     * XDK graphics ISR dispatches its GPU DPC from the source bits,
++     * and frz71/frz75 measured the DPC inserting only ~0.5-4/s while
++     * vblank runs 50/s. RECOMP_SWMARK_PF=0 restores the single bit. */
++    {
++        static int pf = -1;
++        if (pf < 0) {
++            const char *e = getenv("RECOMP_SWMARK_PF");
++            pf = !(e && e[0] == '0');
++        }
++        *pmc |= pf ? 0x00001001u : 0x00001000u;
++    }                                /* PMC: PGRAPH asserted */
+     /* Patch 0043 (note 0023, frz71): on hardware the trap asserts the
+      * NV2A PCI line the instant TRAP_DATA is written, so the guest's
+      * graphics ISR runs promptly, sees PMC, and queues the GPU DPC —
+@@ -885,7 +897,7 @@
+         if (intr)
+             *intr = 0;
+         if (pmc)
+-            *pmc &= ~0x00001000u;
++            *pmc &= ~0x00001001u;
+         if (pb_trap_idle_on())
+             nv2a_pb_trap_idle();      /* 0034: service idles the quartet */
+     } else if (pb_trap_idle_on() && !s_sw_latched && s_sw_head == s_sw_tail) {
