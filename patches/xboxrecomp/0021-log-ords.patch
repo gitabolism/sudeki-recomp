@@ -1,0 +1,45 @@
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -402,9 +402,32 @@
+ }
+ 
+ #define KERNEL_LOG_ON()      (g_kernel_call_count <= kernel_log_budget())
+-/* Some sites logged at a tighter cap than the rest; keep them proportional. */
++/* Some sites logged at tighter cap than the rest; keep them proportional. */
+ #define KERNEL_LOG_ON_HALF() (g_kernel_call_count <= kernel_log_budget() / 2)
+ 
++/* RECOMP_LOG_ORDS="44,98,109": never go quiet for these ordinals. The
++   budget model goes silent exactly where a late subsystem (the title's
++   own audio driver, say) starts asking questions, and the interesting
++   calls are rare while the boring ones bury the budget. */
++static int kernel_ord_logged(unsigned o)
++{
++    static int done, n;
++    static unsigned ords[32];
++    if (!done) {
++        const char *e = getenv("RECOMP_LOG_ORDS");
++        done = 1;
++        while (e && *e && n < 32) {
++            ords[n++] = (unsigned)strtoul(e, (char **)&e, 0);
++            while (*e == ',' || *e == ' ')
++                e++;
++        }
++    }
++    for (int i = 0; i < n; i++)
++        if (ords[i] == o)
++            return 1;
++    return 0;
++}
++
+ /* Read Xbox stack arg as uint32_t.
+  * After kernel_thunk_dispatch pops the dummy return address (g_esp += 4),
+  * arg0 is at g_esp+0, arg1 at g_esp+4, etc. */
+@@ -11271,7 +11294,7 @@
+     if (ordinal < XBOX_KERNEL_THUNK_TABLE_SIZE)
+         g_ordinal_calls[ordinal]++;
+ 
+-    if (KERNEL_LOG_ON()) {
++    if (KERNEL_LOG_ON() || kernel_ord_logged(ordinal)) {
+         /* The guest return address sits at the top of the guest stack: the
+          * caller pushed it before dispatching here. Logging it turns "some
+          * function is calling this" into "this call site is", which is the

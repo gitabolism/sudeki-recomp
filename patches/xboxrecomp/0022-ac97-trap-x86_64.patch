@@ -1,0 +1,18 @@
+--- a/src/kernel/xbox_memory_layout.c
++++ b/src/kernel/xbox_memory_layout.c
+@@ -775,7 +775,14 @@
+     return;
+ #endif
+     g_ac97_page = (char *)g_mcpx_memory + AC97_NABM_OFFSET;
+-#if !defined(_WIN32) && defined(__aarch64__)
++#if !defined(_WIN32) && (defined(__aarch64__) \
++        || (defined(__x86_64__) && defined(__linux__)))
++    /* POSIX arm: PROT_READ + the SIGSEGV decoder path (xbox_Ac97PosixFault).
++     * Upstream armed only arm64 here; Linux x86-64 has the same decoder
++     * (mmio_decode_x86_64.h, compiled for this guard) but fell through to the
++     * Win32 VEH branch, where AddVectoredExceptionHandler is a NULL stub —
++     * so the page stayed writable, RR (reset bit) was never masked, and any
++     * channel reset spun. Sudeki's title-linked DDS9 does exactly that. */
+     (void)old;
+     g_ac97_hsize = (size_t)sysconf(_SC_PAGESIZE);
+     if (g_ac97_hsize < AC97_TRAP_BYTES)

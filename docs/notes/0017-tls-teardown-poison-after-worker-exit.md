@@ -91,3 +91,47 @@ its own attribution; `RECOMP_WATCH_PANIC=N` cores at the Nth hit), manual
 wrappers `sub_0028EA91` (RECOMP_DS_COPY) and `sub_002854B3`
 (RECOMP_DS_VOICE) — `!`-marked lines are impossible addresses (below the
 image), auto-logged even without the trace env.
+
+## Outcome 2 (same session, later): the init gap root-caused — DDS9 fails
+## without the AC'97 bus-master trap; patch 0022 fixes it on Linux x86-64
+
+The "who should have initialized slot +0x14" question resolved cleanly:
+
+* Manual wrapper census (`RECOMP_DS_INIT=1` on `sub_0028F8C3`, the title
+  DDS9 driver's master open) shows it runs **five sub-inits**
+  (`0x28F5CE/0x28F501/0x28ED06/0x28F0BC/0x28F40D`), each required `>= 0`.
+  Under default env sub 3 (`0x28F0BC`) returns **0x88780078 =
+  DSERR_NODRIVER** — the AC97 codec-ready poll (bit 8 of 0xFEC00130) times
+  out. `sub_0028F8C3 < 0` makes `sub_00289F17` skip the 'SdaD' packet-object
+  create (`call 0x28AF42` never runs), which is exactly why `+0x14` was 0.
+* `RECOMP_AC97_READY=1` (upstream opt-in) answers the codec bit and starts
+  the toolkit's MCPX APU (SDL2 backend, VP "STUBBED - passthrough"), but
+  on this host the AC97 **bus-master write trap never armed**:
+  `ac97_arm_write_trap()` compiles the POSIX mprotect branch only for
+  aarch64; x86-64 Linux fell through to the Win32 VEH branch, where
+  `AddVectoredExceptionHandler` is a NULL stub → "could not arm" → RR
+  (reset bit) never masked → sub-inits spin. **Patch 0022** widens the arm
+  guard to `(defined(__x86_64) && defined(__linux__))` — the decoder
+  (`mmio_decode_x86_64.h`, `xbox_Ac97PosixFault`) and the fault routing
+  (`src/main.c posix_fault_handler -> xbox_PosixMmioFault`) already existed.
+* With the trap armed: **all five sub-inits return 0, and DS-VOICE!/
+  DS-COPY! count drops from one-per-run (pre-fix) to 0.** The 24 KB copy
+  onto the TIB page, the poisoned TLS page, and the `sub_000B08F0` wild
+  crash are all gone. The TLS guard remains as insurance, unfired.
+* New crash, deterministic across three runs (identical fault VA):
+  game allocator `sub_0011F070` (heap control at obj+0x10/0x18/0x1C)
+  splices a block whose link reads `0xFE087E8D` — a value inside the NV2A
+  register aperture (0xFE000000+0x87E8D, pushbuffer-style). Fault
+  `mov [ebx+0x1c],eax` with `ebx=0xFE087E81`; attribution `sub_001A9A50+
+  0x1CD` lands inside the real function `sub_001A9B60` (func_id miss:
+  dispatch range 0x1A9A50..0x1A9B00 covers the fault, so the runtime names
+  the wrong head — same misalignment pattern seen at 0x28A5A4).
+  Crash PC per core: host `mov %edx,%fs:(%rax)` — packed-guest lift, but
+  the aligned real-code reading (0x1A9B60 body) matches the fault
+  semantics: list splice through a poisoned free-list node. New wall:
+  who writes NV2A-aperture values into the game's heap links.
+
+Tools: census wrapper `sub_0028F8C3` (RECOMP_DS_INIT); patch 0021
+`RECOMP_LOG_ORDS=<list>` (never-budgeted ordinal trace — showed 41
+ordinal-166 calls and the driver's KeInitializeTimer/KeSetTimer use);
+patch 0022 = the fix.

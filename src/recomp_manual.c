@@ -419,3 +419,104 @@ void sub_002854B3(void)
     }
     sub_002854B3_gen();
 }
+
+/* ── title audio-driver pool allocator census (note 0017 H21) ───────
+ * sub_002885AE(size, tag, zero) via [0x2a3530] arena; eax = block or 0.
+ * sub_0028AF42(n, thiscall): creates the per-voice 'SdaD' packet object;
+ * its alloc result is stored at [this+0x14] through a neg/sbb mask, so a
+ * failed alloc leaves 0x8007000E (E_OUTOFMEMORY) there — a value that
+ * *looks* valid (it sits inside the 0x80000000 contiguous window) and
+ * poisons the whole mailbox chain downstream. RECOMP_DS_ALLOC=1. */
+extern void sub_002885AE_gen(void);
+extern void sub_0028AF42_gen(void);
+
+void sub_002885AE(void)
+{
+    extern __thread uint32_t g_esp;
+    static int on = -1, budget = 400;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_DS_ALLOC");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && budget > 0) {
+        budget--;
+        uint32_t sz = MEM32(g_esp + 4), tag = MEM32(g_esp + 8);
+        sub_002885AE_gen();
+        fprintf(stderr, "[DS-ALLOC%c] size=%u tag='%c%c%c%c' arena=%08X -> %08X\n",
+                g_eax ? ' ' : '!', sz,
+                (char)(tag & 0xFF), (char)((tag >> 8) & 0xFF),
+                (char)((tag >> 16) & 0xFF), (char)((tag >> 24) & 0xFF),
+                MEM32(0x2a3530), g_eax);
+        fflush(stderr);
+    } else {
+        sub_002885AE_gen();
+    }
+}
+
+void sub_0028AF42(void)
+{
+    extern __thread uint32_t g_ecx, g_esp;
+    static int on = -1, budget = 200;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_DS_ALLOC");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && budget > 0) {
+        budget--;
+        uint32_t self = g_ecx;
+        uint16_t n = (uint16_t)MEM32(g_esp + 4);
+        sub_0028AF42_gen();
+        uint32_t slot = self ? MEM32(self + 0x14) : 0;
+        fprintf(stderr, "[DS-SDAD%c] this=%08X n=%u slot14=%08X\n",
+                (slot && slot < 0x80000000u) ? ' ' : '!', self, n, slot);
+        fflush(stderr);
+    } else {
+        sub_0028AF42_gen();
+    }
+}
+
+/* sub_0028F8C3: the title audio driver's master open — five sub-inits
+ * (0x28f5ce, 0x28f501, 0x28ed06, 0x28f0bc, 0x28f40d), each must return
+ * >= 0. RECOMP_DS_INIT=1 prints which one fails: their hardware polls
+ * live in the MCPX apertures (0xFE800000 APU, 0xFEC00000 AC97/CPC91),
+ * and RECOMP_AC97_READY decides whether those answer. */
+extern void sub_0028F8C3_gen(void);
+typedef void (*recomp_func_t)(void);
+extern recomp_func_t recomp_lookup(uint32_t xbox_va);
+
+typedef uint32_t (*subr_t)(void);
+static const uint32_t kDsInits[5] = { 0x28F5CE, 0x28F501, 0x28ED06,
+                                      0x28F0BC, 0x28F40D };
+
+void sub_0028F8C3(void)
+{
+    extern __thread uint32_t g_ecx;
+    static int on = -1;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_DS_INIT");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (!on) {
+        sub_0028F8C3_gen();
+        return;
+    }
+    uint32_t self = g_ecx;
+    fprintf(stderr, "[DS-INIT] this=%08X start\n", self);
+    fflush(stderr);
+    for (int i = 0; i < 5; i++) {
+        recomp_func_t f = recomp_lookup(kDsInits[i]);
+        if (!f) { fprintf(stderr, "[DS-INIT] sub %u UNRESOLVED\n", i); continue; }
+        uint32_t prev_esp = g_esp;
+        g_ecx = self;
+        f();
+        uint32_t r = g_eax;
+        g_eax = r;
+        fprintf(stderr, "[DS-INIT] sub %u (0x%06X) -> %08X (%d) esp %08X->%08X\n",
+                i, kDsInits[i], r, (int32_t)r, prev_esp, g_esp);
+        fflush(stderr);
+        if ((int32_t)r < 0) { g_eax = r; return; }
+    }
+    /* remaining tail (28f90d..28f925) skipped: we only came for the census */
+    fprintf(stderr, "[DS-INIT] all 5 sub-inits OK (tail not run)\n");
+    g_eax = 0;
+}
