@@ -1,6 +1,14 @@
 --- a/src/kernel/nv2a_pb_exec.c
 +++ b/src/kernel/nv2a_pb_exec.c
-@@ -980,6 +980,17 @@
+@@ -947,6 +947,7 @@
+ static volatile LONG s_rering_call;   /* drain edges seen by the walk */
+ static volatile LONG s_rering_lat;    /* ...that reached the latch */
+ static volatile LONG s_rering_ev;     /* ...that reached the host event (0032) */
++static volatile LONG s_rering_gate;   /* ...gated by an armed mark (0041) */
+ 
+ /* Patch 0032 (note 0023, H29): the D3D8LTCG ring-free event object (its
+  * wait loop at sub_002D57D0 loc_002D5911 is `while (KeWaitForSingleObject(
+@@ -980,6 +981,17 @@
      }
      if (!p || !pb_swmethod_on())
          return;
@@ -18,3 +26,15 @@
      InterlockedIncrement(&s_rering_lat);
      nv2a_pb_swmethod_latch((uint32_t)p);
  }
+@@ -1001,8 +1013,9 @@
+             (long)s_lat_pop, (long)s_ack_done, (long)s_trap_idle,
+             (long)s_done_rearm, (long)s_seen_l, (long)s_seen_n,
+             (long)s_seen_consume);
+-    fprintf(stderr, "  [NOPSW] rering calls=%ld latched=%ld ev=%ld\n",
+-            (long)s_rering_call, (long)s_rering_lat, (long)s_rering_ev);
++    fprintf(stderr, "  [NOPSW] rering calls=%ld latched=%ld ev=%ld gate=%ld\n",
++            (long)s_rering_call, (long)s_rering_lat, (long)s_rering_ev,
++            (long)s_rering_gate);
+ }
+ 
+ /* Is [addr, addr + bytes) inside memory the guest owns? That is ordinary RAM
