@@ -38,11 +38,14 @@ are undocumented. Expect that to be a long tail of the work, not the first wall.
 Start from `xboxrecomp/templates/new-game`, with upstream pinned at v0.18.0 or
 newest tag, and build the **Linux host** (SDL2 + OpenGL 3.3).
 
-Do not fork `~/Projects/fci-recomp` as the base. That project is hard-wired to
-two Far Cry Instincts builds: `tools/titles.py` allowlists images by SHA-256,
-`data/*.seeds.json` holds 1,777 hand-curated function starts for those images,
-and `src/fci_*.c` is CryEngine-specific glue. All of it is dead weight here, and
-its vendored `src/xbr` is pinned five releases behind.
+Do not fork `~/Projects/fci-recomp` as the base. It is one example of the
+per-title recomp pattern (another good one: Black-2006-Recomp, see Prior
+art) — and for this title all of its specifics are dead weight. Measured
+2026-11-22: `tools/titles.py` allowlists images by SHA-256 and covers two
+Far Cry titles (Instincts `default.xbe` + `ige.xbe`, and Evolution);
+`data/*.seeds.json` holds 1,957 hand-curated function starts for those
+images; 19 `src/fci_*.c` CryEngine-specific glue files; vendored `src/xbr`
+at v0.2.3 (upstream is v0.18.0 — many releases behind).
 
 Fetched, not vendored: `xboxrecomp/` is in `.gitignore`. Record the pinned commit
 in `THIRD_PARTY.md` when it exists.
@@ -119,6 +122,13 @@ run it before believing any lifter change), `tools/recomp.icall_feedback`.
   table, several Playable. Discord `discord.gg/CRpzGWZFcu`. Its own README says
   to ask there **before duplicating effort**. Search that Discord for "Sudeki"
   first; my web searches found nothing, which is weak evidence, not proof.
+- Black (2006): <https://github.com/portingpete/Black-2006-Recomp> — same
+  upstream, same per-title BYOD + XBE-digest-pin posture as ours (a second
+  fci-recomp-style example, not the only one). Runtime = PauloVx/xboxrecomp
+  `black`-branch fork + its own commits — a fork lineage worth skimming for
+  runtime fixes (its D3D11 renderer, xemu-derived `dsp56300` DSP core, APU
+  physical-mapping handling, and asset-format docs may parallel our walls).
+  Note it reached first-mission gameplay with audio; MIT.
 - The other recompiler: <https://github.com/TGP482/XboxXBERecomp> — used for
   Splinter Cell: Double Agent, BLACK, 007 ×2, Red Dead Revolver. Has per-XDK
   `layout.toml` + `signatures.toml` for 4831/5659/5849 and the `--sign` tool.
