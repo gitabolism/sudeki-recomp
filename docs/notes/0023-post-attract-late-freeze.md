@@ -1354,3 +1354,23 @@ Census at the plateau:
       clearer. Expect: drop->0, [GSVC] PARAM=0 entries->~0,
       rearm->~0, 4C flows, eng/pump feed unblocks, and the first
       PRESENTED level frame becomes reachable (frz63 artefact).
+
+frz64 (0039 one-owner lifecycle) — REGRESSION to the boot era:
+froze at 1 flip, rearm=1486 (done() passes churn on one long-unread
+mark). CORE (sudeki.frz64.core, symbols match — no rebuild during
+the run): main thread parked INFINITE inside the swap pump chain
+sub_001E0680 -> sub_002D35A0 -> sub_002D3560 -> sub_002D3420
+(KeWaitForSingleObject on 0x2E2F4C); mark machinery IDLE at the
+snapshot (latched=0, queue empty, words zero, all 14 marks
+consumed); the dispatcher class census [NOPSW] `1:1 8:1 9:12` is
+BYTE-IDENTICAL to the HEALTHY boot of frz41 — the mark lifecycle is
+NOT the boot-era culprit. But KeSetEvent(0x2E2F4C, from 0x2DB0BE,
+the swap-completion arm) fired only 2x all run: swap #1 completed,
+swap #2 was never ISSUED (pend=0 want=0, pump=1) because the boot
+task itself (main) is parked inside the pump's swap-completion wait
+that preceded issuing it. So the boot-era wall is a SWAP-COUNT/
+event-consumption race in the XGRAPHCL swap chain (who consumed the
+2 sets, and does the host wait_single model honour auto-reset
+vs the guest's re-arm expectations), NOT the marks. frz65 = A/B
+RECOMP_ARM_UNTIL_SEEN=0 to bound the lifecycle change's blast
+radius; then the swap-event anatomy is the boot-era work item.
