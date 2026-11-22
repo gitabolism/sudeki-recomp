@@ -1,43 +1,12 @@
 --- a/src/kernel/nv2a_pb_exec.c
 +++ b/src/kernel/nv2a_pb_exec.c
-@@ -822,40 +822,25 @@
+@@ -821,8 +821,30 @@
+                 const char *e = getenv("RECOMP_ARM_UNTIL_SEEN");
                  hold = !(e && e[0] == '0');
              }
-             if (hold) {
--                /* Patch 0039 (note 0023, frz62 census): v4 left the
--                 * WORDS armed but cleared the s_sw_latched FLAG, so a
--                 * later done() pass took the "abandoned mark" branch
--                 * (0034) and idled the quartet of a mark the guest
--                 * never READ. frz62 measured the result end to end:
--                 * [GSVC] 252 pump entries with PARAM=00000000 (the
--                 * guest pumped an empty quartet), trap_idle=273,
--                 * rearm=727, and 609 marks DROPPED on a full queue —
--                 * including the swap-completion marks, so the engine's
--                 * KeWaitForSingleObject on 0x2E2F4C (site 0x1DE5EF /
--                 * 0x2D3497) never completed and the eng/pump feed
--                 * froze (the plateau, at 1531 flips). v4's hold rule
--                 * was right but INCOMPLETE: hold must hold the FLAG
--                 * too, so the abandoned-idle branch can never fire on
--                 * an unread mark. The seen-edge consume (0035 v5,
--                 * dispatcher entry) stays the only clearer.
--                 *
--                 * v2 correction (frz63 core): v1 of this rule let
--                 * nv2a_pb_swmethod_hold() suppress the APERTURE ack
--                 * pass forever, so the stuck mark kept PGRAPH_INTR=1
--                 * while the engine's swap wait (which polls that very
--                 * word family, and w1c-stores its own write-back
--                 * there) starved: swap wait never completed at 219
--                 * flips, pop(52) > enq(12) wrapped the queue. Now the
--                 * unseen branch RELEASES the INTR latch (ack pass no
--                 * longer suppressed, new marks can latch DIRECT) but
--                 * leaves the trap WORDS and seen state untouched —
--                 * the words keep the story until a real service. */
--                pmc  = xbox_Nv2aRegPtr(0x000100);
--                intr = xbox_Nv2aRegPtr(0x400100);
--                if (intr)
--                    *intr = 0;
--                if (pmc)
--                    *pmc &= ~0x00001000u;
+-            if (!hold)
+-                nv2a_pb_swmethod_latch((uint32_t)s_last_param);
++            if (hold) {
 +                /* Patch 0039+0040 (note 0023): ONE coherent
 +                 * lifecycle, straight from the hardware model. The
 +                 * quartet + INTR + PMC bit are cleared by exactly ONE
@@ -57,10 +26,14 @@
 +                 * queued mark when the trap is idle, and the seen-
 +                 * edge consume below is the only thing that makes it
 +                 * idle. RECOMP_ARM_UNTIL_SEEN=0 = old churn (A/B). */
-                 InterlockedExchange(&s_sw_latched, 1);
-                 return;
-             }
-@@ -871,9 +856,12 @@
++                InterlockedExchange(&s_sw_latched, 1);
++                return;
++            }
++            nv2a_pb_swmethod_latch((uint32_t)s_last_param);
+             return;
+         }
+         pmc  = xbox_Nv2aRegPtr(0x000100);
+@@ -834,9 +856,12 @@
          if (pb_trap_idle_on())
              nv2a_pb_trap_idle();      /* 0034: service idles the quartet */
      } else if (pb_trap_idle_on() && !s_sw_latched && s_sw_head == s_sw_tail) {
@@ -76,7 +49,7 @@
          volatile uint32_t *trap = xbox_Nv2aRegPtr(0x400704);
          if (trap && *trap)
              nv2a_pb_trap_idle();
-@@ -884,7 +872,15 @@
+@@ -847,7 +872,15 @@
       * latched now: queued marks would else never pop. */
      swm_lock();                         /* 0035 follow-through: pop is now
                                           * called from guest threads too */
