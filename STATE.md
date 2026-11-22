@@ -3,17 +3,19 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-22 (session 4q)
+**Last updated:** 2026-11-22 (session 4r)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached** —
 `reference/fb/frz1600027.bmp` is the fully textured title screen
 (SUDEKI logo + character art + "Press START" + rain, 37,025 distinct
 colours); input reaches New Game (note 0020); audio + level/wavebank
-streaming work. H28 (post-attract "freeze") and H19 (GPU draw
-coverage) are both CLOSED — the executor already rasterises the level
-scene (33.6k tris/pass) and the top-40 unhandled NV2A methods are all
-benign states (note 0023). The Gameplay gate is now **input flow**:
-sparse menu navigation (the old 8-s start-spam feed cancels loads);
-first presented level frame = next artefact.
+streaming work. H28 (post-attract "freeze"), H19 (GPU draw coverage)
+CLOSED; H29 (terminal plateau) anatomy COMPLETE (note 0023): bimodal
+wall — parked ring writer (frz20 core) or pump-freeze with the ring
+alive (frz26); the missing hardware behavior is the **BEW semaphore
+landing** (`0x1D70` releases, offset 0 → channel block `0xFD800000`,
+rejected by patch-0016's `off!=0` guard, semaphors never written,
+`sh8700` poison constant). Fix candidate = patch 0031. First
+presented level frame = next artefact.
 
 ## Where things are verified
 
@@ -38,7 +40,13 @@ first presented level frame = next artefact.
   guest-stack + host-rip attribution, `0020` watch TF single-step re-arm
   + `RECOMP_WATCH_PANIC`, `0021` `RECOMP_LOG_ORDS` never-budgeted ordinal
   trace, **`0022` AC'97 bus-master write trap on Linux x86-64 = the audio
-  fix** (POSIX arm guard widened; decoder+routing already existed).
+  fix** (POSIX arm guard widened; decoder+routing already existed),
+   `0023` scripted-pad START bit, `0024` VSH-IO trace, **`0025`+`0026`
+   sw-method latch/FIFO + hold-until-seen ack ownership = the H26
+   fix**, `0027` `ke_shadow_init` once-guard = the H27 fix, `0028`
+   `[READ]` log gate, `0029` ranked unhandled-method table, `0030`
+   class-5 re-latch on walk drain edges (fired faithfully; the NOP
+   path is NOT D3D's real ring-free protocol - see H29).
   Table in THIRD_PARTY.md.
   Manual overrides: `--exclude-manual src/recomp_manual.c` now wired into
   `scripts/pipeline.sh`; wrappers = `sub_00022340` (stream refill),
@@ -56,7 +64,25 @@ first presented level frame = next artefact.
 
 ## Last run
 
-Session 4q (latest): **H19 inventory CLOSED (note 0023 frz16)** —
+Session 4r (latest): **H29 anatomy COMPLETE (commit `af91f07`)** —
+three patch-0030 iterations + censuses: v1 ack-thread poll edge never
+observed (drains finish inside a tick); v2/v3 walk-tail drain edge
+FIRES faithfully (`walk work==drained==6098`, `rering latched=1`,
+drop=0) but a second `0x2E2F5C` wake never lands (frz25r2: the single
+class-5 NOP serviced ZERO times). frz26 ring-writer census
+(`[PRES] inst/i0/i4/latch/uGET/w2C`) shows the plateau is BIMODAL:
+frz20 = writer parked on 5C; frz26 = writer ALIVE (submit climbing,
+`iGET==cursor` exactly, latch advancing) with pump/eng frozen +
+`wait=5` — the H28 pump signature again. Constants everywhere:
+`sh8700=51747D8B` poison swap-slot, `i0=i4=0` (channel-block
+semaphore words never written; every `0x1D70` release rejected
+`off=0`), `iGET` never lags. Verdict: class-5 NOP emulation is not
+D3D8LTCG's ring-free protocol — the BEW release chain is; fix
+candidate 0031 (`off==0` → `xbox_Nv2aRegPtr(0x800000+off)`), verify
+frz27. Pre-push audit GREEN (tree + full history + secrets + pins);
+push held for user's formal approval (directive recorded below).
+
+Session 4q (earlier): **H19 inventory CLOSED (note 0023 frz16)** —
 ranked `[UNH]` table (patch 0029, `tools/unh_names.py`, names vs nxdk
 `nv_regs.h` cached at /tmp/opencode/nv_regs.h): all 40 top unhandled
 methods are benign render states, none draw-blocking; executor
@@ -404,12 +430,16 @@ arr=0).
 
 ## Queue (next concrete actions)
 
-* **PRIORITY (4q): menu-navigation run (frz17)** — the Gameplay gate
-  is now INPUT FLOW, not GPU coverage: sparse presses (single start
-  at title, then confirm-style presses, NO start-spam — dense feed
-  plausibly cancels loads to title, frz16 dumps 17-30 = same frozen
-  title frame), dumps every 15 flips, 380 s window to outlast the
-  ~110 s level load and capture the first PRESENTED level frame.
+* **PRIORITY (4r): patch 0031 = BEW release landing fix** —
+  `nv2a_pb_exec.c` 0x1D70 handler: `off==0` (D3D programs offset 0)
+  must write through the NV2A aperture channel block
+  (`xbox_Nv2aRegPtr(0x800000+off)` — same block whose `+0x44` GET the
+  walk publishes), not be rejected by the guest-RAM guard. Verify
+  frz27 (frz18 nav + `[PRES]` census): expect `i0` tracking the odd
+  counter, `sh8700` no longer poison, plateau clears, FIRST
+  PRESENTED level frame after the Buki card = Gameplay artefact.
+  Watch for the pump-freeze variant (frz26) possibly needing
+  `sub_0011ED20` device-message anatomy too — one variable at a time.
 * Then: confirm level-scene texture coverage on that presented frame
   (the "0 textured batches" census line).
 * xemu title/menu side-by-side capture (queued since 4m; note 0019
@@ -547,4 +577,6 @@ arr=0).
 | 2026-11-21 s4k | **H23 CLOSED (note 0018) + MENU artefact reached**: "wild allocator pointer" = 4-byte esp drift from an unresolved-ICALL skip (`0x27430`, real `ret 4` thiscall; `ICALL_SAFE_AT_CC` skip assumes caller-cleanup) corrupting saved-register pops — proven by esp-delta probes, fixed by seeding measured targets (18-seed file); runs now: no crash @240 s, 152k draws, first content frames incl. **title screen** `reference/fb/frame00016.bmp`; ICALL feedback instrument wired (CMake `SUDEKI_ICALL_FEEDBACK`, `build-fb` probe, SIGTERM dump) for batch seeding; xemu ref investigation: 0.8.139 = latest release, HDD pristine, upstream shows title running (no bugcheck reports) -> our STOP is environment-specific; user taking over xemu playability test manually | (this commit) |
 | 2026-11-22 s4m | **input wall CLOSED (note 0020) + xemu boot fixed (note 0019)**: xemu playability = official SpiritBoot v1.1.0-64MB ROM (unofficial 128MB dev ROM was the STOP; user verified FMVs/audio/pad/rumble on xemu); recomp input = arm toolkit OHCI model (`xbox_OhciInit` in `main.c`, `RECOMP_USB=1`) + patch 0023 (script-pad START bit 0x0200 = real hardware); press-driven proofs (movie skip, Buki loading card, attract demo) vs zero-input baseline; XPP input-chain map (ISR 0x31428B, DPC 0x31495F, glue 0x31052E/0x31053A state fetch); JP disc (`Sennen no Akatsuki`, XBE `1f8a9611…`, same LTCG libs, parked outside git) as second regression sample; next wall = NV2A 3D draw coverage (demo scene freezes at 0 fps when VSH batches skipped) | (this commit) |
 | 2026-11-22 s4n-4p | **freeze walls H26+H27 CLOSED** (notes 0021/0022; patches 0024-0027: sw-method latch+FIFO, hold-until-seen ack ownership, scripted-pad fix, `ke_shadow_init` `InitOnceExecuteOnce` — frz4 core proved the orphaned-mutex double-init); gfault10/11 clean (scene animating, 4.43 fps); gfault12 VSH-IO census = Bink passthrough programs, level scene rasterises 29k tris/pass; **H28 CLOSED (note 0023, frz10-15 censuses)** = post-attract stall is the game's level-streaming load state (pump+engine-submit frozen at flip count, IO alive, ~110 s, recovery to 1.8 fps), not a host hang; patches 0028 (`RECOMP_IO_READ_LOG` gate; A/B: tracing not the load throttle) + 0029 (`RECOMP_PB_UNH_TABLE` ranked unhandled-method table for H19 inventory); README co-authored rewrite + AGENTS rule 9 | (this commit) |
+| 2026-11-22 s4q | H19 CLOSED (patch 0029 ranked `[UNH]` table + `tools/unh_names.py`: all 40 top unhandled methods benign; executor already rasterises level scene; frz16 dump 27 = fully textured title, 37k colors); frz18 nav recipe PROVED the Buki loading card presents + animates; frz19 proved the tail is a real hang (IO quiescent 150 s pre-plateau); `tools/fbpeek.py` frame forensics; README agent-contract + OpenCode sections drafted (user landed `a89c05a`); AGENTS rule 11 (user) | `8e7c8ed` |
+| 2026-11-22 s4r | **H29 anatomy COMPLETE**: frz20 core = ring writer parked in `KeWaitForSingleObject(0x2E2F5C)`; class-5 NOP arm fires once per run; patch 0030 (drain-edge re-latch) iterated v1 (ack-poll, blind) -> v2/v3 (walk-tail, FIRES: work==drained, latched=1) yet no second wake; frz26 `[PRES]` ring census: plateau BIMODAL (parked writer vs pump-freeze with ring alive, `iGET==cursor`); BEW chain convicted (`0x1D6C` offset 0, releases rejected `off!=0`, channel-block semaphors never written, `sh8700=51747D8B` constant); fix candidate 0031; pre-push audit green (tree+history+secrets+pins) | `af91f07` (push pending user approval) |
 | 2026-11-21 s4j | **audio wall CLOSED (patch 0022)**: DDS9 master open `sub_0028F8C3` needs AC97 bus-master trap; upstream armed it only on aarch64 (x86-64 Linux fell to NULL-VEH stub) → DSERR_NODRIVER → 'SdaD' create skipped → null-voice 24 KB copy = the whole note-0017 chain. Patch widens POSIX arm to x86-64; with `RECOMP_AC97_READY=1` MCPX APU (SDL2) + AC97 trap up, all 5 sub-inits 0, DS-VOICE!/DS-COPY! 0, wavebanks stream, ~1250 flips. New wall H23: deterministic allocator crash — free-list link `0xFE087E8D` (NV2A aperture value) spliced at real `0x1A9C1D` (`sub_001A9B60` family, misattributed `sub_001A9A50+0x1CD`); census wrappers `sub_0028F8C3/sub_002885AE/sub_0028AF42`, patch 0021 `RECOMP_LOG_ORDS` | (this commit) |
