@@ -1608,3 +1608,16 @@ a dispatch line. Next static target: the pump/dispatcher pair
 service loop's re-entry condition at loc_002DB2EB) — why the chain
 stops dispatching armed marks, and what the 0x2DB0BE set-path
 condition (which swap slot) tests. frz83 = post+PF+v4 probe arm.
+
+frz83 core (v4+PF+post arm, plateau 226) — aperture state at the
+freeze: PMC=0x00001000 (ours), PGRAPH_INTR=0x00000001, TRAP=0,
+PARAM=0: a HALF-CONSUMED quartet — INTR armed with no trap, owned
+by neither side (the guest's w1c write-backs are plain stores and
+leave partial masks). The guest's own service code writes 0x1000 to
+PGRAPH_INTR (loc_002DB29A) and its swap-completion path (the
+loc_002DB0A0 spin + KeSetEvent(esi+0x194) at 0x2DB0BE) gates on the
+0x1000 NOTIFY source family — our latch armed bit0 only. Patch 0046
+= arm 0x1001 (NOTIFY + the old bit0) and let the host clear the
+whole family when nothing is latched (stale-mask housekeeping).
+frz85 = v4 + 0046 clean arm (PF off, post off) in flight; frz84
+(PF+post+0046) was killed as a variable-mix mistake before data.
