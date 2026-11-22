@@ -1,0 +1,111 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -704,6 +704,33 @@
+  * signal that sets the event the Present path waits on (0x2E2F5C). */
+ static volatile LONG s_nop_seen;
+ static volatile LONG s_nop_class[32];
++/* Patch 0030 (note 0023, H29): the last ring-free (class 5) mark seen.
++ * D3D8LTCG programs the ring-free NOP exactly ONCE for the whole run
++ * (frz20 census: class 5 seen 1 of 2891); after that its ring writer
++ * (sub_002D57D0, core-proven) waits on event 0x2E2F5C forever, because
++ * on hardware every later drain of the pushbuffer raises the ring-free
++ * source again and the same standing arm re-signals the event. Model
++ * that: re-latch the stored param when the DMA walk ends a segment
++ * (GET reaches PUT) — the walk sees the true busy->idle edge; the ack
++ * poll thread cannot (drains finish inside one tick window, proven by
++ * frz23 running the poll-thread version with seen 5:1 unchanged). */
++static volatile LONG s_class5_param;
++static volatile LONG s_rering_call;   /* drain edges seen by the walk */
++static volatile LONG s_rering_lat;    /* ...that reached the latch */
++
++/* Called by the DMA walk each time it drains to PUT. */
++void nv2a_pb_rering_free_drained(void)
++{
++    LONG p = s_class5_param;
++    LONG n = InterlockedIncrement(&s_rering_call);
++    if (n <= 5)
++        fprintf(stderr, "  [RERING] drain-edge #%ld param=%08X\n",
++                (long)n, (uint32_t)p);
++    if (!p || !pb_swmethod_on())
++        return;
++    InterlockedIncrement(&s_rering_lat);
++    nv2a_pb_swmethod_latch((uint32_t)p);
++}
+ 
+ static void nv2a_pb_swmethod_dump(void)
+ {
+@@ -719,6 +746,8 @@
+                     "ack=%ld\n",
+             (long)s_lat_direct, (long)s_lat_enq, (long)s_lat_drop,
+             (long)s_lat_pop, (long)s_ack_done);
++    fprintf(stderr, "  [NOPSW] rering calls=%ld latched=%ld\n",
++            (long)s_rering_call, (long)s_rering_lat);
+ }
+ 
+ /* Is [addr, addr + bytes) inside memory the guest owns? That is ordinary RAM
+@@ -4527,6 +4556,8 @@
+          * one whose guest arm signals 0x2E2F5C) is logged in full. */
+         LONG k = InterlockedIncrement(&s_nop_seen);
+         InterlockedIncrement(&s_nop_class[param & 0x1Fu]);
++        if ((param & 0x1Fu) == 5u)
++            InterlockedExchange(&s_class5_param, (LONG)param);
+         if ((param & 0x1Fu) == 5u || k <= 8)
+             fprintf(stderr, "  [NOPSW] #%ld subch=%u param=%08X class=%u\n",
+                     (long)k, subch, param, param & 0x1Fu);
+--- a/src/kernel/nv2a_pb_scan.c
++++ b/src/kernel/nv2a_pb_scan.c
+@@ -38,6 +38,7 @@
+  * looking method numbers out of parameter data, and the counts then describe
+  * nothing. Unrecognised words are the tell. */
+ static uint32_t s_tot_words, s_tot_unknown, s_tot_jumps, s_tot_segments;
++static uint32_t s_walk_work, s_walk_drained;   /* patch 0030 census */
+ static uint32_t s_tot_calls;
+ 
+ /* Executing is opt-in separately from surveying: a survey is read-only, while
+@@ -171,6 +172,10 @@
+     if (s_exec_enabled > 0) {
+         nv2a_pb_exec_report();
+         fprintf(stderr, "[PB] %u pushbuffer calls followed\n", s_tot_calls);
++        /* Patch 0030 census (note 0023, H29): how many walk calls had
++         * pending work, and how many finished drained (GET==PUT). */
++        fprintf(stderr, "[PB] walk calls: work=%u drained=%u\n",
++                s_walk_work, s_walk_drained);
+     }
+     if (!s_seen_count || !getenv("RECOMP_PB_SCAN"))
+         return;
+@@ -312,7 +317,7 @@
+     const uint8_t *mem = (const uint8_t *)xbox_GetMemoryOffset();
+     uint32_t put = put_phys & PB_PHYS_MASK;
+     volatile uint32_t *get_reg = NULL;
+-    uint32_t words = 0, jumps = 0, unknown = 0;
++    uint32_t words = 0, jumps = 0, unknown = 0, get_started = 0;
+ 
+     if (!pb_walk_enabled())
+         return;
+@@ -323,6 +328,9 @@
+     if (s_exec_enabled)
+         get_reg = xbox_Nv2aRegPtr(NV2A_USER_DMA_GET);
+ 
++    get_started = s_get;                      /* patch 0030: drain edge check */
++    if (get_started != put)
++        s_walk_work++;
+     pb_consume(mem, put, &words);             /* the method PUT stalled inside */
+ 
+     while (s_get != put) {
+@@ -433,6 +441,16 @@
+         *get_reg = s_get;
+         s_pub = s_get;
+     }
++    /* Patch 0030 (note 0023, H29): the walk just consumed everything
++     * between the GET it started from and PUT — the hardware ring-free
++     * edge. If the title ever armed its ring-free software method, the
++     * standing guest arm must fire again on this edge or its ring
++     * writer parks forever (see nv2a_pb_exec.c). */
++    if (get_started != put && s_get == put) {
++        s_walk_drained++;
++        extern void nv2a_pb_rering_free_drained(void);
++        nv2a_pb_rering_free_drained();
++    }
+     s_tot_words += words;
+     s_tot_unknown += unknown;
+     s_tot_jumps += jumps;

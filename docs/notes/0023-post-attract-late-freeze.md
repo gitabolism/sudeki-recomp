@@ -356,6 +356,148 @@ spam.
 (Name source: nxdk `lib/pbkit/nv_regs.h` fetched to /tmp/opencode for
 offline resolution; `tools/unh_names.py` parses our own headers.)
 
+frz17 follow-up (sparse-nav probe, single starts at t=112/132/152):
+navigation FAILED by timing, and the failure mode is informative.
+Dump cadence 15 flipped: dumps 1-4 = movies (43k colors), dump 5+ =
+BLACK, never a title frame — because by t=112 the title had already
+auto-entered the ATTRACT demo (badger.plap + speech_Elco/buki/woluf
+opens at log lines 2928-2958; `fma01_poem.bik` at 4564) and presses
+landed inside attract/transition states, wandering. Surface census
+across the run: VSH rasterisation CONTINUES through every 0-fps
+window (tris 15.4k→27.6k→33.1k while the screen sits black) — the
+level/attract scene is rendered off-screen, only PRESENTATION pauses
+(H28 mechanism, now proven in both directions: renders yes, swaps
+no). Frz18 recipe: press DURING the FMVs (note 0020's proven skip
+path: five starts t=20-44), title→menu→New Game→Buki at t=65/80/95,
+then total input silence; PRES/GATE census re-armed to read pump-vs-
+render state in black windows; 430 s to outlast the load.
+
+frz18 RESULT — navigation SUCCEEDED: five FMV-skip starts (t=14.8-
+38.9 s), then title→menu→New Game→Buki starts (t=59.9/74.9/89.8) →
+**the Buki loading card was PRESENTED and animating** (frz18 dumps
+16-17: full character art + "Loading..." + tip text, 35.7k colors,
+luma 84, d=93.8% between — `/tmp/opencode/frz1800017.bmp.png`).
+`[SWAP]` census behaves exactly per H28: flip-issue keeps ticking
+30/s while pump/eng freeze at the presented count, slot table idle.
+But the prologue load then sat 0-fps for the last ~190 s of the
+window (kill@430) — too slow OR stalled; undecided. Side audit: the
+`[FILE] D:\data\Startup\ -> 0xC0000034` refusal is FAITHFUL — the
+disc's `Data/` holds only SOLWORLDM.gex + SOLXM.fubi, no Startup
+dir, so real hardware answers NOT_FOUND too. frz19 = identical nav
++ `RECOMP_IO_READ_LOG=1` + 560 s window: reads streaming into the
+tail = slow load (extend window); quiescent = real hang → core
+forensics at plateau (existing recipe).
+
+frz19 RESULT — the tail is a REAL HANG (new wall **H29**), not a long
+load: IO goes fully quiescent ~150 s BEFORE the terminal plateau
+(last `[READ]` at line 18141; plateau starts 19114, runs 38+ periods
+to kill@560 s), and unlike the H28 load state the renderer is FROZEN
+too (`rasterised` count constant 515898 through the whole plateau) —
+the engine is blocked, not streaming. Only the D3D ring heartbeat
+survives (`KeSetEvent 0x2E2F4C from 0x2DB0BE` keeps firing = the
+NOP-mark pump is alive). Prime suspect surfaced by frz16's own census:
+`BACK_END_WRITE_SEMAPHORE_RELEASE` (0x1D70) ×5903 counted UNHANDLED —
+the executor's 0x1D70 handlers (registered `s_sem_va` + patch-0016
+offset fallback) REJECT when `s_reg[0x1D6C]` is 0/junk/out-of-RAM and
+the release falls through; if any guest thread waits on one of those
+semaphore words it parks forever. frz20 = same nav with plateau
+detector (≥150 s of 0.00 fps) → SIGABRT core for per-thread guest PCs;
+`RECOMP_SEM_TRACE=1` will name accepted/rejected release targets next.
+
+frz20 RESULT — **H29 root-caused** (core at plateau, pid 581534):
+thread 1 (main guest thread) backtrace = `xbe_entry_point →
+sub_0026D47C → bridge_PsCreateSystemThreadEx → sub_0026C68F →
+sub_0011560 → sub_00122C0 → sub_001E0390(engine submit) →
+sub_002D57D0(ring writer) → kernel_thunk_dispatch →
+bridge_KeWaitForSingleObject → ke_shadow_lookup` — parked waiting on
+event token `0x2E2F5C` (live reg r12 = 0x2E2F5C at the frame). The
+`[NOPSW]` census convicts: seen classes `1:2877 5:1 8:1 9:12` — the
+class-5 (ring-free) software-method mark, whose guest arm at
+`sub_002DB61F` does `KeSetEvent(0x2E2F5C)`, was serviced EXACTLY ONCE
+in the whole run; after flip 2877 no class-5 wake ever fires again
+(`KeSetEvent token=0x2E2F5C` last line 22080, plateau starts 22224).
+D3D8LTCG programs the ring-free NOP once; on hardware every later
+pushbuffer drain re-raises the ring-free source and the standing arm
+re-signals the event. Our executor only marks NOPs the guest pushed,
+so after the ring writer's first wait the chain can never restart:
+writer waits → engine submits freeze (`eng=pump=flip-count` exactly) →
+renderer+IO quiescent (the frz19 tail signature). Fix (patch 0030):
+store the last class-5 NOP param; on each busy→idle `DMA_GET==DMA_PUT`
+edge in the NV2A ack thread, re-latch it through the same sw-method
+chain. Verifying now (frz23: frz18 nav + full census, expect the
+plateau to clear and the FIRST PRESENTED level frame after the Buki
+loading card).
+
+frz23 v1-check RESULT — patch 0030 v1 (ack-thread poll edge) did NOT
+fire: census still `5:1`, plateau unchanged at flip 2340. Reason: the
+ack thread samples `DMA_GET==DMA_PUT` once per tick, but drains finish
+inside one tick window — the poll never OBSERVES the busy→idle edge.
+v2 moves the hook to the DMA walk itself: `nv2a_pb_scan` records
+`get_started`, and when its walk loop ends with `s_get==put` after
+having had work, it calls `nv2a_pb_rering_free_drained()` → same latch
+chain. `memory_layout.c` reverted to its pre-patch state (one variable).
+(label slip: the verify script inherited the frz18 log/dump prefix and
+re-wrote `reference/fb/frz18*` dumps; the card evidence this note
+cites survives in `/tmp/opencode/frz1800017.bmp.png` and the recorded
+color/diff stats. Renamed from frz24 on.)
+
+frz24 v2-check RESULT — census blind spot found: `[NOPSW] classes`
+counts NOPs IN THE GUEST STREAM (`nv2a_pb_exec_method`, line ~4548),
+not latch calls — so re-latches are invisible there and `5:1` did NOT
+prove v2 unfired. Queue counters hint it fired only a handful of times
+(frz24 `enq=1179 drop=12` vs frz20 `enq=1175 drop=0`), and
+`KeSetEvent 0x2E2F5C` stayed at 1. Structural fact: `nv2a_pb_scan` is
+called ONLY when DMA_PUT changes (memory_layout poll tick, `put !=
+last_put`); during the plateau PUT is frozen, so no walk — the drain
+edge must have (or not) happened DURING the load. frz25 adds decisive
+census: `[RERING] drain-edge #n` lines + `[NOPSW] rering calls/latched`
++ `[PB] walk calls: work=/drained=` counters.
+
+Corroboration from the surviving frz18-050934 log (the card-presented
+run): `KeSetEvent 0x2E2F5C` appears ZERO times there — its writer never
+waited on ring-free, and navigation worked. In frz20/23/24 the class-5
+arm appears exactly once = the ring actually filled at least once
+during load/attract, writer parked, and the one-shot event left it
+parked when the drain woke it once and it filled again. Plateau timing
+is therefore stochastic (flip 2103/2340/2877/3261) and can strike at
+title idle without any navigation (frz24 froze at the title frame —
+fbpeek: dumps 16-23 live title w/ rain, 24+ frozen, PNG verified).
+The frz20 core evidence (writer parked on 5C) + frz18 (never parked,
+no 5C) + census (`5:1`) together: the missing hardware behavior is a
+per-drain ring-free raise, exactly what patch 0030 models. Secondary
+suspect kept under audit via RECOMP_SEM_TRACE: D3D's per-kick `0x1D70`
+BEW releases (frz16: 5903 rejected by the page-align guard at
+nv2a_pb_exec.c ~4447, `!(off & 0xFFF)`); if D3D programs a
+non-page-aligned semaphore word (object page 0x2E2xxx prime suspect),
+the ring-progress copy never lands either. frz25 carries SEM_TRACE for
+that verdict.
+
+frz25 RESULT (census binary; two runs, note: they overlapped on the
+shared Cache dir for ~4 min — counters self-consistent, but keep the
+caveat). PATCH 0030 MECHANISM CONFIRMED FIRING: `walk calls:
+work=6098 drained=6098` (every walk drains fully) and `rering
+calls=6098 latched=1`: drain edges flowed all run, and exactly one
+re-latch (the first after the guest's single class-5 NOP entered the
+stream) reached the latch chain — `drop=0`, and it still produced NO
+second `KeSetEvent 0x2E2F5C`. After the last drain the ring is idle
+(GET==PUT), the writer parks anyway, PUT freezes, no further edges —
+edge-on-drain cannot wake a writer that parks on an already-drained
+ring. [SEM] verdict (run 2): `SET_SEMAPHORE_OFFSET -> 0x00000000` and
+`release REJECTED off=0 value=5,7,9,B,D,F,11,13` — the per-kick ring
+counters (frz16: values reached 0x2E21, 5903 releases) target
+instance+0, rejected. Core forensics (frz20 core, symbol base
+0x55fe0da13000, g_xbox_mem_offset=0x7f9226800000):
+ctx=*0x2E3638=0x002E1190; **the ring writer's GET feed is
+MEM32(MEM32(ctx+0x1C20)+0x44) = MEM32(0xFD800044) = 0x001BA4D0** —
+the channel INSTANCE block, a different window from the USER page
+(ctx+0x934=0xFD000000) the executor advances (USER+0x40/0x44 read 0).
+At the freeze instance-GET(phys)=0x1BA4D0 == walk s_get — so D3D's
+GET was current at plateaU; its park decision therefore keys on the
+BEW counters/`ebp+4` alloc math or the 0x400B10 kick latch, not on
+GET staleness. Next census (frz26): [PRES] line extended in
+src/recomp_manual.c to print inst/iGET/user/uGET/latch/lo/hi/w2C per
+second during the plateau — names the stuck quantity directly.
+
 frz15 A/B RESULT (patch 0028, read-log OFF): log volume collapsed
 from 80% of lines to zero `[READ]` lines, but the load stall window
 is UNCHANGED (~11 report periods ≈ 110 s, vs frz14's ~11 ≈ 110 s).
@@ -402,3 +544,23 @@ counts of `sub_002D57D0` attempts vs `sub_002D5C80` submits,
 `sub_002D55E0` alloc ok/fail with eax, `sub_002D5760` return values, plus
 `[ctx]`,`[ctx+0x2C]`,`[ctx+0x30]`,`[ctx+0x30][0]`,`[ctx+0x44]`,`[ctx+0x19FC]`
 — names the stuck quantity if the submit leaf goes quiet.
+
+frz26 RESULT (ring-writer census `[PRES] inst/i0/i4/latch/uGET/w2C`):
+the plateau is BIMODAL. frz20 variant = writer parked on `5C` (core-
+proven). frz26 variant = writer ALIVE: `submit=4434` climbing,
+`iGET == w cursor` exactly (the walk consumes everything the writer
+emits), latch advancing — yet flips frozen (1555) with `[SWAP]
+issue=3967` alive, `pump=eng=1450` frozen, `wait=5` pending, and `5C`
+wake count ZERO: the H28 device-message-pump signature, not the
+parked writer. Constants across ALL plateau runs: `sh8700=51747D8B`
+(the swap-completion slot holds the same poison word in every core
+and every run; the `0x1D70`-shaped release never landed), `i0=i4=0`
+(channel-block semaphore words never written — all releases rejected
+`off=0`), and `iGET` never lags the cursor. Patch 0030 fired
+faithfully (walk work==drained, one re-latch, drop=0) but the class-5
+NOP emulation is not how D3D8LTCG asks for ring space — the BEW
+release IS the mechanism. Next fix (0031): `off==0` → write through
+the NV2A aperture channel block (`xbox_Nv2aRegPtr(0x800000+off)`),
+same block whose `+0x44` GET the walk already publishes. frz27
+expectation: `i0` tracks the odd counter; flips resume past the load
+state; `sh8700` stops holding poison.

@@ -3,21 +3,17 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-22 (session 4p)
-**Stage:** LIFT complete, ENTRY strong, **MENU artefact reached** — frame
-dumps carry content and `reference/fb/frame00016.bmp` is the title screen
-("SUDEKI / Press START", 219 distinct colours). The wild-pointer wall (H23)
-is CLOSED and was a lift-adjacent gap, not memory poison: an unresolved
-ICALL (`0x27430`, a real `ret 4` thiscall, func_id miss) hit the
-`RECOMP_ICALL_SAFE_AT_CC` skip path, which assumes caller-cleanup → 4-byte
-esp drift → allocator epilogue pops read wrong saved regs → wild `esi`.
-Seeding measured ICALL targets (note 0018) fixed it; 15 seeds in the file,
-3 more measured (`A8A10 B5A50 BC450`) awaiting next regen. Remaining walls:
-(i) GPU draw coverage for 3D/menu scenes (150 distinct unhandled methods,
-vertex-program batches skipped — movies/title render via the FFP subset);
-(ii) input not yet opened (pad device never opened; "Press START" idle).
-Audio engine + AC97 up (patch 0022); level/wavebank streaming works; flip
-settle chain (patch 0017) intact.
+**Last updated:** 2026-11-22 (session 4q)
+**Stage:** LIFT complete, ENTRY strong, **MENU artefact reached** —
+`reference/fb/frz1600027.bmp` is the fully textured title screen
+(SUDEKI logo + character art + "Press START" + rain, 37,025 distinct
+colours); input reaches New Game (note 0020); audio + level/wavebank
+streaming work. H28 (post-attract "freeze") and H19 (GPU draw
+coverage) are both CLOSED — the executor already rasterises the level
+scene (33.6k tris/pass) and the top-40 unhandled NV2A methods are all
+benign states (note 0023). The Gameplay gate is now **input flow**:
+sparse menu navigation (the old 8-s start-spam feed cancels loads);
+first presented level frame = next artefact.
 
 ## Where things are verified
 
@@ -49,8 +45,9 @@ settle chain (patch 0017) intact.
   `sub_0026C79D` (error-slot setter + TLS guard), `sub_00021CD0/
   sub_000220E0` (posters), `sub_0028EA91`/`sub_002854B3` (audio census);
   gen tree emits bodies as `*_gen`, stubs still 432.
-- XBE: pinned SHA-256 ✔. Gen tree regenerated session 4g with
-  `--exclude-manual` (one body renamed `sub_00022340_gen`; 432 stubs).
+- XBE: pinned SHA-256 ✔. Gen tree regenerated session 4p with
+  `--exclude-manual` + the 18-seed file (incl. `A8A10 B5A50 BC450`);
+  432 stubs stable.
 - Skills: five pinned, digest gate green.
 - JP second sample lives at `~/Downloads/xbox/sudeki-jap/default.xbe`
   (3,842,048 B, SHA-256 `1f8a9611…`, XPP section identical size to World);
@@ -378,19 +375,32 @@ arr=0).
    (`plateau-lines=0`, 4.43 fps). Lesson for the toolkit's static
    CSes: any lazily-init'd `CRITICAL_SECTION` shares this hazard;
    audit if the symptom recurs elsewhere.
-10. **H28 CLOSED (note 0023, frz10-15 censuses):** the post-attract
-    "stall" is the game's own level-streaming load state, NOT a hang.
-    Frame loop alive (gate/rend/present/flip-issue +30/s), but the
-    swap-completion pump `sub_002D35A0` + engine submit `sub_001E0390`
-    (both called only from the device-message handler `sub_0011ED20`,
-    driven by game logic) stop exactly at the flip count — the loading
-    state never invokes that handler; streaming IO continues (5517
-    reads/90 MB in-window), recovery bursts into steady ~1.8 fps
-    gameplay. No host defect; the frozen screen = last flipped frame
-    while the game deliberately pauses swap completions. Host-side
-    win extracted: patch 0028 (`RECOMP_IO_READ_LOG=1` gate; [READ]
-    was unconditional incl. per-read stat+fflush). frz15 A/B measures
-    the load-duration gain.
+10. **H28 CLOSED (note 0023, frz10-18 censuses):** the post-attract
+    "stall" is the game's own level-streaming load state, NOT a hang:
+    frame loop + flip-issue alive, swap pump + engine submit frozen
+    exactly at the flip count (their only caller `sub_0011ED20` is a
+    device-message handler the load state stops invoking), IO
+    streaming continues, recovery to ~1.8 fps gameplay. Host win:
+    patch 0028 read-log gate (A/B: tracing not the load throttle).
+11. **H29 ACTIVE (note 0023, frz20 core + frz25/26 censuses):**
+    prologue-level plateau hang. Root anatomy: ring writer
+    `sub_002D57D0` parks in `KeWaitForSingleObject(0x2E2F5C)`; that
+    event's only arm is D3D's ONE class-5 NOP (`[NOPSW] 5:1` of 2891).
+    Patch 0030 (class-5 re-latch on walk drain edges) CONFIRMED
+    FIRING (`walk calls work=6098 drained=6098`, `rering latched=1`)
+    but a second wake never reaches `KeSetEvent` — the NOP-emulation
+    hop is unreliable (frz25 run2: `5:1` serviced ZERO times). The
+    real D3D8LTCG ring-free protocol is the BEW semaphore:
+    `sub_002D54E0` (writer's wait path) emits `0x4A310 marker +
+    0x41D70 release(value=ctx+0x2C counter)` into the ring;
+    `0x1D6C` programs offset 0 → target = channel block at
+    aperture+0x800000 (`0xFD800000`, same block as `USER_DMA_GET
+    +0x44` which the walk DOES advance correctly — earlier "stale
+    GET" reading corrected); that block's +0/+4 words read ZERO at
+    plateau = releases rejected by patch-0016's `off != 0` guard.
+    Candidate fix (next): allow `off==0` → NV2A aperture target
+    (0031); frz26 census (`[PRES] inst/i0/i4/latch/...`) verifying
+    what the guest expects to read there.
 
 ## Queue (next concrete actions)
 
@@ -512,7 +522,12 @@ arr=0).
   directive 2026-11-22 ("make sure stopping doesn't happen again").
 - OpenCode layer: `opencode.jsonc` + commands `/resume /status /run /cycle
   /note /lift /handoff /setup`; skills under `.opencode/skills/` (pinned).
-- Remote origin push URL is `NO_PUSH`. Do not "fix" this.
+- Remote origin push URL is `NO_PUSH`. Do not "fix" this *unprompted*.
+  User directive 2026-11-22: a push to origin may happen only with the
+  user's explicit formal approval in a live conversation ("wait for my
+  formal approval before to push"); pre-push audits (disc-artefact
+  scan of tree AND history, secrets scan, doctor pins) are mandatory
+  each time. The push URL is switched only for the approved push.
 
 ## Session log
 

@@ -1050,19 +1050,41 @@ void sub_002D57D0(void)
                 else if (d >= db) { c = b; dc = db; b = k; db = d; }
                 else if (d > dc) { c = k; dc = d; }
             }
-            if (ctx >= 0x1000u)
+            if (ctx >= 0x1000u) {
+                /* H29 census (note 0023): the ring writer's own GET
+                 * source is MEM32(MEM32(ctx+0x1C20)+0x44)|0x80000000
+                 * (lifted sub_002D5760 loc_002D5783) — the channel
+                 * INSTANCE block, a different pointer from the USER
+                 * window at ctx+0x934 that the executor advances.
+                 * Dump both GET feeds, the kick latch at
+                 * (ctx+0x934)+0x400B10, and the ring bounds. */
+                uint32_t inst = MEM32(ctx + 0x1C20);
+                uint32_t user = MEM32(ctx + 0x934);
                 fprintf(stderr, "[PRES] try=%llu submit=%llu alloc=%llu/%llu "
                                 "callers=%08X:%llu %08X:%llu %08X:%llu "
                                 "ctx=%08X w=%08X blk=%08X blk0=%08X "
-                                "size=%08X cb=%08X\n",
+                                "size=%08X cb=%08X "
+                                "inst=%08X iGET=%08X user=%08X uGET=%08X "
+                                "latch=%08X lo=%08X hi=%08X w2C=%08X "
+                                "i0=%08X i4=%08X sh8700=%08X\n",
                         g_pres_try, g_pres_sub, g_alloc_ok, g_alloc_fail,
                         a >= 0 ? g_pres_rets[a].va : 0u, da,
                         b >= 0 ? g_pres_rets[b].va : 0u, db,
                         c >= 0 ? g_pres_rets[c].va : 0u, dc,
                         ctx, MEM32(ctx), MEM32(ctx + 0x30),
                         MEM32(MEM32(ctx + 0x30)),
-                        MEM32(ctx + 0x44), MEM32(ctx + 0x19FC));
-            else
+                        MEM32(ctx + 0x44), MEM32(ctx + 0x19FC),
+                        inst,
+                        inst >= 0x1000u ? MEM32(inst + 0x44) : 0u,
+                        user,
+                        user >= 0x1000u ? MEM32(user + 0x44) : 0u,
+                        (user >= 0x1000u) ? MEM32(user + 0x400B10u) : 0u,
+                        MEM32(ctx + 0x24), MEM32(ctx + 0x28),
+                        MEM32(ctx + 0x2C),
+                        inst >= 0x1000u ? MEM32(inst) : 0u,
+                        inst >= 0x1000u ? MEM32(inst + 4) : 0u,
+                        MEM32(ctx + 0x8700));
+            } else
                 fprintf(stderr, "[PRES] try=%llu submit=%llu alloc=%llu/%llu\n",
                         g_pres_try, g_pres_sub, g_alloc_ok, g_alloc_fail);
             fflush(stderr);
