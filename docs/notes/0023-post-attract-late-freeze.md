@@ -1521,3 +1521,20 @@ behind; census park=/s_park_stops; RECOMP_PB_PARK=0 A/B). frz71
 (strict+park) + frz72 (v4+park) in flight. Expect: slower flips
 (paced to the service rate) but NO plateau; the artefact target is
 unchanged = a presented level frame in reference/fb/frz7[12]*.
+
+frz71 (strict one-owner + 0042 park) FINAL-ish (killed at 600 s):
+262 flips — WORSE, and the census explains why precisely: park=1579
+fired (suspension works), enq=0/drop=0 (no backlog), but consume=261
+in the whole run: the guest's GPU service chain wakes ~0.5/s in the
+load era ([DPC] body entries=279 total while vblank runs 50/s and
+KeInsertQueueDpc x1090). The channel now paces to that rate — the
+service rate is the binding constraint, and it is host-side: the
+trap arms the aperture words but nothing ASSERTS the interrupt, so
+the guest's graphics ISR only stumbles on it coincidentally.
+Patch 0043 = latch posts the NV2A PCI line (xbox_IrqPost(0), the
+line the vblank model already uses): hardware asserts the line at
+TRAP_DATA time; the guest ISR then queues the GPU DPC and it drains
+at the ISR exit (the hal's irq exit path already calls
+dpc_run_here). frz73 = strict+park+post; frz74 = v4+park+post.
+If the post lifts service to ~vblank rate, flips should track the
+engine's 30/s issue rate and the plateau era becomes navigable.
