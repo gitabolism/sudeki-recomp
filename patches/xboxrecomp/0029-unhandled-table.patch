@@ -1,0 +1,35 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -5147,6 +5147,32 @@
+             s_gpu.color_offset, s_gpu.pitch, s_gpu.clip_w, s_gpu.clip_h,
+             s_gpu.clip_x, s_gpu.clip_y, s_gpu.clears,
+             s_gpu.unhandled_total, s_unhandled_count);
++    if (getenv("RECOMP_PB_UNH_TABLE")) {
++        /* Patch 0029 (note 0023, H19): the ranked table — the
++         * implement-in-this-order list the header line counts but
++         * never shows. Copy + qsort; the live table keeps insertion
++         * order (its slots are referenced by s_unhandled_slot). */
++        static PbUnhandled sortbuf[PB_EXEC_MAX_UNHANDLED];
++        int n = s_unhandled_count, k, top;
++        if (n > PB_EXEC_MAX_UNHANDLED)
++            n = PB_EXEC_MAX_UNHANDLED;
++        memcpy(sortbuf, s_unhandled, (size_t)n * sizeof(PbUnhandled));
++        for (k = 1; k < n; k++) { /* insertion sort: n <= 2048, runs
++                                   * once per report, keep it simple */
++            PbUnhandled key = sortbuf[k];
++            int m = k - 1;
++            while (m >= 0 && sortbuf[m].count < key.count) {
++                sortbuf[m + 1] = sortbuf[m];
++                m--;
++            }
++            sortbuf[m + 1] = key;
++        }
++        top = n < 40 ? n : 40;
++        for (k = 0; k < top; k++)
++            fprintf(stderr, "[UNH] m=%04X n=%-8u last=%08X%c",
++                    sortbuf[k].method, sortbuf[k].count,
++                    sortbuf[k].last_param, 10);
++    }
+     fprintf(stderr, "[GPU] draws %u (%u with coordinates), %u indices;"
+                     " x %.1f..%.1f  y %.1f..%.1f\n",
+             s_gpu.draws, s_gpu.nonzero_draws, s_gpu.verts,

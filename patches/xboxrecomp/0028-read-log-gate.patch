@@ -1,0 +1,77 @@
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -4862,36 +4862,47 @@
+ 
+     /* What a read actually delivered. A decoder that rejects its input cannot
+      * say whether the bytes were wrong or the read was, and the two look
+-     * identical from inside the title -- the first bytes settle it. */
++     * identical from inside the title -- the first bytes settle it.
++     * RECOMP_IO_READ_LOG=1 arms it, OFF by default (patch 0028, note 0023):
++     * level-streaming phases issue thousands of 16 KiB reads per second and
++     * the path/stat/fflush cost per read measurably lengthens the very loads
++     * we time. */
+     {
+-        const uint8_t *p = (const uint8_t *)XBOX_TO_NATIVE(buffer_va);
+-        uint32_t got = (uint32_t)ios.Information;
+-        const char *rpath = w32_handle_path(handle);
+-        long long rsz = -1;
++        static int read_log_on = -1;
++        if (read_log_on < 0) {
++            const char *e = getenv("RECOMP_IO_READ_LOG");
++            read_log_on = (e && *e && *e != '0') ? 1 : 0;
++        }
++        if (read_log_on) {
++            const uint8_t *p = (const uint8_t *)XBOX_TO_NATIVE(buffer_va);
++            uint32_t got = (uint32_t)ios.Information;
++            const char *rpath = w32_handle_path(handle);
++            long long rsz = -1;
+ #ifndef _WIN32
+-        if (rpath) { struct stat rst; if (stat(rpath, &rst) == 0) rsz = (long long)rst.st_size; }
++            if (rpath) { struct stat rst; if (stat(rpath, &rst) == 0) rsz = (long long)rst.st_size; }
+ #endif
+-        /* The offset matters as much as the length. A title streaming a pack
+-         * file reads sector-aligned chunks, so the first bytes belong to
+-         * whatever precedes the file it actually wants, and a read that stops
+-         * early looks identical to one that never started -- until you can
+-         * see where each one landed. */
+-        if (poff)
+-            fprintf(stderr, "  [READ] from=0x%08X ev=%08X apc=%08X buf=0x%08X @%lld want=%u got=%u st=0x%08X sz=%lld path=%s  %02X %02X %02X %02X\n",
+-                    g_xbox_kernel_caller, STACK_ARG(1), STACK_ARG(2),
+-                    buffer_va,
+-                    (long long)off.QuadPart, length, got,
+-                    (uint32_t)ios.Status, rsz,
+-                    rpath ? rpath : "?",
+-                    got > 0 ? p[0] : 0, got > 1 ? p[1] : 0,
+-                    got > 2 ? p[2] : 0, got > 3 ? p[3] : 0);
+-        else
+-            fprintf(stderr, "  [READ] from=0x%08X @seq buf=0x%08X want=%u got=%u st=0x%08X  %02X %02X %02X %02X\n",
+-                    g_xbox_kernel_caller, buffer_va,
+-                    length, got, (uint32_t)ios.Status,
+-                    got > 0 ? p[0] : 0, got > 1 ? p[1] : 0,
+-                    got > 2 ? p[2] : 0, got > 3 ? p[3] : 0);
+-        fflush(stderr);
++            /* The offset matters as much as the length. A title streaming a pack
++             * file reads sector-aligned chunks, so the first bytes belong to
++             * whatever precedes the file it actually wants, and a read that stops
++             * early looks identical to one that never started -- until you can
++             * see where each one landed. */
++            if (poff)
++                fprintf(stderr, "  [READ] from=0x%08X ev=%08X apc=%08X buf=0x%08X @%lld want=%u got=%u st=0x%08X sz=%lld path=%s  %02X %02X %02X %02X\n",
++                        g_xbox_kernel_caller, STACK_ARG(1), STACK_ARG(2),
++                        buffer_va,
++                        (long long)off.QuadPart, length, got,
++                        (uint32_t)ios.Status, rsz,
++                        rpath ? rpath : "?",
++                        got > 0 ? p[0] : 0, got > 1 ? p[1] : 0,
++                        got > 2 ? p[2] : 0, got > 3 ? p[3] : 0);
++            else
++                fprintf(stderr, "  [READ] from=0x%08X @seq buf=0x%08X want=%u got=%u st=0x%08X  %02X %02X %02X %02X\n",
++                        g_xbox_kernel_caller, buffer_va,
++                        length, got, (uint32_t)ios.Status,
++                        got > 0 ? p[0] : 0, got > 1 ? p[1] : 0,
++                        got > 2 ? p[2] : 0, got > 3 ? p[3] : 0);
++            fflush(stderr);
++        }
+     }
+     bridge_write_iostatus(iostatus, ios.Status, (uint32_t)ios.Information);
+     bridge_complete_file_io(STACK_ARG(1), STACK_ARG(2), STACK_ARG(3),

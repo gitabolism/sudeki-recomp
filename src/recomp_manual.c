@@ -794,3 +794,309 @@ void sub_002DAE40(void)
     }
     sub_002DAE40_gen();
 }
+
+/* ── post-attract render-gate census (note 0023 H28, RECOMP_GATE_TRACE=1) ──
+ *
+ * The XAPI frame loop (sub_0011B020) runs sub_001DE310 per frame; its
+ * gate sub_002C3200(ctx) decides render vs skip — a non-zero return
+ * jumps to 0x1DE40C and the whole render/Present segment is skipped
+ * (no ring traffic, no flips: the observed 0.00-fps stall). The three
+ * mid-stall cores land in three different phases (render-transform
+ * sub_002CB420/sub_002CBAF0, and the gate's own skip-path ICALL
+ * sub_002CA490), so frames keep cycling — the question is the gate's
+ * streaming/budget state.
+ *
+ * Aggregate per second (cumulative counters): gate calls/pass/skip,
+ * render-segment entries (sub_002C27A0), present-path entries
+ * (sub_002D5BF0), and the ctx accounting slots the gate reads:
+ * +0x14/+0x18 tick scalers, +0xFC loading flag, +0x2A0 outstanding
+ * IO, +0x2F8 queue bytes, +0x270 total, +0x280 cursor, +0x284 done,
+ * +0x27C last tick, +0x338/+0x33C budget terms. Off (no wrapper cost
+ * beyond one getenv-cached branch when unset).
+ */
+#include <time.h>
+
+extern void sub_002C3200_gen(void);
+extern void sub_002C27A0_gen(void);
+extern void sub_002D5BF0_gen(void);
+
+/* frz14 swap-machine census (note 0023): flip-issue / flip-wait /
+ * swap-completion pump / engine-submit counters; per-second line
+ * printed from the Present-API wrapper (only function proven to
+ * tick 30/s even during the stall). */
+extern void sub_002D3B50_gen(void);
+extern void sub_002D3CC0_gen(void);
+extern void sub_002D35A0_gen(void);
+extern void sub_001E0390_gen(void);
+static volatile unsigned long long g_flip_issue, g_flip_wait;
+static volatile unsigned long long g_swap_pump, g_eng_submit;
+
+static int swap_census_on(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        const char *e = getenv("RECOMP_PRES_TRACE");
+        cached = (e && *e && *e != '0') ? 1 : 0;
+    }
+    return cached;
+}
+
+static volatile unsigned long long g_gate_calls, g_gate_pass, g_gate_skip;
+static volatile unsigned long long g_rend_seg, g_pres_seg;
+
+static int gate_trace_enabled(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        const char *e = getenv("RECOMP_GATE_TRACE");
+        cached = (e && *e && *e != '0') ? 1 : 0;
+    }
+    return cached;
+}
+
+void sub_002C27A0(void)
+{
+    if (gate_trace_enabled())
+        g_rend_seg++;
+    sub_002C27A0_gen();
+}
+
+void sub_002D5BF0(void)
+{
+    if (gate_trace_enabled())
+        g_pres_seg++;
+    {
+        /* frz12 probe (note 0023 H28c): dump the Present short-circuit
+         * inputs — the D3D device's state/effect fields decide whether
+         * Present reaches the submit chain at all. */
+        static int on = -1;
+        if (on < 0) {
+            const char *e = getenv("RECOMP_PRES_TRACE");
+            on = (e && *e && *e != '0') ? 1 : 0;
+        }
+        if (on) {
+            uint32_t dev = g_eax;
+            if (dev >= 0x1000u && dev < 0x80000000u) {
+                static time_t last;
+                static uint32_t prevf;
+                uint32_t f = MEM32(dev), d8 = MEM32(dev + 8);
+                uint32_t d14 = MEM32(dev + 0x14);
+                time_t now = time(NULL);
+                if (now != last || f != prevf) {
+                    last = now;
+                    prevf = f;
+                    fprintf(stderr, "[PRESN] dev=%08X flags=%08X dev8=%08X "
+                                    "dev14=%08X d14f=%08X\n",
+                            dev, f, d8, d14,
+                            d14 >= 0x1000u && d14 < 0x80000000u ? MEM32(d14) : 0);
+                    {
+                        uint32_t c = MEM32(0x2E3638), idx = 0, slot = 0;
+                        if (c >= 0x1000u && c < 0x4000000u) {
+                            idx = MEM32(c + 0x2478);
+                            if (idx < 16u)
+                                slot = MEM32(c + idx * 4 + 0x1974);
+                            fprintf(stderr, "[SWAP] issue=%llu wait=%llu "
+                                            "pump=%llu eng=%llu idx=%u "
+                                            "slot=%08X f8D4=%08X f8D8=%08X "
+                                            "pend=%08X want=%08X\n",
+                                    g_flip_issue, g_flip_wait, g_swap_pump,
+                                    g_eng_submit, idx, slot,
+                                    MEM32(c + 0x8D4), MEM32(c + 0x8D8),
+                                    MEM32(0xFD008700), MEM32(0xFD008704));
+                        }
+                    }
+                    fflush(stderr);
+                }
+            }
+        }
+    }
+    sub_002D5BF0_gen();
+}
+
+void sub_002C3200(void)
+{
+    uint32_t ctx;
+    if (!gate_trace_enabled()) {
+        sub_002C3200_gen();
+        return;
+    }
+    ctx = g_eax;
+    g_gate_calls++;
+    sub_002C3200_gen();
+    if (g_eax) g_gate_skip++; else g_gate_pass++;
+    {
+        static time_t last;
+        time_t now = time(NULL);
+        if (now != last) {
+            last = now;
+            if (ctx >= 0x1000u)
+                fprintf(stderr, "[GATE] calls=%llu pass=%llu skip=%llu rend=%llu "
+                                "pres=%llu ctx=%08X FC=%08X io=%08X q=%08X "
+                                "tot=%08X cur=%08X done=%08X tick=%08X acc=%08X "
+                                "bud=%08X cons=%08X sc14=%08X sc18=%08X\n",
+                        g_gate_calls, g_gate_pass, g_gate_skip, g_rend_seg,
+                        g_pres_seg, ctx,
+                        MEM32(ctx + 0xFC), MEM32(ctx + 0x2A0), MEM32(ctx + 0x2F8),
+                        MEM32(ctx + 0x270), MEM32(ctx + 0x280), MEM32(ctx + 0x284),
+                        MEM32(ctx + 0x27C), MEM32(ctx + 0x2B4),
+                        MEM32(ctx + 0x338), MEM32(ctx + 0x33C),
+                        MEM32(ctx + 0x14), MEM32(ctx + 0x18));
+            else
+                fprintf(stderr, "[GATE] calls=%llu pass=%llu skip=%llu rend=%llu "
+                                "pres=%llu ctx=%08X\n",
+                        g_gate_calls, g_gate_pass, g_gate_skip, g_rend_seg,
+                        g_pres_seg, g_eax);
+            fflush(stderr);
+        }
+    }
+}
+
+/* ── Present/submit chain census (note 0023 H28b, RECOMP_PRES_TRACE=1) ──
+ *
+ * frz10: the game-side Present wrapper ticks 30/s during the 0-fps
+ * stall while the GPU is fully submission-quiet (draws/clears/
+ * unhandled constant). The D3D runtime Present sub_002D57D0 has a
+ * ring free-space gate (free < 0x2400 or signed-negative ->
+ * loc_002D58D3) that skips the method writes and the submit leaf
+ * sub_002D5C80; block alloc sub_002D55E0 failing (eax=0) exits even
+ * earlier. If submits go quiet while attempts tick, the ring
+ * bookkeeping words printed here name the stuck quantity.
+ * ctx = MEM32(0x2E3638): +0x2C dev, +0x30 block list, +0x44 ring
+ * size, +0x19FC submit callback, +0x1A00 last cursor.
+ */
+extern void sub_002D57D0_gen(void);
+extern void sub_002D5760_gen(void);
+extern void sub_002D5C80_gen(void);
+extern void sub_002D55E0_gen(void);
+
+static volatile unsigned long long g_pres_try, g_pres_sub, g_alloc_ok, g_alloc_fail;
+static volatile uint32_t g_prog_seen[8]; /* recent sub_002D5760 returns */
+static volatile unsigned g_prog_idx;
+
+static int pres_trace_enabled(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        const char *e = getenv("RECOMP_PRES_TRACE");
+        cached = (e && *e && *e != '0') ? 1 : 0;
+    }
+    return cached;
+}
+
+void sub_002D5C80(void)
+{
+    if (pres_trace_enabled())
+        g_pres_sub++;
+    sub_002D5C80_gen();
+}
+
+void sub_002D55E0(void)
+{
+    if (!pres_trace_enabled()) {
+        sub_002D55E0_gen();
+        return;
+    }
+    sub_002D55E0_gen();
+    if (g_eax) g_alloc_ok++; else g_alloc_fail++;
+}
+
+void sub_002D5760(void)
+{
+    if (!pres_trace_enabled()) {
+        sub_002D5760_gen();
+        return;
+    }
+    sub_002D5760_gen();
+    g_prog_seen[g_prog_idx & 7u] = g_eax;
+    g_prog_idx++;
+}
+
+struct pres_ret { uint32_t va; unsigned long long n; unsigned long long prev; };
+static struct pres_ret g_pres_rets[48]; /* census-only; counts race benign */
+
+void sub_002D57D0(void)
+{
+    extern __thread uint32_t g_esp;
+    if (!pres_trace_enabled()) {
+        sub_002D57D0_gen();
+        return;
+    }
+    {
+        uint32_t ret = MEM32(g_esp); /* guest return VA = caller site */
+        struct pres_ret *slot = 0;
+        int i;
+        for (i = 0; i < 48; i++) {
+            if (g_pres_rets[i].va == ret) { slot = &g_pres_rets[i]; break; }
+            if (!g_pres_rets[i].va && !slot) slot = &g_pres_rets[i];
+        }
+        if (slot) { slot->va = ret; slot->n++; }
+    }
+    g_pres_try++;
+    sub_002D57D0_gen();
+    {
+        static time_t last;
+        time_t now = time(NULL);
+        if (now != last) {
+            uint32_t ctx = MEM32(0x2E3638);
+            int k, a = -1, b = -1, c = -1;
+            unsigned long long da = 0, db = 0, dc = 0;
+            last = now;
+            for (k = 0; k < 48 && g_pres_rets[k].va; k++) {
+                unsigned long long d;
+                struct pres_ret *p = &g_pres_rets[k];
+                d = p->n - p->prev;
+                p->prev = p->n;
+                if (d >= da) { c = b; dc = db; b = a; db = da; a = k; da = d; }
+                else if (d >= db) { c = b; dc = db; b = k; db = d; }
+                else if (d > dc) { c = k; dc = d; }
+            }
+            if (ctx >= 0x1000u)
+                fprintf(stderr, "[PRES] try=%llu submit=%llu alloc=%llu/%llu "
+                                "callers=%08X:%llu %08X:%llu %08X:%llu "
+                                "ctx=%08X w=%08X blk=%08X blk0=%08X "
+                                "size=%08X cb=%08X\n",
+                        g_pres_try, g_pres_sub, g_alloc_ok, g_alloc_fail,
+                        a >= 0 ? g_pres_rets[a].va : 0u, da,
+                        b >= 0 ? g_pres_rets[b].va : 0u, db,
+                        c >= 0 ? g_pres_rets[c].va : 0u, dc,
+                        ctx, MEM32(ctx), MEM32(ctx + 0x30),
+                        MEM32(MEM32(ctx + 0x30)),
+                        MEM32(ctx + 0x44), MEM32(ctx + 0x19FC));
+            else
+                fprintf(stderr, "[PRES] try=%llu submit=%llu alloc=%llu/%llu\n",
+                        g_pres_try, g_pres_sub, g_alloc_ok, g_alloc_fail);
+            fflush(stderr);
+        }
+    }
+}
+
+/* frz14 swap-machine census wrappers (note 0023). One line of cost
+ * when RECOMP_PRES_TRACE is unset; the per-second report lives in
+ * the Present-API wrapper. */
+void sub_002D3B50(void)
+{
+    if (swap_census_on())
+        g_flip_issue++;
+    sub_002D3B50_gen();
+}
+
+void sub_002D3CC0(void)
+{
+    if (swap_census_on())
+        g_flip_wait++;
+    sub_002D3CC0_gen();
+}
+
+void sub_002D35A0(void)
+{
+    if (swap_census_on())
+        g_swap_pump++;
+    sub_002D35A0_gen();
+}
+
+void sub_001E0390(void)
+{
+    if (swap_census_on())
+        g_eng_submit++;
+    sub_001E0390_gen();
+}

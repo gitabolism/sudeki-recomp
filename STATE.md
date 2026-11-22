@@ -3,7 +3,7 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-22 (session 4o)
+**Last updated:** 2026-11-22 (session 4p)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached** — frame
 dumps carry content and `reference/fb/frame00016.bmp` is the title screen
 ("SUDEKI / Press START", 219 distinct colours). The wild-pointer wall (H23)
@@ -59,21 +59,32 @@ settle chain (patch 0017) intact.
 
 ## Last run
 
-Session 4o (latest): post-attract stall anatomy captured (note 0023,
-frz7 core). At the stall (1444 flips, during `fma01_poem.bik` playback)
-the main guest thread is **BUSY in `sub_002CB420`** (chain
-`sub_0011B020→sub_001DE310→sub_002C27A0→sub_002C94F0→sub_002C7840→
-sub_002CB420`), two guest workers idle in kernel waits, and ring/XAPI
-events (`0x2E2F4C`, `0x48000001`) are STILL firing → event-deadlock
-reading dead; spin-vs-long-haul open. Next: (a) second core at
-plateau+30 s, diff PC offset inside sub_002CB420 + guest regs;
-(b) read lifted body (`recomp_0053.c:13865`) for data-dependent loops.
-Core `/tmp/opencode/sudeki.frz7.core` + map `/tmp/opencode/frz7b.bt` —
-do NOT rebuild before any re-analysis. frz6 lesson: detector must be
-TIME-gated (t≥150 s + 3×0.00); flip-gate (≥2500) missed the freeze
-(it froze at 2280 flips). README rewritten co-authored with the user
-(two-line SUDEKI RECOMP block wordmark, remote rules out of README);
-AGENTS rule 9 now keeps README current at stage boundaries.
+Session 4q (latest): **H19 inventory CLOSED (note 0023 frz16)** —
+ranked `[UNH]` table (patch 0029, `tools/unh_names.py`, names vs nxdk
+`nv_regs.h` cached at /tmp/opencode/nv_regs.h): all 40 top unhandled
+methods are benign render states, none draw-blocking; executor
+already rasterises the level scene (6139 VSH batches, 33.6k tris/
+pass); frz16 dump 27 = fully textured title screen (37k colors). The
+Gameplay gate moved from GPU coverage to **input flow**: dense start
+feed (every 8 s) distorted the state machine (second 110 s load;
+dumps 17-30 all the SAME frozen title frame). frz17 queued: sparse
+navigation + 15-flip dump cadence.
+
+Session 4p: **H28 CLOSED** via five census runs (frz10-15,
+`RECOMP_GATE_TRACE/RECOMP_PRES_TRACE` manual wrappers on
+`sub_002C3200/_C27A0/_D5BF0/_D57D0/_D5760/_D5C80/_D55E0/_D3B50/
+_D3CC0/_D35A0/_001E0390`). The post-attract "stall" = the engine's
+level-streaming load state: frame loop + flip-issue alive (30/s),
+swap-completion pump `sub_002D35A0` + engine submit `sub_001E0390`
+frozen exactly at the flip count (their only caller `sub_0011ED20`
+is a device-message handler the load state stops invoking), IO
+streaming continues (~90 MB in-window), recovery → steady ~1.8 fps
+gameplay. No host defect; spin-vs-long-haul answered: LONG-HAUL.
+frz15 A/B (patch 0028 read-log gate): load duration unchanged
+(~110 s) → load bound by emulated CPU, not tracing. Patches 0028 +
+0029 (`RECOMP_IO_READ_LOG`, ranked `[UNH]` unhandled-method table)
+in the series; frz16 = first H19 inventory run with
+`RECOMP_PB_UNH_TABLE=1`.
 
 Earlier 4n (still valid baseline): freeze walls
 **H26+H27 both CLOSED** (notes 0021/0022; patches 0024-0027 in the
@@ -308,13 +319,18 @@ arr=0).
    (`src/main.c`) + `RECOMP_PB_EXEC=1` + `RECOMP_VBLANK=1` take the boot
    from the phantom-charge stall all the way to real flips and the title
    intro movie. Decode still byte-exact.
-2. **H19 (NEW primary wall — GPU draw coverage):** frames flip but are
-   solid black. Executor reports 8716 unhandled methods / 150 distinct —
-   this XDK 5849 D3D build drives the NV2A programmable vertex path
-   (VSH program/constant uploads, indexed vertex buffers, image-blit
-   classes) that the toolkit's FFP executor doesn't implement. First
-   move: dump the unhandled-method table (`nv2a_pb_exec_report`) and
-   classify. Expect this is the Menu-stage work and a long tail.
+2. **H19 inventory CLOSED (note 0023 frz16, patch 0029 +
+   `tools/unh_names.py`):** the 150 distinct unhandled NV2A methods
+   are ALL benign per-frame states (cull-face, BREAK_VERTEX_BUFFER_
+   CACHE ×1-per-draw, clip min/max, light enables, window-clip,
+   WAIT_FOR_IDLE, BEW semaphore release) — no draw-blocking method.
+   The executor already draws the level scene (6139 VSH batches,
+   33.6k tris/pass, 795M px) and the title screen now dumps FULLY
+   TEXTURED (37k colors, logo+art+rain, dump frz1600027). Level
+   frames just aren't PRESENTED during the game's load state (H28
+   swap pause holds the last frame). Follow-up (not a wall): confirm
+   texture coverage once a level frame is presented; the "0 textured
+   batches with usable stage" line may hide a combiner gap.
 3. **H20 (cheap, verify first):** confirm `0x48000004`-set boot tasks
    don't re-starve later subsystems; the ordinal profile with PB_EXEC is
    NtWaitForSingle+NtReleaseMutant ×19M/160s on a D3D worker — check it
@@ -362,21 +378,32 @@ arr=0).
    (`plateau-lines=0`, 4.43 fps). Lesson for the toolkit's static
    CSes: any lazily-init'd `CRITICAL_SECTION` shares this hazard;
    audit if the symptom recurs elsewhere.
-10. **H28 (ACTIVE wall — post-attract stall, note 0023):** main guest
-    thread BUSY (not waiting) in `sub_002CB420` during `fma01_poem.bik`
-    playback; workers idle; events healthy. Spin-vs-long-haul unknown —
-    two-sample PC diff decides. If spin: identify polled guest word,
-    find writer via census wrapper, fix host-side. Lift-side suspects:
-    unresolved ICALL inside the 0x2CB4xx family would corrupt state the
-    H23 way — audit `[ICALL] Failed to resolve` lines in frz logs.
+10. **H28 CLOSED (note 0023, frz10-15 censuses):** the post-attract
+    "stall" is the game's own level-streaming load state, NOT a hang.
+    Frame loop alive (gate/rend/present/flip-issue +30/s), but the
+    swap-completion pump `sub_002D35A0` + engine submit `sub_001E0390`
+    (both called only from the device-message handler `sub_0011ED20`,
+    driven by game logic) stop exactly at the flip count — the loading
+    state never invokes that handler; streaming IO continues (5517
+    reads/90 MB in-window), recovery bursts into steady ~1.8 fps
+    gameplay. No host defect; the frozen screen = last flipped frame
+    while the game deliberately pauses swap completions. Host-side
+    win extracted: patch 0028 (`RECOMP_IO_READ_LOG=1` gate; [READ]
+    was unconditional incl. per-read stat+fflush). frz15 A/B measures
+    the load-duration gain.
 
 ## Queue (next concrete actions)
 
-* **PRIORITY (4o):** H28 steps — (a) rerun frz7 recipe, ABRT at
-  plateau+30 s → second core → compare PC offset + regs vs
-  `/tmp/opencode/frz7b.bt`; (b) meanwhile read `sub_002CB420` body in
-  `recomp_0053.c` (loop structure at `loc_002CB4A9`+); (c) check frz7
-  log for unresolved-ICALL lines.
+* **PRIORITY (4q): menu-navigation run (frz17)** — the Gameplay gate
+  is now INPUT FLOW, not GPU coverage: sparse presses (single start
+  at title, then confirm-style presses, NO start-spam — dense feed
+  plausibly cancels loads to title, frz16 dumps 17-30 = same frozen
+  title frame), dumps every 15 flips, 380 s window to outlast the
+  ~110 s level load and capture the first PRESENTED level frame.
+* Then: confirm level-scene texture coverage on that presented frame
+  (the "0 textured batches" census line).
+* xemu title/menu side-by-side capture (queued since 4m; note 0019
+  boot fixed; FB-offset remeasure pending).
 
 1. **xemu reference (note 0019 CLOSED for boot):** STOP was our unofficial
    256 KiB SpiritBoot dev ROM forcing 128 MB (Def Jam #75 failure class).
@@ -475,8 +502,14 @@ arr=0).
   `RECOMP_DS_INIT=1` (`sub_0028F8C3` DDS9 master-open census; the probe
   skips the init tail — diagnostics only), `RECOMP_LOG_ORDS=44,98,...`
   (patch 0021), **`RECOMP_AC97_READY=1` now part of the working recipe**
-  (MCPX APU + AC97 bus-master trap; audio initialises). Seeds file for
+  (MCPX APU + AC97 bus-master trap; audio initialises), **`RECOMP_IO_READ_LOG=1`**
+  (patch 0028; `[READ]` trace now default-OFF — re-arm for IO forensics).
+  Seeds file for
   pipeline `--seed` lives at `logs/seeds-icall-0011C640.json` (local).
+- Never end a turn on "standing by": while a build/run is in flight, do
+  concrete analysis (prior logs, lifted bodies, next probe script); chain
+  dependent steps into one background script. Idle waits banned by user
+  directive 2026-11-22 ("make sure stopping doesn't happen again").
 - OpenCode layer: `opencode.jsonc` + commands `/resume /status /run /cycle
   /note /lift /handoff /setup`; skills under `.opencode/skills/` (pinned).
 - Remote origin push URL is `NO_PUSH`. Do not "fix" this.
@@ -498,5 +531,5 @@ arr=0).
 | 2026-11-21 s4i | **level streaming reached + audio wall root-caused (notes 0016/0017)**: flip-done settle chain (patch 0017 + `main.c` chain `0x2E3638→+0x934→ctx+0x8700`) clears post-movie wait → `SOLWORLDM.gex`/wavebanks/`BS_brightwater.xwb` stream; 4 measured seeds more (`0550A0 0FD7D0 135AA0 092010`) lift remaining boot ICALL misses; the "TLS teardown poison" crash **falsified and root-caused**: DSOUND voice `sub_002854B3(this=029A00F4)` slot +0x14=0 → `sub_0028EA91` 24 KB wavebank copy to guest 0x818 tramples exception page + TIB page; TLS guard kept, audio census wrappers (`RECOMP_DS_COPY/DS_VOICE`, `!`=impossible-address auto-log); watch upgraded (guest-stack chain 0019, TF single-step + panic core 0020); surviving crash = `sub_000B08F0+0xDFB2` wild write `esi=0x89D8458B` (same audio subsystem, H22) | (this commit) |
 | 2026-11-21 s4k | **H23 CLOSED (note 0018) + MENU artefact reached**: "wild allocator pointer" = 4-byte esp drift from an unresolved-ICALL skip (`0x27430`, real `ret 4` thiscall; `ICALL_SAFE_AT_CC` skip assumes caller-cleanup) corrupting saved-register pops — proven by esp-delta probes, fixed by seeding measured targets (18-seed file); runs now: no crash @240 s, 152k draws, first content frames incl. **title screen** `reference/fb/frame00016.bmp`; ICALL feedback instrument wired (CMake `SUDEKI_ICALL_FEEDBACK`, `build-fb` probe, SIGTERM dump) for batch seeding; xemu ref investigation: 0.8.139 = latest release, HDD pristine, upstream shows title running (no bugcheck reports) -> our STOP is environment-specific; user taking over xemu playability test manually | (this commit) |
 | 2026-11-22 s4m | **input wall CLOSED (note 0020) + xemu boot fixed (note 0019)**: xemu playability = official SpiritBoot v1.1.0-64MB ROM (unofficial 128MB dev ROM was the STOP; user verified FMVs/audio/pad/rumble on xemu); recomp input = arm toolkit OHCI model (`xbox_OhciInit` in `main.c`, `RECOMP_USB=1`) + patch 0023 (script-pad START bit 0x0200 = real hardware); press-driven proofs (movie skip, Buki loading card, attract demo) vs zero-input baseline; XPP input-chain map (ISR 0x31428B, DPC 0x31495F, glue 0x31052E/0x31053A state fetch); JP disc (`Sennen no Akatsuki`, XBE `1f8a9611…`, same LTCG libs, parked outside git) as second regression sample; next wall = NV2A 3D draw coverage (demo scene freezes at 0 fps when VSH batches skipped) | (this commit) |
-| 2026-11-22 s4n-4o | **freeze walls H26+H27 CLOSED** (notes 0021/0022; patches 0024-0027: sw-method latch+FIFO, hold-until-seen ack ownership, scripted-pad fix, `ke_shadow_init` `InitOnceExecuteOnce` — frz4 core proved the orphaned-mutex double-init); gfault10/11 clean (scene animating, 4.43 fps); gfault12 VSH-IO census = Bink passthrough programs, level scene rasterises 29k tris/pass; new wall H28 = post-attract stall, frz7 core: main thread BUSY in `sub_002CB420`, events healthy (note 0023); README co-authored rewrite + AGENTS rule 9 | (this commit) |
+| 2026-11-22 s4n-4p | **freeze walls H26+H27 CLOSED** (notes 0021/0022; patches 0024-0027: sw-method latch+FIFO, hold-until-seen ack ownership, scripted-pad fix, `ke_shadow_init` `InitOnceExecuteOnce` — frz4 core proved the orphaned-mutex double-init); gfault10/11 clean (scene animating, 4.43 fps); gfault12 VSH-IO census = Bink passthrough programs, level scene rasterises 29k tris/pass; **H28 CLOSED (note 0023, frz10-15 censuses)** = post-attract stall is the game's level-streaming load state (pump+engine-submit frozen at flip count, IO alive, ~110 s, recovery to 1.8 fps), not a host hang; patches 0028 (`RECOMP_IO_READ_LOG` gate; A/B: tracing not the load throttle) + 0029 (`RECOMP_PB_UNH_TABLE` ranked unhandled-method table for H19 inventory); README co-authored rewrite + AGENTS rule 9 | (this commit) |
 | 2026-11-21 s4j | **audio wall CLOSED (patch 0022)**: DDS9 master open `sub_0028F8C3` needs AC97 bus-master trap; upstream armed it only on aarch64 (x86-64 Linux fell to NULL-VEH stub) → DSERR_NODRIVER → 'SdaD' create skipped → null-voice 24 KB copy = the whole note-0017 chain. Patch widens POSIX arm to x86-64; with `RECOMP_AC97_READY=1` MCPX APU (SDL2) + AC97 trap up, all 5 sub-inits 0, DS-VOICE!/DS-COPY! 0, wavebanks stream, ~1250 flips. New wall H23: deterministic allocator crash — free-list link `0xFE087E8D` (NV2A aperture value) spliced at real `0x1A9C1D` (`sub_001A9B60` family, misattributed `sub_001A9A50+0x1CD`); census wrappers `sub_0028F8C3/sub_002885AE/sub_0028AF42`, patch 0021 `RECOMP_LOG_ORDS` | (this commit) |

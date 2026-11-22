@@ -37,12 +37,13 @@ Progress to playable:  ██████████████░░░░░
 ```
 
 Walls toppled so far (each with a written note *before* the fix — 23
-notes, 27 toolkit patches, all reproducible from the disc alone):
+notes, 29 toolkit patches, all reproducible from the disc alone):
 async-IO return convention ✔ · boot-archive decoder starvation ✔ ·
 unresolved-ICALL stack drift ✔ · GPU→CPU software-method wake chain ✔ ·
 host ke-shadow lock race freezing the attract demo ✔ · AC'97
 bus-master trap on x86-64 (audio) ✔ · OHCI pad enumeration ✔ ·
-flip-settle chain ✔.
+flip-settle chain ✔ · post-attract "freeze" = the game's own
+level-loading state, not a hang ✔.
 
 ## ETA to a playable release
 
