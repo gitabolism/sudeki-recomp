@@ -71,6 +71,120 @@ scripts/build.sh            # toolkit @ pin + our patch series, applied in order
 scripts/run.sh              # the game, with watchdog + one-line classification
 ```
 
+## How the agent works — the standing contract (`AGENTS.md`)
+
+```
+ █████╗   ██████╗  ███████╗ ███╗   ██╗ ████████╗ ███████╗
+██╔══██╗ ██╔════╝  ██╔════╝ ████╗  ██║ ╚══██╔══╝ ██╔════╝
+███████║ ██║  ███╗ █████╗   ██╔██╗ ██║    ██║    ███████╗
+██╔══██║ ██║   ██║ ██╔══╝   ██║╚██╗██║    ██║    ╚════██║
+██║  ██║ ╚██████╔╝ ███████╗ ██║ ╚████║    ██║    ███████║
+╚═╝  ╚═╝  ╚═════╝  ╚══════╝ ╚═╝  ╚═══╝    ╚═╝    ╚══════╝
+```
+
+This repo is worked by an autonomous engineering agent. `AGENTS.md` is its
+contract; the rules below are what keep sixty-session-old work trustworthy
+when nobody is watching. Several of them are deliberately **not** left to
+the agent's good behaviour — they are guardrails designed around the
+OpenCode harness itself (see `opencode.jsonc` below):
+
+1. **Never edit generated code.** `src/recomp/gen/` is machine output.
+   Every fix is a host function (in `src/recomp_manual.c` or a new `src/*.c`)
+   replacing a lifted function *by address*, with the original still
+   reachable. The whole tree must stay reproducible from `default.xbe`
+   alone via `scripts/pipeline.sh`.
+2. **Nothing disc-derived in git.** No bytes, no translated code, no
+   analysis artefacts — `.gitignore` is the law, never weakened. `git
+   status` is read before every commit.
+3. **Verify inputs before trusting conclusions.** The XBE digest and the
+   toolkit pin are checked (`scripts/doctor.sh`) at every session start;
+   a FAIL line becomes the first task.
+4. **One variable at a time; the note comes before the fix.** Every
+   crash/hang/anomaly gets a numbered note in `docs/notes/` describing
+   what was observed and the hypothesis *before* code changes; the
+   outcome is appended to the same note afterwards.
+5. **Frame evidence is a file dump, never a screenshot.** The desktop is
+   Wayland and X11 screen reads come out black, so visuals are judged
+   only through the toolkit's framebuffer-dump hooks (`RECOMP_FB_DUMP`)
+   — artefacts land in `reference/` (gitignored).
+6. **Reference baseline before behaviour judgements.** "Wrong" is only
+   meaningful against a capture of the same scene from a working
+   reference (xemu / hardware). Until then, the log reports facts, not
+   verdicts.
+7. **Lift bugs and runtime gaps stay separate.** An unhandled guest
+   instruction is a counted `RECOMP_UNIMPL` stub site; a missing kernel
+   ordinal is fixed host-side. Neither is ever papered over by patching
+   translated behaviour.
+8. **Docs stay lean; every fact has one home.** Rules → `AGENTS.md`,
+   live state → `STATE.md`, stage history → `CHANGELOG.md`, per-anomaly
+   detail → `docs/notes/`. `README.md` tracks progress at stage
+   boundaries with the same artefacts cited in `CHANGELOG.md`.
+
+**Autonomy.** The agent works the full loop by default — analyse, lift,
+build, run, diagnose, write overrides, regenerate, test — and stops for
+the human only at three gates: a **security** matter (anything reaching
+beyond the pinned upstream and the disc you already have), an
+**architectural** decision (toolkit pin, base project, override/memory/
+threading strategy, redefining a stage), or a **legally-loaded** question
+(anything that could put disc-derived bytes in git). Everything else,
+including "this run crashed, here are my next five moves", is the
+agent's. Sessions never idle-wait: dependent steps are chained into a
+single background unit and analysis happens inside in-flight windows.
+
+**Session protocol.** Start: `STATE.md` → two newest notes → `doctor.sh`.
+End: update `STATE.md` (stage, hypotheses, queue, last-run verdict,
+session log line) and commit — never leave uncommitted source changes.
+
+**Skill supply.** Third-party "skills" — instruction files OpenCode
+auto-discovers from `.opencode/skills/` and that then steer the agent —
+get the same supply-chain treatment as code: first-party sources only, or
+a full manual read + payload scan + pinned upstream commit and per-folder
+digest recorded in `THIRD_PARTY.md`. Nothing auto-installs.
+
+## Guardrails designed around OpenCode (`opencode.jsonc` + `.opencode/commands/`)
+
+```
+ ██████╗  ██████╗  ███████╗ ███╗   ██╗  ██████╗  ██████╗  ██████╗  ███████╗
+██╔═══██╗ ██╔══██╗ ██╔════╝ ████╗  ██║ ██╔════╝ ██╔═══██╗ ██╔══██╗ ██╔════╝
+██║   ██║ ██████╔╝ █████╗   ██╔██╗ ██║ ██║      ██║   ██║ ██║  ██║ █████╗
+██║   ██║ ██╔═══╝  ██╔══╝   ██║╚██╗██║ ██║      ██║   ██║ ██║  ██║ ██╔══╝
+╚██████╔╝ ██║      ███████╗ ██║ ╚████║ ╚██████╗ ╚██████╔╝ ██████╔╝ ███████╗
+ ╚═════╝  ╚═╝      ╚══════╝ ╚═╝  ╚═══╝  ╚═════╝  ╚═════╝  ╚═════╝  ╚══════╝
+```
+
+Some of this project's guardrails are **built into OpenCode itself**, not
+left to convention: the non-negotiables from the contract are wired into
+the harness's permission, policy, and command surfaces, so they hold even
+in a session that ignores the prose. A denied permission stops the tool
+call before it runs; the `policies` layer sits *below* approvals, so no
+"allow always" click can loosen those rules — they are unapprovable, not
+just discouraged:
+
+| Layer | Rule | Why |
+|---|---|---|
+| Injected instructions | `BRIEF.md` + `STATE.md` ride every session (plus `AGENTS.md` auto-discovered) | the agent starts each session already knowing the target, the rules, and the live state |
+| `permissions`: edit deny | `src/recomp/gen/*` | rule 1, mechanically — generated code cannot be hand-edited |
+| `permissions`: shell deny | `git push *`, `git reset --hard *`, `git rebase *` | never push, never rewrite history |
+| `policies`: hard deny | the same three at the policy layer | "allow always" clicks cannot loosen them — these are unapprovable |
+| `permissions`: shell ask | `sudo *`, `su *` | system/package state is an approval-gated action |
+| `.gitignore` | aggressive, never weakened | the disc-stays-out rule; adding a `!` negation to restore a tracked source file is allowed, removing a guard is not |
+
+The session protocol are defined as slash
+commands (`.opencode/commands/`) — `/pickup` and `/handoff` *are* the
+start/end checklists, `/note` fires before any fix, `/cycle` runs the
+whole loop:
+
+| Command | What it does |
+|---|---|
+| `/pickup` | session start: read `STATE.md` + newest notes, run `doctor.sh`, propose the next action |
+| `/status` | one-line report, no work: stage, current wall, queue head, last-run verdict |
+| `/run <args>` | run the game through `scripts/run.sh` (timeout + watchdog) and print the classification: CRASH / HANG / SILENT-EXIT / PROGRESS |
+| `/cycle [focus]` | one full work loop: diagnose → note → smallest host-side change → rebuild → run → record (blank focus = `STATE.md` queue item #1) |
+| `/note [n] [slug]` | scaffold the next numbered `docs/notes/NNNN-*.md` *before* any fix, pre-filled from the newest run log |
+| `/lift [seed]` | regenerate the whole tree from the XBE (optionally with a measured-seed file), rebuild, verify the stub count agrees |
+| `/handoff` | session end: update `STATE.md`, commit, state the exact resume point |
+| `/setup` | idempotent from-zero bring-up on a fresh machine |
+
 ## House rules
 
 1. Never edit generated code — fixes are host-side overrides by address.
