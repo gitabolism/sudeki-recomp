@@ -1247,3 +1247,16 @@ aperture+0x400108, which is a different (unused) window; the correct
 reading of frz56's own data: PMC_INTR=0x1000, PGRAPH_INTR=1 at
 0x…4600100, TRAP=0x100 + TRAP_DATA=06D00141 at 0x…600704/08. Same
 conclusion: mark armed, undispatchable.)
+
+(CORRECTION to the committed frz59 paragraph: the 0038 patch file is
+NOT "helper-only" — the extracted p38.patch carried BOTH the dead
+helper and the live inline gate; the helper was dead code, later
+removed and the patch cleanly re-extracted from pin+0001..0037. The
+inline gate was live in frz58/59 (gate lines fired). And frz59's
+boot-era 1-flip window was NOT proven to be the frz56 deadlock —
+no core from that era; with the gate live the run passed it and
+reached 1511 flips, so 0038's effect on the boot era is inconclusive,
+not "did not fix". The plateau wall (1511 flips, engine alive,
+pump/eng counters frozen vs 64/s body-site activity) is the target;
+frz60's [PUMP]/[ENG] per-site histograms + [SWAP2] unconditional
+counters decide whether the wrappers run at the plateau.)
