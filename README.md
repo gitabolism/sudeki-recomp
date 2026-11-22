@@ -24,7 +24,7 @@ bytes, no captures, no analysis artefacts.
 | **Entry** | ✅ done | guest runs its own CRT + startup; 119 kernel ordinals exercised |
 | **Threads** | ✅ done | every thread start dispatched; no silent exit |
 | **Menu** | ✅ reached | title-screen frame dumps ("SUDEKI / Press START"), movies play, audio up |
-| **Gameplay** | 🔶 in progress | level + wavebank streaming ✔, AC'97/MCPX audio ✔, real Xbox pad via OHCI ✔, attract/level scene animating ✔ · remaining: menu navigation to a level, saves, crash-free soak |
+| **Gameplay** | 🔶 in progress | level + wavebank streaming ✔, AC'97/MCPX audio ✔, real Xbox pad via OHCI ✔, New Game reachable (title → loading card) ✔, attract/level scene animating ✔ · remaining: **first presented level frame** (one wall left: H29 swap-completion chain, mechanism identified), saves, crash-free soak |
 
 ```
 Progress to playable:  ██████████████░░░░░░  ~70 %
@@ -44,9 +44,11 @@ level-loading state, not a hang ✔.
 Sessions here are autonomous engineering sprints, not calendar days —
 each has cleared 1–3 walls. At the current pace:
 
-* **first playable level, on a pad**: ≈ 2–4 more sessions
+* **first playable level, on a pad**: gated on one wall (H29 — swap-completion
+  marks dying in the GPU service chain; mechanism identified end-to-end, fix
+  candidates queued): ≈ 1–3 more sessions
 * **"playable release" grade** (saves, audio rock-solid, early game
-  end-to-end, long soak clean): ≈ +3–5 sessions after that
+  end-to-end, long soak clean): ≈ +3–5 sessions after the first frame
 * **Vulkan back-end parity** (staged end-state renderer): ≈ +2–3, gated
   on pixel-identical frame dumps vs the GL path
 * **next-gen features** (texture packs → HDR → RT — opt-in only, after
@@ -170,7 +172,7 @@ opinion, `THIRD_PARTY.md` stays evidence.
 ## Ghidra — the static-analysis bench (`scripts/analysis_tools.sh`)
 
 ```
-██████╗  ██╗  ██╗ ██╗ ██████╗  ██████╗   █████╗
+ ██████╗  ██╗  ██╗ ██╗ ██████╗  ██████╗   █████╗
 ██╔════╝  ██║  ██║ ██║ ██╔══██╗ ██╔══██╗ ██╔══██╗
 ██║  ███╗ ███████║ ██║ ██║  ██║ ██████╔╝ ███████║
 ██║   ██║ ██╔══██║ ██║ ██║  ██║ ██╔══██╗ ██╔══██║
