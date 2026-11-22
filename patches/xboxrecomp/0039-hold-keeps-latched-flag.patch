@@ -1,0 +1,32 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -821,8 +821,27 @@
+                 const char *e = getenv("RECOMP_ARM_UNTIL_SEEN");
+                 hold = !(e && e[0] == '0');
+             }
+-            if (!hold)
+-                nv2a_pb_swmethod_latch((uint32_t)s_last_param);
++            if (hold) {
++                /* Patch 0039 (note 0023, frz62 census): v4 left the
++                 * WORDS armed but cleared the s_sw_latched FLAG, so a
++                 * later done() pass took the "abandoned mark" branch
++                 * (0034) and idled the quartet of a mark the guest
++                 * never READ. frz62 measured the result end to end:
++                 * [GSVC] 252 pump entries with PARAM=00000000 (the
++                 * guest pumped an empty quartet), trap_idle=273,
++                 * rearm=727, and 609 marks DROPPED on a full queue —
++                 * including the swap-completion marks, so the engine's
++                 * KeWaitForSingleObject on 0x2E2F4C (site 0x1DE5EF /
++                 * 0x2D3497) never completed and the eng/pump feed
++                 * froze (the plateau, at 1531 flips). v4's hold rule
++                 * was right but INCOMPLETE: hold must hold the FLAG
++                 * too, so the abandoned-idle branch can never fire on
++                 * an unread mark. The seen-edge consume (0035 v5,
++                 * dispatcher entry) stays the only clearer. */
++                InterlockedExchange(&s_sw_latched, 1);
++                return;
++            }
++            nv2a_pb_swmethod_latch((uint32_t)s_last_param);
+             return;
+         }
+         pmc  = xbox_Nv2aRegPtr(0x000100);
