@@ -1,6 +1,6 @@
 --- a/src/kernel/nv2a_pb_exec.c
 +++ b/src/kernel/nv2a_pb_exec.c
-@@ -948,6 +948,27 @@
+@@ -948,6 +948,32 @@
  static volatile LONG s_rering_lat;    /* ...that reached the latch */
  static volatile LONG s_rering_ev;     /* ...that reached the host event (0032) */
  static volatile LONG s_rering_gate;   /* ...gated by an armed mark (0041) */
@@ -11,8 +11,13 @@
 +{
 +    static int on = -1;
 +    if (on < 0) {
++        /* Opt-IN: every arm that ran with suspension by default froze
++         * (frz71 262 flips, frz72 203, frz73 boot-deadlock at 19):
++         * suspending the channel is only safe once the guest's service
++         * chain keeps up, which it does not yet. Kept as the probe it
++         * was designed as; RECOMP_PB_PARK=1 arms it. */
 +        const char *e = getenv("RECOMP_PB_PARK");
-+        on = !(e && e[0] == '0');
++        on = !!(e && e[0] == '1');
 +    }
 +    return on;
 +}
@@ -28,7 +33,7 @@
  
  /* Patch 0032 (note 0023, H29): the D3D8LTCG ring-free event object (its
   * wait loop at sub_002D57D0 loc_002D5911 is `while (KeWaitForSingleObject(
-@@ -1013,9 +1034,10 @@
+@@ -1013,9 +1039,10 @@
              (long)s_lat_pop, (long)s_ack_done, (long)s_trap_idle,
              (long)s_done_rearm, (long)s_seen_l, (long)s_seen_n,
              (long)s_seen_consume);
@@ -41,7 +46,7 @@
  }
  
  /* Is [addr, addr + bytes) inside memory the guest owns? That is ordinary RAM
-@@ -5028,9 +5050,28 @@
+@@ -5028,9 +5055,28 @@
              if (!imm_vertex_method(method, param)) {
                  /* Patch 0025 (note 0021): this is exactly the software
                   * method the console traps; latch the PGRAPH/PMC words
