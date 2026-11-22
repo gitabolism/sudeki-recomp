@@ -80,7 +80,9 @@ semaphore words never written; every `0x1D70` release rejected
 D3D8LTCG's ring-free protocol — the BEW release chain is; fix
 candidate 0031 (`off==0` → `xbox_Nv2aRegPtr(0x800000+off)`), verify
 frz27. Pre-push audit GREEN (tree + full history + secrets + pins);
-push held for user's formal approval (directive recorded below).
+**pushed by the user 2026-11-22: `origin/main` = `57ea06b`** (the
+harness policy denies agent `git push`; push URL now set to the real
+one).
 
 Session 4q (earlier): **H19 inventory CLOSED (note 0023 frz16)** —
 ranked `[UNH]` table (patch 0029, `tools/unh_names.py`, names vs nxdk

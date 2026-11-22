@@ -564,3 +564,20 @@ the NV2A aperture channel block (`xbox_Nv2aRegPtr(0x800000+off)`),
 same block whose `+0x44` GET the walk already publishes. frz27
 expectation: `i0` tracks the odd counter; flips resume past the load
 state; `sh8700` stops holding poison.
+
+frz27 RESULT (patch 0031 verified): **the BEW landing is FIXED** —
+`release -> CHANNEL` flows, zero REJECTED, and `i0=0x3F77/0x405B`
+tracks the odd kick counter (`w2C=0x3F87/0x406B` minus a stable ~0x10
+lag): D3D's ring-progress feedback loop is closed and its writer
+stays alive (try/submit climbing, `iGET` follows). `5C` woke TWICE
+(0030 re-latch + landing interplay). But the terminal plateau
+persists via the frz26 VARIANT: `[SWAP] issue=3955` alive,
+`pump=eng=1841` frozen, `wait=5` pending swaps, flips frozen 2469,
+`sh8700` still poison. So H29 has two failure modes sharing the
+BEW-starvation trigger: parked-writer (frz20, now prevented) and
+pump-freeze (frz26/27, active) — the game's device-message pump
+`sub_0011ED20 -> sub_002D35A0/sub_001E0390` goes permanently quiet.
+H28's healthy load state self-recovered at ~110 s; frz24/26/27 never
+recover within 500 s. Next: frz28 plateau CORE (ABRT detector) full
+thread map to name the waiter that should be pumping device messages
+and what it blocks on.

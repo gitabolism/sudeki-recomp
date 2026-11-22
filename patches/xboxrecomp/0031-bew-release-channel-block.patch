@@ -1,0 +1,30 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -4445,6 +4445,27 @@
+             *(volatile uint32_t *)(mem + off) = param;
+             return;
+         }
++        if (nv2a_pb_dma_walk() && off < 0x800u) {
++            /* Patch 0031 (note 0023, H29): D3D8LTCG's ring-progress
++             * semaphore. SET_SEMAPHORE_OFFSET (0x1D6C) programs offset
++             * 0 and BACK_END_WRITE_SEMAPHORE_RELEASE (0x1D70) fires
++             * once per kick; the target is offset 0 INSIDE the
++             * channel's own block -- the block at aperture offset
++             * 0x800000, the same one whose +0x30/+0x44 the walk
++             * publishes as USER DMA PUT/GET (guest: MEM32(ctx+
++             * 0x1C20) = 0xFD800000, frz20/26 censuses). The
++             * guest-RAM guard above treats offset 0 as "no target",
++             * so the per-kick counters (5,7,9,...) never landed and
++             * the ring writer's ring-free wait never resolves. */
++            volatile uint32_t *w = xbox_Nv2aRegPtr(0x800000u + off);
++            if (w) {
++                if (getenv("RECOMP_SEM_TRACE") != 0 && shown++ < 8)
++                    fprintf(stderr, "  [SEM] release -> CHANNEL off=0x%08X"
++                                    " value=0x%08X\n", off, param);
++                *w = param;
++                return;
++            }
++        }
+         if (getenv("RECOMP_SEM_TRACE") != 0 && shown++ < 8)
+             fprintf(stderr, "  [SEM] release REJECTED off=0x%08X value=0x%08X\n",
+                     off, param);
