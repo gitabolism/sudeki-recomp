@@ -1319,3 +1319,38 @@ frz62 = 900 s NO-detector census with RECOMP_KEWAIT_TRACE=1 to name
 the event the task-dispatch feeder (sub_00021B90, blocked in
 sub_0026D77A per frz59 core thread 4) waits on and whether ANY
 NtSetEvent ever touches it.
+
+frz62 (900 s census, clean 0038, no detector) — THE mechanism is
+now measured end to end. The run lived longer than the 189-flip
+window (movies played: 983 -> 1473 -> 1531 flips) then froze at
+1531 flips in the load era — the SAME terminal plateau as frz59
+(1511) and frz45 (4636): era-independent, luck-dependent depth.
+
+Census at the plateau:
+  (a) engine frame loop ALIVE: swap-issue ticks 30/s, Present gate
+      pass=2896; engine threads wait INFINITE-ish on event 0x2E2F4C
+      (swap-complete) at sites 0x2D3497 (D3D swap wait) and
+      0x1DE5EF (engine, inside sub_001DE5C0) — [KEWAIT] census.
+  (b) the mark queue OVERFLOWED: latch direct=871 enq=75 pop=12
+      drop=609 seen_l=143. The queue popped exactly 12 times (boot
+      era) and never again; from then on marks latched DIRECT and
+      any mark arriving while PGRAPH_INTR was busy was DROPPED —
+      609 of them, including swap completions. THAT is why 4C
+      stops firing in the frozen eras while flips>0.
+  (c) why was PGRAPH_INTR busy permanently: [GSVC] shows 252 guest
+      pump entries with PARAM=00000000 (the guest pumped an EMPTY
+      quartet) and only 147 with real params; trap_idle=273,
+      rearm=727. v4's hold (0035) left the WORDS armed but cleared
+      the s_sw_latched FLAG, so the next done() took the 0034
+      "abandoned mark" branch and IDLED the quartet of a mark the
+      guest never read. The eaten mark's swap never completes; and
+      while the eaten mark's INTR bit lingered, every arriving
+      swap mark queued and then overflowed.
+  => Patch 0039: in the unseen branch, hold must restore
+     s_sw_latched=1 as well as leaving the words armed — the
+     abandoned-idle branch is gated on !s_sw_latched, so an unread
+     mark can then never be eaten. The seen-edge consume (v5,
+     dispatcher entry sub_002DB4A0 wrapper) remains the only
+      clearer. Expect: drop->0, [GSVC] PARAM=0 entries->~0,
+      rearm->~0, 4C flows, eng/pump feed unblocks, and the first
+      PRESENTED level frame becomes reachable (frz63 artefact).
