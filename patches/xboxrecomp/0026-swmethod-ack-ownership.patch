@@ -1,0 +1,85 @@
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -3169,6 +3169,25 @@
+     static unsigned n;
+     int claimed = kernel_call_isr(NV2A_VECTOR);
+ 
++    /* Census (note 0021): is the tick alive and is the DPC queue being
++     * drained, or does one starve the other while the guest waits? */
++    {
++        static int on = -1;
++        static unsigned ticks;
++        extern int xbox_DpcPending(void);
++        if (on < 0) {
++            const char *e = getenv("RECOMP_GSVC_TRACE");
++            on = (e && *e && *e != '0') ? 1 : 0;
++        }
++        if (on && (++ticks % 300u) == 0u)
++            fprintf(stderr, "  [VBLDBG] tick=%u declined=%lu busy=%ld "
++                            "dpcpend=%d depth=%d\n",
++                    ticks, (unsigned long)g_vbl_declined,
++                    (long)g_vbl_tick_busy, xbox_DpcPending(),
++                    (int)((g_dpc_tail - g_dpc_head +
++                           XBOX_MAX_PENDING_DPC) % XBOX_MAX_PENDING_DPC));
++    }
++
+     /* Armed for a declined vblank too. The XDK ISR masks PMC_INTR_EN_0
+      * and queues its DPC, which unmasks when it is done; until then
+      * every vblank finds the mask down and is declined, but its status
+@@ -3406,10 +3425,24 @@
+         if (!xbox_DispatchGateTryEnter()) {
+             /* An unlocked look: a DPC queued just after is picked up by the
+              * next pass anyway. */
++            if (*ran) {
++                extern void nv2a_pb_swmethod_done(void);
++                nv2a_pb_swmethod_done();
++            }
+             return g_dpc_head != g_dpc_tail;
+         }
+         if (!dpc_pop(&d)) {
+             xbox_DispatchGateLeave();
++            /* Patch 0026 (note 0021): the queue is empty, so everything
++             * the D3D vblank ISR queued has run here — including its
++             * service DPC. A latched software-method NOP the DPC read has
++             * been "cleared" (w1c on hardware, write-back no-op on RAM):
++             * this is the host's ack, the same job dpc_run_here() does on
++             * the guest-thread drain path (kernel_hal.c). */
++            if (*ran) {
++                extern void nv2a_pb_swmethod_done(void);
++                nv2a_pb_swmethod_done();
++            }
+             return 0;
+         }
+         if (d.dpc && kernel_run_dpc(d.dpc, d.arg1, d.arg2))
+--- a/src/kernel/xbox_memory_layout.c
++++ b/src/kernel/xbox_memory_layout.c
+@@ -1445,6 +1445,7 @@
+ 
+     if (!regs)
+         return;
++    extern int nv2a_pb_swmethod_hold(void);
+     for (size_t i = 0; i < sizeof(NV2A_ACK) / sizeof(NV2A_ACK[0]); i++) {
+         volatile uint32_t *r =
+             (volatile uint32_t *)((char *)regs + NV2A_ACK[i].offset);
+@@ -1463,6 +1464,21 @@
+             else if (NV2A_ACK[i].offset == NV2A_ACK_PCRTC_INTR_0)
+                 mask &= ~NV2A_ACK_PCRTC_INTR_VBLANK;
+         }
++        /* Patch 0026 (note 0021): with the pushbuffer executor latching
++         * D3D's software-method NOPs (nv2a_pb_exec.c), the "nothing ever
++         * raises a GPU interrupt" premise is false for two bits: PGRAPH
++         * bit 0 and PMC bit 12 are real pending lines. Hold them only
++         * from the latch until the guest's service chain has read them
++         * once (nv2a_pb_swmethod_hold): the guest's PGRAPH service loop
++         * spins until this word reads clear and its own write-1-to-clear
++         * is a plain store on RAM, so holding past the first service
++         * wedges that loop inside whichever thread runs it (gfault8). */
++        if (nv2a_pb_swmethod_hold()) {
++            if (NV2A_ACK[i].offset == 0x400100u)
++                mask &= ~0x00000001u;
++            else if (NV2A_ACK[i].offset == NV2A_ACK_PMC_INTR_0)
++                mask &= ~0x00001000u;
++        }
+         /* Interlocked: the vblank-ack thread and the guest change other
+          * bits of the same word meanwhile. */
+         if (*r & mask)

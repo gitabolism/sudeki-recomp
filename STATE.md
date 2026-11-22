@@ -324,18 +324,28 @@ arr=0).
     `esi`/`edi`. Fix: seed measured targets (feedback-dump pipeline).
     Lesson: audit every `[ICALL] Failed to resolve VA` line — the skip
     can corrupt the stack far from where it fires.
-8. **H26 (note 0021, active — attract-demo freeze):** D3D ring/present
-    waits wake on GPU software-method NOPs. Chain mapped and made to
-    run host-side (patch 0025 latch + FIFO + drain ack): DPC
-    `sub_002DAE40` gate = `[0xFD000100] & 0x1000`; pump `sub_002DB250`;
-    dispatcher `sub_002DB4A0` jump table `(param&0x1F)-1`; **class 5 →
-    `KeSetEvent(0x2E2F5C)`** (the waited object; earlier "arm 4 /
-    0x80-0x9F" was wrong). Dense-press repro emits exactly ONE
-    class-5 mark/run; it reaches the pending queue but **no post-freeze
-    DPC drain/ack ever runs** (`enq=12 pop=0`). vblank mode in our
-    recipe = TICK ~45 Hz with a 10 ms timer-thread DPC drain that
-    should not starve — gfault7 census (DPC-body gate lines + `ack=`
-    counter) decides: drain starvation vs latch visibility.
+8. **H26 CLOSED (note 0021, gfault9):** D3D ring/present waits wake on
+    GPU software-method NOPs — chain now runs end to end host-side.
+    Final design (patches 0025 + 0026-v2): executor latches the aperture
+    words at `NV097_NO_OPERATION` (param≠0) + 64-deep FIFO; ack pass
+    holds PGRAPH bit0/PMC bit12 **only until the guest service chain
+    reads them once** (`seen` set at the `sub_002DAE40` DPC /
+    `sub_002DB250` pump wrappers); `done()` (guest + timer drains)
+    clears+pops when seen, re-arms same param when unseen. Verified:
+    `KeSetEvent(0x2E2F5C) from 0x002DB61F` (predicted class-5 arm) fires;
+    ring event `0x2E2F4C` ×2421; `pop=1149 ack=2475 drop=0`. gfault8
+    lesson: the guest's PGRAPH service loop spins until the word reads
+    clear and RAM-stores its w1c back — the ack pass is the ONLY clearer;
+    never hold past first service (wedges the timer thread).
+9. **H27 (active — post-notify freeze):** plateau persists (0 fps @
+   2518 flips) with a FULLY RENDERED 3D scene on the frozen frame
+   (`reference/fb/gf9000xx.bmp`, 35k colours). Wall moved from "GPU
+   never notified CPU" to whatever the game waits on after: D3D ring
+   accounting (`sub_002D57D0`: `[ctx+0x2C]` put vs `*[[ctx+0x30]]`,
+   `[ctx+0x44]` segment), a faked query/visibility report, or game-side
+   scene-script wait. Evidence in flight: SIGABRT core at plateau
+   (`logs/run-frz3-*` → `sudeki.frz3.core`; `thread apply all bt` +
+   guest-ESP scan; do NOT rebuild before analysis or symbols desync).
 
 ## Queue (next concrete actions)
 

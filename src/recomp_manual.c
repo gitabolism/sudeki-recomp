@@ -707,3 +707,90 @@ void sub_001A9B60(void)
     }
     sub_001A9B60_gen();
 }
+
+/* ── GPU software-method service census (note 0021 H26) ─────────────
+ * sub_002DB250(ecx=device regs cell): the D3D GPU-interrupt service
+ * body; reads [[ecx]+0x400100] (PGRAPH_INTR via the 0xFD000000 aperture
+ * mirror). sub_002DB4A0(ecx=object, eax=method): the software-method
+ * dispatcher; switch (eax>>5)&0x1F, arm 4 = KeSetEvent(obj+0x1A4).
+ * RECOMP_GSVC_TRACE=1 logs both; the question is whether the pumps run
+ * at all, and what INTR they find. */
+extern void sub_002DB250_gen(void);
+
+void sub_002DB250(void)
+{
+    extern __thread uint32_t g_ecx;
+    extern void nv2a_pb_swmethod_seen(void);
+    static int on = -1, budget = 400;
+    /* This pump reads the PGRAPH words: the latched mark, if any, is
+     * now visible to the guest's service chain (patch 0026 hold rule). */
+    nv2a_pb_swmethod_seen();
+    if (on < 0) {
+        const char *e = getenv("RECOMP_GSVC_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && budget > 0) {
+        budget--;
+        uint32_t obj = g_ecx;
+        uint32_t reg = obj ? MEM32(obj) : 0;
+        fprintf(stderr, "[GSVC] ecx=%08X regs=%08X INTR=%08X TRAP=%08X "
+                        "PARAM=%08X\n",
+                obj, reg,
+                reg ? MEM32(reg + 0x400100) : 0,
+                reg ? MEM32(reg + 0x400704) : 0,
+                reg ? MEM32(reg + 0x400108) : 0);
+        fflush(stderr);
+    }
+    sub_002DB250_gen();
+}
+
+extern void sub_002DB4A0_gen(void);
+
+void sub_002DB4A0(void)
+{
+    extern __thread uint32_t g_ecx;
+    static int on = -1, budget = 400;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_GSVC_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && budget > 0) {
+        budget--;
+        fprintf(stderr, "[SWM] obj=%08X param=%08X class=%u\n",
+                g_ecx, g_eax, (unsigned)((g_eax & 0x1F) - 1));
+        fflush(stderr);
+    }
+    sub_002DB4A0_gen();
+}
+
+/* DPC-body census (note 0021 H26): sub_002DAE40 is the deferred
+ * routine of the DPC the vector-3 ISR queues every tick (DPC object
+ * 0x2E2E3C, context 0x2E2DB8 = the register-window cell; measured in
+ * sudeki.frz2.core). Its dispatch word is [regs+0x100] (PMC aperture).
+ * RECOMP_GSVC_TRACE=1 logs it: decides whether the DPC runs at all.
+ * Logs every pass whose gate bit 0x1000 (PGRAPH line) is up. */
+extern void sub_002DAE40_gen(void);
+
+void sub_002DAE40(void)
+{
+    extern void nv2a_pb_swmethod_seen(void);
+    static int on = -1, seen = 0;
+    uint32_t pmc = MEM32(0xFD000100);
+    /* The DPC body reads the gate/PGRAPH words: service visibility. */
+    nv2a_pb_swmethod_seen();
+    if (on < 0) {
+        const char *e = getenv("RECOMP_GSVC_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (seen < 12 || (pmc & 0x1000u) || (seen % 2000) == 0)) {
+        seen++;
+        fprintf(stderr, "[DPC] PMC=%08X PGRAPH=%08X TRAP=%08X "
+                        "PARAM=%08X\n",
+                pmc, MEM32(0xFD400100),
+                MEM32(0xFD400704), MEM32(0xFD400108));
+        fflush(stderr);
+    } else if (on) {
+        seen++;
+    }
+    sub_002DAE40_gen();
+}

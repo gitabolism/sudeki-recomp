@@ -1,0 +1,229 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -558,6 +558,169 @@
+     }
+ }
+ 
++/* Patch 0025 (note 0021): XDK D3D8LTCG encodes GPU->CPU notifications
++ * as NO_OPERATION software methods (param 1 = swap, 0x80..0x9F =
++ * pushbuffer ring space). Hardware latches a consumed NOP into
++ * PGRAPH_INTR bit 0 + the trap words and asserts the PMC PGRAPH
++ * source line; the title's vblank DPC (sub_002DAE40) dispatches on
++ * [PMC] bit 0x1000, its service (sub_002DB250) checks bit 0, trap
++ * method 0x100 and param, and its dispatcher (sub_002DB4A0, arm 4)
++ * signals the ring-space event the Present path waits on. The
++ * executor consumed 3375 NOPs and raised nothing, so the ring wait
++ * froze with the ring empty (PUT==GET). Latch the four aperture
++ * words here (trap register idle = the hardware coalescing rule);
++ * kernel_hal.c's dpc_run_here() drops the latch after the drain,
++ * emulating the write-1-to-clear the guest's "clear" write performs
++ * on hardware but cannot perform on plain RAM. RECOMP_PB_GFAULT=0
++ * disables. */
++static volatile LONG s_sw_latched;
++
++/* Marks waiting for the trap register to free, FIFO, one service per
++ * DPC drain like the hardware's one trap-data register. */
++#define SWM_PENDING_N 64
++static volatile LONG s_sw_param[SWM_PENDING_N];
++static volatile LONG s_sw_head, s_sw_tail;
++
++/* Census counters (note 0021). */
++static volatile LONG s_lat_direct, s_lat_enq, s_lat_drop, s_lat_pop;
++static volatile LONG s_ack_done;
++/* Whether a latched mark has been seen by the guest's GPU service chain
++ * (its DPC body or a pump call — both read the aperture words). The
++ * guest's service loop spins until PGRAPH_INTR reads clear, and its own
++ * write-1-to-clear is a plain store on RAM: the aperture ack pass is
++ * the only thing that ever ends that loop (gfault8: holding the words
++ * until an ack wedged the loop inside the timer thread, flips died at
++ * 179). So the ack pass holds these bits only from the latch until the
++ * service chain first sees them — long enough that a mark cannot be
++ * zeroed before it is serviced (the gfault6/7 race, 75 of 2437 seen),
++ * no longer than one service pass — and then clears, as it always did. */
++static volatile LONG s_sw_seen;
++/* Param of the word-latched mark, for re-arming an unserviced one. */
++static volatile uint32_t s_last_param;
++
++/* Called by the guest service wrappers (recomp_manual.c census:
++ * sub_002DAE40 DPC body, sub_002DB250 pump) on entry. */
++void nv2a_pb_swmethod_seen(void)
++{
++    if (s_sw_latched)
++        InterlockedExchange(&s_sw_seen, 1);
++}
++
++/* Whether the aperture ack pass must leave the swmethod bits alone. */
++int nv2a_pb_swmethod_hold(void)
++{
++    return s_sw_latched != 0 && !s_sw_seen;
++}
++
++static int pb_swmethod_on(void)
++{
++    static int on = -1;
++    if (on < 0) {
++        const char *e = getenv("RECOMP_PB_GFAULT");
++        on = !(e && e[0] == '0');
++    }
++    return on;
++}
++
++static void nv2a_pb_swmethod_latch(uint32_t param)
++{
++    volatile uint32_t *pmc  = xbox_Nv2aRegPtr(0x000100);
++    volatile uint32_t *intr = xbox_Nv2aRegPtr(0x400100);
++    volatile uint32_t *prm  = xbox_Nv2aRegPtr(0x400108);
++    volatile uint32_t *trap = xbox_Nv2aRegPtr(0x400704);
++    volatile uint32_t *tdat = xbox_Nv2aRegPtr(0x400708);
++
++    if (!pmc || !intr || !prm || !trap || !tdat)
++        return;
++    if (*intr) {
++        /* Trap register busy: the hardware pipeline serialises NOPs and
++         * each one traps once its predecessor is serviced; dropping the
++         * param here lost Sudeki's only ring-space mark (class 5,
++         * gfault3: it sat one word behind a swap NOP). Queue it. */
++        LONG t = s_sw_tail, n = (t + 1) % SWM_PENDING_N;
++        static unsigned drops;
++        if (n == s_sw_head) {
++            InterlockedIncrement(&s_lat_drop);
++            if (drops++ < 4)
++                fprintf(stderr, "  [GFAULT] pending queue full, param=%08X "
++                                "dropped\n", param);
++            return;
++        }
++        s_sw_param[t] = param;
++        s_sw_tail = n;
++        InterlockedIncrement(&s_lat_enq);
++        return;
++    }
++    *intr = 0x00000001u;                /* PGRAPH: software method */
++    *prm  = param;
++    *trap = 0x00000100u;                /* method = NO_OPERATION */
++    *tdat = param;                      /* dispatcher's argument */
++    *pmc |= 0x00001000u;                /* PMC: PGRAPH asserted */
++    s_last_param = param;
++    InterlockedExchange(&s_sw_seen, 0);
++    InterlockedExchange(&s_sw_latched, 1);
++    InterlockedIncrement(&s_lat_direct);
++}
++
++void nv2a_pb_swmethod_done(void)
++{
++    volatile uint32_t *pmc, *intr;
++    int was = (int)InterlockedExchange(&s_sw_latched, 0);
++
++    if (was) {
++        InterlockedIncrement(&s_ack_done);
++        if (!InterlockedExchange(&s_sw_seen, 0)) {
++            /* The DPC drained without the service chain ever reading
++             * the words (they were ack-cleared first): the mark was
++             * not consumed. Re-arm it instead of consuming, and do not
++             * pop the queue — an unserviced re-arm loop must not eat
++             * FIFO slots. */
++            nv2a_pb_swmethod_latch((uint32_t)s_last_param);
++            return;
++        }
++        pmc  = xbox_Nv2aRegPtr(0x000100);
++        intr = xbox_Nv2aRegPtr(0x400100);
++        if (intr)
++            *intr = 0;
++        if (pmc)
++            *pmc &= ~0x00001000u;
++    }
++    /* With the trap word free the next queued mark re-arms: each
++     * trapped NOP re-arrests PGRAPH on the console once its
++     * predecessor's service has cleared it. Runs even when nothing was
++     * latched now: queued marks would else never pop. */
++    if (s_sw_head != s_sw_tail) {
++        LONG t = s_sw_head;
++        uint32_t param = (uint32_t)s_sw_param[t];
++        s_sw_head = (t + 1) % SWM_PENDING_N;
++        InterlockedIncrement(&s_lat_pop);
++        nv2a_pb_swmethod_latch(param);
++    }
++}
++
++/* Census (note 0021): the classes the title actually emits. The jump
++ * table of the guest's dispatcher (sub_002DB4A0) keys on param & 0x1F
++ * minus one; class 5 (table slot 4, target 0x2DB60E) is the ring-free
++ * signal that sets the event the Present path waits on (0x2E2F5C). */
++static volatile LONG s_nop_seen;
++static volatile LONG s_nop_class[32];
++
++static void nv2a_pb_swmethod_dump(void)
++{
++    int i, any = 0;
++    fprintf(stderr, "  [NOPSW] seen=%ld classes:", (long)s_nop_seen);
++    for (i = 0; i < 32; i++)
++        if (s_nop_class[i]) {
++            fprintf(stderr, " %d:%ld", i, (long)s_nop_class[i]);
++            any = 1;
++        }
++    fprintf(stderr, "%s\n", any ? "" : " none");
++    fprintf(stderr, "  [NOPSW] latch direct=%ld enq=%ld drop=%ld pop=%ld "
++                    "ack=%ld\n",
++            (long)s_lat_direct, (long)s_lat_enq, (long)s_lat_drop,
++            (long)s_lat_pop, (long)s_ack_done);
++}
++
+ /* Is [addr, addr + bytes) inside memory the guest owns? That is ordinary RAM
+  * from 0, and the contiguous window at XBOX_CONTIG_BASE. The index of a vertex
+  * comes from the title's pushbuffer, 32 bits of it, so after a desync it can
+@@ -4357,6 +4520,17 @@
+         *r = param;
+         return;
+     }
++    if (method == NV097_NO_OPERATION && param && pb_swmethod_on()) {
++        /* Census (note 0021): every non-zero-param NOP the executor
++         * sees, bucketed by the D3D software-method class
++         * (param & 0x1F). The ring-free class (low 5 bits == 5, the
++         * one whose guest arm signals 0x2E2F5C) is logged in full. */
++        LONG k = InterlockedIncrement(&s_nop_seen);
++        InterlockedIncrement(&s_nop_class[param & 0x1Fu]);
++        if ((param & 0x1Fu) == 5u || k <= 8)
++            fprintf(stderr, "  [NOPSW] #%ld subch=%u param=%08X class=%u\n",
++                    (long)k, subch, param, param & 0x1Fu);
++    }
+     if (subch != 0) {                      /* 3D class lives on subchannel 0 */
+         note_unhandled(method, param);
+         return;
+@@ -4531,8 +4705,14 @@
+          * to D3D's interrupt handler on the console. Only the swap's interval
+          * matters here (nv2a_flip_hold.h); the rest stays a no-op. */
+         if (!nv2a_pb_exec_flip_pacing()) {
+-            if (!imm_vertex_method(method, param))
++            if (!imm_vertex_method(method, param)) {
++                /* Patch 0025 (note 0021): this is exactly the software
++                 * method the console traps; latch the PGRAPH/PMC words
++                 * so the title's vblank DPC services it. */
++                if (param && pb_swmethod_on())
++                    nv2a_pb_swmethod_latch(param);
+                 note_unhandled(method, param);   /* as before the hold */
++            }
+             break;
+         }
+         if (param)
+@@ -4935,6 +5115,8 @@
+ {
+     peek_addresses();
+     peek_chain();
++    if (s_nop_seen)
++        nv2a_pb_swmethod_dump();
+     if (getenv("RECOMP_FIND_NAN")) {
+         /* Every report, not once: the matrix is fine early on and only turns
+          * to NaN later, so a single scan at startup finds nothing and says
+--- a/src/kernel/kernel_hal.c
++++ b/src/kernel/kernel_hal.c
+@@ -558,6 +558,11 @@
+      * what a DPC's body is atomic against; passive code on another thread
+      * may see its intermediate state, as it may on the timer thread. */
+     xbox_DpcDrainHere();
++    /* Patch 0025 (note 0021): a software-method NOP latched by the
++     * executor has, by here, been seen by the DPC that drains it: the
++     * guest's write-1-to-clear of PGRAPH_INTR/PMC is a write-back
++     * no-op on RAM, so the host owes the ack. */
++    { extern void nv2a_pb_swmethod_done(void); nv2a_pb_swmethod_done(); }
+     t_in_dpc = 0;
+     irq_regs_restore(&saved);
+ }
