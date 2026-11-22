@@ -1,0 +1,40 @@
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -7972,14 +7972,34 @@
+ static CRITICAL_SECTION g_ke_shadow_cs;
+ static int g_ke_shadow_init;
+ 
+-static void ke_shadow_init(void)
++/* Patch 0027 (note 0022): the old gate `if (g_ke_shadow_init) return;`
++ * was unguarded, so concurrent first-callers could both run
++ * InitializeCriticalSection -- which memsets the CS -- while another
++ * thread still held, or was about to lock, the heap mutex from the
++ * first init. frz4 core caught the result: init flag 1, CS all zero,
++ * and the guest's D3D ring waiter (sub_002D57D0 ->
++ * bridge_KeWaitForSingleObject -> ke_shadow_lookup) blocked forever
++ * on the orphaned old mutex: the post-notify freeze (H27),
++ * run-to-run stochastic exactly like a first-use race window.
++ * InitOnceExecuteOnce (win32_compat) runs the callback at most once
++ * and blocks late callers until it completes, so LockSemaphore is
++ * never observed NULL mid-flight and EnterCriticalSection's lazy
++ * self-init can never fire for this CS. */
++static INIT_ONCE g_ke_shadow_once = INIT_ONCE_STATIC_INIT;
++
++static BOOL CALLBACK ke_shadow_init_cb(PINIT_ONCE once, PVOID param, PVOID *ctx)
+ {
+-    if (g_ke_shadow_init)
+-        return;
++    (void)once; (void)param; (void)ctx;
+     InitializeCriticalSection(&g_ke_shadow_cs);
+     /* Wipe any stale pointers from a prior lifecycle (defensive). */
+     memset(g_ke_shadow, 0, sizeof(g_ke_shadow));
+     g_ke_shadow_init = 1;
++    return TRUE;
++}
++
++static void ke_shadow_init(void)
++{
++    InitOnceExecuteOnce(&g_ke_shadow_once, ke_shadow_init_cb, NULL, NULL);
+ }
+ 
+ /* Insert a mapping guest_va -> host HANDLE. Replaces any prior mapping for

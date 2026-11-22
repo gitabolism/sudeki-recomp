@@ -59,23 +59,20 @@ settle chain (patch 0017) intact.
 
 ## Last run
 
-Session 4k (last cycle, before user took over xemu testing): 18 measured
-seeds regenerated through the full chain (disasm `--seed-functions` →
-func_id → abi → recomp), stubs 432, `scripts/build.sh` ok —
-`env RECOMP_VBLANK=1 RECOMP_PB_EXEC=1 RECOMP_PB_WALK=dma
-RECOMP_KERNEL_LOG_BUDGET=0 RECOMP_AC97_READY=1 RECOMP_FB_WINDOW=1
-RECOMP_FB_DUMP=reference/fb/frame RECOMP_FB_WINDOW_DUMP_EVERY=60
-./build/sudeki` (`logs/run-seed18-225928.out`): **no crash at 240 s**,
-2753 flips, 105 800 draws, 23 content-bearing frames. Earlier 4k:
-`logs/run-seed11-222748.out` (3429 flips, 152 000 draws, first
-title-screen frame `reference/fb/frame00016.bmp`),
-`logs/run-seed27430-222216.out` (crash gone after the 0x27430 seed —
-H23 root cause, note 0018). ICALL feedback instrument wired: CMake
-`-DSUDEKI_ICALL_FEEDBACK=ON` → `build-fb/sudeki` probe dumps
-targets+sites on exit/SIGTERM (`build-fb/icall_targets.dump`; merge →
-`tools.recomp.icall_feedback seeds`). Remaining measured unresolved at
-pause: none pending (A8A10/B5A50/BC450 seeded + dispatched; next run may
-surface more — same protocol).
+Session 4n (latest, still building on 4m's baseline): freeze walls
+**H26+H27 both CLOSED** (notes 0021/0022; patches 0024-0027 in the
+series). gfault9 proved the GPU→CPU sw-method chain (`KeSetEvent
+0x2E2F5C from 0x2DB61F`, `pop=1149 ack=2475`); frz4 core root-caused
+the surviving freeze to the unguarded `ke_shadow_init()` double-init
+(main guest thread blocked forever in `ke_shadow_lookup` on an
+orphaned mutex; CS read all-zero with init flag 1); patch 0027
+(`InitOnceExecuteOnce`) cleared it — gfault10 (250 s, 3534 flips,
+1.84 fps steady, frames animating 3 %/frame, 35k colours) and
+gfault11 (plateau-lines=0, 4.43 fps climbing) both clean; no freeze
+recipe reproduces it anymore. gfault12 (RECOMP_VSH_IO census +
+denser FB dumps, 320 s) in flight for the next wall: vertex-program
+coverage in the level scene. Working recipe unchanged; add
+`RECOMP_VSH_IO=1` for GPU census runs.
 
 **xemu reference status at pause (user testing manually):** xemu 0.8.139
 is the *latest official release* (checked vs GH API) — same as pinned.
@@ -337,15 +334,18 @@ arr=0).
     lesson: the guest's PGRAPH service loop spins until the word reads
     clear and RAM-stores its w1c back — the ack pass is the ONLY clearer;
     never hold past first service (wedges the timer thread).
-9. **H27 (active — post-notify freeze):** plateau persists (0 fps @
-   2518 flips) with a FULLY RENDERED 3D scene on the frozen frame
-   (`reference/fb/gf9000xx.bmp`, 35k colours). Wall moved from "GPU
-   never notified CPU" to whatever the game waits on after: D3D ring
-   accounting (`sub_002D57D0`: `[ctx+0x2C]` put vs `*[[ctx+0x30]]`,
-   `[ctx+0x44]` segment), a faked query/visibility report, or game-side
-   scene-script wait. Evidence in flight: SIGABRT core at plateau
-   (`logs/run-frz3-*` → `sudeki.frz3.core`; `thread apply all bt` +
-   guest-ESP scan; do NOT rebuild before analysis or symbols desync).
+9. **H27 CLOSED (note 0022):** the post-notify freeze was a HOST lock
+   race, not game logic: frz4 core caught the main guest thread
+   (`sub_002D57D0`→`bridge_KeWaitForSingleObject`→`ke_shadow_lookup`)
+   blocked forever on an ORPHANED heap mutex while `g_ke_shadow_cs`
+   read all-zero with init flag 1 — unguarded `ke_shadow_init()`
+   double-init (memset + mutex swap; `EnterCriticalSection` lazy
+   self-init worsens it; first-use race window = the stochasticity).
+   Patch 0027 = `InitOnceExecuteOnce` guard. Confirmed twice:
+   gfault10 (no plateau, scene animating) + gfault11
+   (`plateau-lines=0`, 4.43 fps). Lesson for the toolkit's static
+   CSes: any lazily-init'd `CRITICAL_SECTION` shares this hazard;
+   audit if the symptom recurs elsewhere.
 
 ## Queue (next concrete actions)
 
