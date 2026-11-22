@@ -3,19 +3,19 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-22 (session 4r)
+**Last updated:** 2026-11-22 (session 4s)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached** —
 `reference/fb/frz1600027.bmp` is the fully textured title screen
 (SUDEKI logo + character art + "Press START" + rain, 37,025 distinct
 colours); input reaches New Game (note 0020); audio + level/wavebank
 streaming work. H28 (post-attract "freeze"), H19 (GPU draw coverage)
-CLOSED; H29 (terminal plateau) anatomy COMPLETE (note 0023): bimodal
-wall — parked ring writer (frz20 core) or pump-freeze with the ring
-alive (frz26); the missing hardware behavior is the **BEW semaphore
-landing** (`0x1D70` releases, offset 0 → channel block `0xFD800000`,
-rejected by patch-0016's `off!=0` guard, semaphors never written,
-`sh8700` poison constant). Fix candidate = patch 0031. First
-presented level frame = next artefact.
+CLOSED. H29 GPU-side chapter CLOSED (note 0023, patches 0031-0035):
+the service-chain re-service livelock is gone (seen_l 743k→6.7k,
+drop=0) and the ring is HEALTHY at the plateau (submit 24k, iGET
+following) — the surviving wall is the **engine device-message
+layer** (`sub_0011ED20` handler stops invoking the swap pump
+`sub_002D35A0` during load). frz41 plateau-core run in flight.
+First presented level frame = next artefact.
 
 ## Where things are verified
 
@@ -46,7 +46,11 @@ presented level frame = next artefact.
    fix**, `0027` `ke_shadow_init` once-guard = the H27 fix, `0028`
    `[READ]` log gate, `0029` ranked unhandled-method table, `0030`
    class-5 re-latch on walk drain edges (fired faithfully; the NOP
-   path is NOT D3D's real ring-free protocol - see H29).
+   path is NOT D3D's real ring-free protocol - see H29), `0031` BEW
+   release → channel block, `0032` host ring-free event signal,
+   `0033` GET-lag instrumentation (falsified as fix, kept as probe),
+   **`0034` trap-quartet idle on service + `0035` consume-at-first-
+   read = the service-chain livelock fix** (H29 GPU chapter closed).
   Table in THIRD_PARTY.md.
   Manual overrides: `--exclude-manual src/recomp_manual.c` now wired into
   `scripts/pipeline.sh`; wrappers = `sub_00022340` (stream refill),
@@ -429,19 +433,32 @@ arr=0).
     Candidate fix (next): allow `off==0` → NV2A aperture target
     (0031); frz26 census (`[PRES] inst/i0/i4/latch/...`) verifying
     what the guest expects to read there.
+    **4s UPDATE — GPU chapter CLOSED:** 0031 landed; frz33/34 proved
+    the waiter spin (hand-built event) and the true terminal waiter
+    (engine INFINITE on 0x2E2F4C); frz35-39 census proved a
+    service-chain RE-SERVICE livelock (guest pump re-dispatching one
+    mark 84,884x inside a single call while done() ran 100x rarer);
+    0034 (trap-quartet idle on service) + 0035 (consume at the
+    first-read `seen` edge, synchronous — the ack-tick variant v1
+    was proven inert) killed it: seen_l 743k→6.7k==consume, drop=0,
+    runs=1. frz40 PRES census: ring HEALTHY at the plateau
+    (submit 24,493, iGET following the write cursor). New wall H30:
+    the engine device-message layer — `sub_0011ED20` stops invoking
+    the swap pump; frz41 plateau-core in flight.
 
 ## Queue (next concrete actions)
 
-* **PRIORITY (4r): patch 0031 = BEW release landing fix** —
-  `nv2a_pb_exec.c` 0x1D70 handler: `off==0` (D3D programs offset 0)
-  must write through the NV2A aperture channel block
-  (`xbox_Nv2aRegPtr(0x800000+off)` — same block whose `+0x44` GET the
-  walk publishes), not be rejected by the guest-RAM guard. Verify
-  frz27 (frz18 nav + `[PRES]` census): expect `i0` tracking the odd
-  counter, `sh8700` no longer poison, plateau clears, FIRST
-  PRESENTED level frame after the Buki card = Gameplay artefact.
-  Watch for the pump-freeze variant (frz26) possibly needing
-  `sub_0011ED20` device-message anatomy too — one variable at a time.
+* **PRIORITY (4s): engine device-message anatomy** — the GPU-side
+  H29 chapter is CLOSED (0034+0035: livelock gone, ring healthy at
+  plateau, frz40). Surviving wall: swap pump `sub_002D35A0` +
+  engine submit `sub_001E0390` frozen while their only caller
+  `sub_0011ED20` (device-message handler) stops being invoked
+  during the load era (H28 anatomy). frz41 plateau-core (ABRT at
+  15×0-fps) names the thread(s) and wait objects; then census the
+  `sub_0011ED20` call path (who dispatches device messages, which
+  queue/event feeds it) and find the missing wake. Verify on
+  frz42: pump/eng climb through the load, FIRST PRESENTED level
+  frame in `reference/fb/frz42*` = Gameplay artefact.
 * Then: confirm level-scene texture coverage on that presented frame
   (the "0 textured batches" census line).
 * xemu title/menu side-by-side capture (queued since 4m; note 0019

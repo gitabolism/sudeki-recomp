@@ -870,7 +870,24 @@ ONE service — exactly hardware's TRAP-auto-idle-on-read rule that
 0025's latch gate already encodes. Counter consume= added. frz40
 = same recipe, 0034+0035v2 live. Expect: SWM runs collapse to ~1
 per mark, seen_l ≈ latch total, drop=0, pump/eng climb, level
-frames present. Our consume waits for
+frames present.
+
+frz40 (0035v2): LIVELOCK CLOSED — seen_l 743,480 -> 6,731 ==
+consume==6,731, drop 2,663 -> 0, dedup runs -> 1, dispatcher
+entries 250k -> 20k. Plateau still at 4318 that run, BUT [PRES]
+census at the plateau shows the ring FULLY HEALTHY (submit=24,493
+climbing, iGET 0x001918D4 following write cursor 0x801A2DC0,
+[FREE] arithmetic resolving) — GPU-side starvation chapter CLOSED;
+that run's freeze was attract-fallback aftermath, not a wedge.
+frz41 (560 s, plateau-core detector): NO PLATEAU AT ALL — 1.66-1.79
+fps steady the whole window, pump==eng==idx==6981==watchdog flips,
+4C sets 7,822. The detector never fired. The run simply stayed in
+the attract loop (press feed too sparse after boot; frames 48/51 =
+title art). Verdict: 0034+0035 removed the load-era terminal freeze
+end-to-end; the remaining question is pure input FLOW: does a
+press-driven New Game (frz18-proven to the Buki card) now stream
+and PRESENT the level. frz42 = frz18 nav presses + sparse START
+every 12 s, 620 s — the Gameplay-artefact attempt. Our consume waits for
 the next dpc_run_here (seconds); hardware's equivalent is the
 service write-back itself (instant).
 Patch 0035 (fix candidate, implemented): nv2a_pb_swmethod_service_
