@@ -1,6 +1,6 @@
 --- a/src/kernel/nv2a_pb_exec.c
 +++ b/src/kernel/nv2a_pb_exec.c
-@@ -755,7 +755,22 @@
+@@ -755,7 +755,27 @@
          InterlockedIncrement(&s_lat_enq);
          return;
      }
@@ -16,15 +16,20 @@
 +    {
 +        static int b12 = -1;
 +        if (b12 < 0) {
++            /* Opt-IN: default-on froze boot at 2 flips (frz85):
++             * extra NOTIFY engagement deadlocks the boot swap chain,
++             * same signature as the 0043 post. The idle-mask clearing
++             * below stays unconditional (it only touches the family
++             * when nothing is latched). */
 +            const char *e = getenv("RECOMP_SWMARK_INTR12");
-+            b12 = !(e && e[0] == '0');
++            b12 = !!(e && e[0] == '1');
 +        }
 +        *intr = b12 ? 0x00001001u : 0x00000001u;
 +    }                                /* PGRAPH: software method */
      *prm  = param;
      *trap = 0x00000100u;                /* method = NO_OPERATION */
      *tdat = param;                      /* dispatcher's argument */
-@@ -912,6 +927,16 @@
+@@ -912,6 +932,16 @@
          if (pb_trap_idle_on())
              nv2a_pb_trap_idle();      /* 0034: service idles the quartet */
      } else if (pb_trap_idle_on() && !s_sw_latched && s_sw_head == s_sw_tail) {
