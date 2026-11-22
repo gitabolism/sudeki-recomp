@@ -1297,3 +1297,25 @@ Verdict: two distinct walls, one machinery, one engine:
   invoking pump/eng (indirect task-frame calls go quiet) while the
   frame loop Presents keep ticking. That is the engine's own
   device-message/task layer — H30 proper — still open.
+
+frz61 (first CLEAN 0038 binary; the tree was momentarily 0038-less
+for frz60 due to the extraction reset) — movie-era plateau at 189
+flips, identical wall. 0038 census: gate fired once (06D00141
+filtered), drop=0, seen_l==consume — the mark machinery is NOT the
+plateau mechanism when the queue is clean. So W-A (FIFO overflow)
+was a SECONDARY symptom of v4-hold + junk queueing, not the primary
+wall; and the 189-flip plateau reproduces with clean machinery =>
+the primary wall is W-B/feeder-side in ALL recent runs. The
+frz59-vs-frz61 difference (1511 vs 189 flips before plateau) is
+bimodal run luck, as seen before (frz45 recovered, frz57 froze).
+
+frz61 CORE analysis VOID — harness error #3: `scripts/build.sh`
+(SERIES_OK verify) re-linked build/sudeki BEFORE coredumpctl dump,
+so the 86.5M core does not match the current binary. Rule going
+forward: snapshot build/sudeki to /tmp/opencode/sudeki-frzNN.bin at
+probe START (census_run/core_probe now must be the only rebuild
+boundary), and never run build.sh while a run's core is un-analysed.
+frz62 = 900 s NO-detector census with RECOMP_KEWAIT_TRACE=1 to name
+the event the task-dispatch feeder (sub_00021B90, blocked in
+sub_0026D77A per frz59 core thread 4) waits on and whether ANY
+NtSetEvent ever touches it.
