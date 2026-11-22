@@ -1,0 +1,49 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -820,6 +820,22 @@
+  * service-chain entries with / without a latch outstanding. */
+ static volatile LONG s_trap_idle;
+ 
++/* Patch 0045 (note 0023, frz77): the hold lifecycle env, hoisted so
++ * the queue-advance rule can follow the SAME regime. v4 churn (env=0)
++ * drains its queue with an unconditional pop; the 0040 pop-gate
++ * (never pop over an armed mark) belongs to the strict lifecycle
++ * only — with it on, frz77 froze at 187 flips, earlier than the
++ * frz66 baseline (7113 climbing). */
++static int pb_arm_until_seen_on(void)
++{
++    static int hold = -1;
++    if (hold < 0) {
++        const char *e = getenv("RECOMP_ARM_UNTIL_SEEN");
++        hold = !(e && e[0] == '0');
++    }
++    return hold;
++}
++
+ static int pb_trap_idle_on(void)
+ {
+     static int on = -1;
+@@ -861,12 +877,7 @@
+              * consumes at the seen edge (0035); an unserviced mark
+              * stays armed exactly like hardware holds a pending trap.
+              * RECOMP_ARM_UNTIL_SEEN=0 restores the churn for A/B. */
+-            static int hold = -1;
+-            if (hold < 0) {
+-                const char *e = getenv("RECOMP_ARM_UNTIL_SEEN");
+-                hold = !(e && e[0] == '0');
+-            }
+-            if (hold) {
++            if (pb_arm_until_seen_on()) {
+                 /* Patch 0039+0040 (note 0023): ONE coherent
+                  * lifecycle, straight from the hardware model. The
+                  * quartet + INTR + PMC bit are cleared by exactly ONE
+@@ -925,7 +936,8 @@
+      * armed mark's swap wait starved. Advance only when the state
+      * machine is idle: after the seen-edge consume has cleared the
+      * predecessor (or with nothing latched and marks queued). */
+-    if (!s_sw_latched && s_sw_head != s_sw_tail) {
++    if ((!s_sw_latched || !pb_arm_until_seen_on())
++            && s_sw_head != s_sw_tail) {
+         LONG t = s_sw_head;
+         uint32_t param = (uint32_t)s_sw_param[t];
+         s_sw_head = (t + 1) % SWM_PENDING_N;
