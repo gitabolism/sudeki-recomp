@@ -63,6 +63,19 @@ never progress.
     into other files (e.g. a renamed slash command is one line here, not
     a STATE.md edit). If a paragraph adds nothing actionable for the next
     session, it does not go in.
+11. **Git belongs to the user (user directive, 2026-11-22).** Editing a
+    file means editing *the file* — nothing else. Automatic commits are
+    allowed for changes that are purely the agent's own work: the recomp
+    factory (`src/` host overrides, `patches/xboxrecomp/`, `scripts/`,
+    `tools/`, `docs/notes/`, build config, `THIRD_PARTY.md` pin entries)
+    and session machinery (`AGENTS.md`, `STATE.md`, `CHANGELOG.md`).
+    The hard boundary is human edits: if a file's pending change
+    contains anything a human modified, stay out of git for it — no
+    `git add`, commit, `git checkout <rev> -- path`, `git restore`,
+    `git reset`; the user stages and commits it. `README.md` and other
+    user-owned prose are always on that side. When in doubt, ask first,
+    every time. The user reviews agent changes through the staging
+    area; do not flatten it.
 
 ## Autonomy and the approval gate
 
