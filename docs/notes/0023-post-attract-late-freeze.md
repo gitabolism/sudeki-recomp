@@ -1374,3 +1374,31 @@ event-consumption race in the XGRAPHCL swap chain (who consumed the
 vs the guest's re-arm expectations), NOT the marks. frz65 = A/B
 RECOMP_ARM_UNTIL_SEEN=0 to bound the lifecycle change's blast
 radius; then the swap-event anatomy is the boot-era work item.
+
+frz65 (A/B: same 0039-lifecycle build, RECOMP_ARM_UNTIL_SEEN=0 =
+v4-churn hold OFF) — passed boot, reached 1810 flips, then the SAME
+terminal plateau (pump==eng==1810, wait=5) with drop=1546 again:
+the abandoned-idle eating returns exactly when the hold is off.
+One-variable truth across frz63/64/65:
+  hold OFF (v4 churn): boot ok, plateau with drop>>0 (frz62/65).
+  hold ON  (one-owner): frz64 froze at flip 1 (boot era) — but the
+  single sample's shape says LUCK, not structure: its [NOPSW] class
+  tally (below) was byte-identical to healthy frz41's boot; the
+  difference was DOWNSTREAM (the swap-slot credit gate parked with
+  only 1 completion dispatched). frz66 = same build, hold ON, rerun.
+
+NEW scalar health metric (from the 0030-era census):
+  [NOPSW] seen=N classes: `1:k` counts DISPATCHED swap-NOP service
+  marks (params 0DF80101/10500101 = class 1 in the seen tally):
+  frz63=219 (=flips), frz64=1 (boot freeze), frz65=1810 (=flips).
+  k == flips in every healthy era: the pipeline's true throughput.
+
+Swap-chain anatomy learned from the frz64 core (keep for the boot-
+era fragility item): event 0x2E2F4C == ctx(0x2E1190)+0x1DBC = the
+XGRAPHCL swap-SLOT event; set from 0x002DB0BE (swap completion,
+inside the class-1 mark dispatch); waited pre-swap at 0x002D3497
+(sub_002D3420 credit gate: clears ctx+0x1DC0 pending flag, ICALL
+0x3157E4 on the slot event, ~2-deep credit). frz64: 2 sets, 1
+dispatched completion -> writer parked before writing swap #2's
+NOP. So boot-era fragility under hold ON lives in the credit-gate/
+completion interplay, not the mark words.
