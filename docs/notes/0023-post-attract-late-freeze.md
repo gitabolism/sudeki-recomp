@@ -1700,3 +1700,48 @@ Pseudocode agrees with the lifted C on pump+completion structure
 - frz88 + frz89 cores = HEALTHY-era baselines only (both runs killed
   early by era-blind detector mistakes); matched-symbol PLATEAU core
   still owed - harness fix in STATE queue item 1 (frz90).
+
+## Session 4v addendum: harness rebuild + HEALTHY-core baseline (frz89)
+
+The 2026-11-22 reboot emptied `/tmp/opencode/` (nav_run.sh,
+frz_watch.sh, core_forensics.bt, Ghidra project all lost - analysis
+artefacts, outside git by design). Rebuilt with the 4u fixes wired in:
+
+- `nav_run.sh` (frz90 regime = frz87: v4 churn + compiled depth-2048 +
+  0046 idle-clear, NO opt-in probes): nav gate = first `.bik` log line
+  + 120 s, then 4 START via `RECOMP_PAD_LIVE` @10 s, then silence;
+  window kill = SIGABRT (core at window end).
+- `frz_watch.sh` era guard: the 0.00-fps criterion applies only at
+  elapsed >= 420 s AND flips >= 1000, and ABRT fires only after a 20 s
+  re-check shows flips unchanged (frz88 mid-climb kill encoded away).
+  Bug caught live: `[GPU] %.2f fps` parse = awk field $2, not $3.
+- `core_forensics.bt` offsets re-derived from lifted C (not memory):
+  `sub_002DAFF0` body proves PCRTC_INTR_0 = aperture+**0x600100**
+  (spin store), PMC spin = aperture+0x100 & 0x01000000, and
+  `KeSetEvent(esi+0x194)` sits at 0x2DB0BE (ICALL slot 0x3157DC).
+
+frz89 core (`/tmp/opencode/forensics-frz89.txt`, binary matched, the
+one real gap in the 4u retraction list) = HEALTHY fingerprint:
+quartet + spin words ALL IDLE (PMC=0, PGRAPH=0, +0x700=0, +0x704=0,
++0x720=1); channel block +0x800000=+0 word 0x00000441 (+4 zero);
+ctx=0x2E1190, ctx+0x8700=51747D8B; swap event 0x2E2F4C SignalState=0,
+ring-free 0x2E2F5C SignalState=1 (header 0x00040000 both, empty
+wait-lists); main thread parked in `sub_001DE5C0` engine swap-wait,
+ack thread yielding, DPC feeders parked in `sub_0026D664`.
+Note: at 179 flips frz89 was ALREADY in the frz79 terminal signature
+(engine INFINITE on the slot event, ring-free signalled, marks idle) -
+the HEALTHY-vs-plateau contrast must come from the frz90 >=1000-flip
+core or from log census, not from these low-flip cores.
+
+STATIC KILL of the +0x400700 theory (4v, no core needed): every
+occurrence of aperture+0x400700 in the gen tree (7 sites) is a LOAD;
+no store anywhere. The host patch series never touches +0x400700
+(latch/ack use +0x100, +0x400100, +0x400108, +0x400704, +0x400708).
+So in our runtime that word is permanently 0: the pump's
+loc_002DB2A0 spin always falls through on first read and cannot
+latch. frz89-core confirms (+0x700 word = 0). Falsification test
+left for the frz90 plateau core: NO thread may be inside
+sub_002DB250's spin - if one is, an out-of-tree writer exists and
+this kill is re-opened.
+
+
