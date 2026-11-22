@@ -508,16 +508,20 @@ arr=0).
 
 ## Queue (next concrete actions)
 
-* **PRIORITY (4u->5a): frz89 verdict** (log `logs/run-frz89-174613.out`,
-  watcher log `/tmp/opencode/frz89_pw.log`): after the run,
-  `tools/census_snap.sh` + fbpeek of `reference/fb/frz89*` LATE dumps.
-  Buki-card/loading-card frames = nav works; a fully-textured animated
-  level scene = **GAMEPLAY artefact** (README row + CHANGELOG, user owns
-  README wording). If watcher ABRTed: dump core via `coredumpctl dump
-  <pid> -o /tmp/opencode/sudeki.frz89.core`, gdb thread map + aperture
-  words (compare vs frz88 HEALTHY baseline recorded in Last-run/4u) —
-  settle the `+0x400700` spin question (no write sites in gen tree;
-  theory must be CONFIRMED or KILLED before any patch 0047).
+* **PRIORITY (4u->5a): frz89 verdict recorded (inconclusive, harness bug):**
+  the plateau-watcher false-fired at t+2:19 during the fast-boot/FMV
+  era (0.00-fps lines are NORMAL between flip bursts in decode/movie
+  eras - 7 equal lines is not a plateau signature mid-run). Core
+  exists (coredumpctl pid 1124423, SIGABRT 17:48:32, matched symbols)
+  but it is a MOVIE-ERA snapshot, not a plateau. Dumps live at
+  `reference/fb/89*.bmp` (nav_run prefix is `$RUN`, not `frz$RUN`) -
+  all black/FMV era. HARNESS FIXES before the next nav run
+  (frz90): (a) watcher arms only when elapsed >= 420 s AND flips >=
+  1000 before evaluating the 0.00-fps criterion; (b) nav press gate =
+  first `.bik` + 120 s (movies span several .bik opens - 45 s fired
+  mid-FMV); (c) census greps + fbpeek must use prefix `89`/`90`, not
+  `frz89`. Then the GAMEPLAY-artefact check per note 0023: late-dump
+  fbpeek + visual confirm of an animated level scene.
 * If nav failed again: the pad-feed model itself is suspect — add a
   `[PAD]` state census (XAPILIB state fetch 0x31052E/0x31053A wrappers)
   to see whether presses reach the game at all post-movie.
