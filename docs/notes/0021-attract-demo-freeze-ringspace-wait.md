@@ -352,6 +352,13 @@ flips of the last drawn frame continue — the attract-demo
   started the demo (no class-5 mark at all: `1:3356 8:1 9:12`,
   `direct=3358 enq=11 drop=0 pop=0`). Feeder lesson again: press
   densely, or the wall doesn't reproduce.
+* Reproduction is stochastic even with dense presses: gfault9 (16
+  presses, 8 s cadence) froze @2518 flips; frz3 (12 presses, same
+  cadence) was still running at 190 s. Capture runs must therefore be
+  **adaptive**: poll the log, `kill -ABRT` on three consecutive
+  `0.00 fps` lines, fallback abort at 260 s (recipe in
+  `logs/run-frz4-*` command; `coredumpctl dump <pid>` with the real
+  direct child PID — not timeout's).
 * gfault6 (dense presses, 8 s cadence from t=100 s): freeze
   reproduced at 2281 flips, exactly one class-5 mark (#2293),
   `enq=12 pop=0 drop=0`: the last 12 marks (the class-5 one among

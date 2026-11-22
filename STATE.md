@@ -3,7 +3,7 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-22 (session 4m)
+**Last updated:** 2026-11-22 (session 4o)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached** — frame
 dumps carry content and `reference/fb/frame00016.bmp` is the title screen
 ("SUDEKI / Press START", 219 distinct colours). The wild-pointer wall (H23)
@@ -59,7 +59,23 @@ settle chain (patch 0017) intact.
 
 ## Last run
 
-Session 4n (latest, still building on 4m's baseline): freeze walls
+Session 4o (latest): post-attract stall anatomy captured (note 0023,
+frz7 core). At the stall (1444 flips, during `fma01_poem.bik` playback)
+the main guest thread is **BUSY in `sub_002CB420`** (chain
+`sub_0011B020→sub_001DE310→sub_002C27A0→sub_002C94F0→sub_002C7840→
+sub_002CB420`), two guest workers idle in kernel waits, and ring/XAPI
+events (`0x2E2F4C`, `0x48000001`) are STILL firing → event-deadlock
+reading dead; spin-vs-long-haul open. Next: (a) second core at
+plateau+30 s, diff PC offset inside sub_002CB420 + guest regs;
+(b) read lifted body (`recomp_0053.c:13865`) for data-dependent loops.
+Core `/tmp/opencode/sudeki.frz7.core` + map `/tmp/opencode/frz7b.bt` —
+do NOT rebuild before any re-analysis. frz6 lesson: detector must be
+TIME-gated (t≥150 s + 3×0.00); flip-gate (≥2500) missed the freeze
+(it froze at 2280 flips). README rewritten co-authored with the user
+(two-line SUDEKI RECOMP block wordmark, remote rules out of README);
+AGENTS rule 9 now keeps README current at stage boundaries.
+
+Earlier 4n (still valid baseline): freeze walls
 **H26+H27 both CLOSED** (notes 0021/0022; patches 0024-0027 in the
 series). gfault9 proved the GPU→CPU sw-method chain (`KeSetEvent
 0x2E2F5C from 0x2DB61F`, `pop=1149 ack=2475`); frz4 core root-caused
@@ -346,8 +362,21 @@ arr=0).
    (`plateau-lines=0`, 4.43 fps). Lesson for the toolkit's static
    CSes: any lazily-init'd `CRITICAL_SECTION` shares this hazard;
    audit if the symptom recurs elsewhere.
+10. **H28 (ACTIVE wall — post-attract stall, note 0023):** main guest
+    thread BUSY (not waiting) in `sub_002CB420` during `fma01_poem.bik`
+    playback; workers idle; events healthy. Spin-vs-long-haul unknown —
+    two-sample PC diff decides. If spin: identify polled guest word,
+    find writer via census wrapper, fix host-side. Lift-side suspects:
+    unresolved ICALL inside the 0x2CB4xx family would corrupt state the
+    H23 way — audit `[ICALL] Failed to resolve` lines in frz logs.
 
 ## Queue (next concrete actions)
+
+* **PRIORITY (4o):** H28 steps — (a) rerun frz7 recipe, ABRT at
+  plateau+30 s → second core → compare PC offset + regs vs
+  `/tmp/opencode/frz7b.bt`; (b) meanwhile read `sub_002CB420` body in
+  `recomp_0053.c` (loop structure at `loc_002CB4A9`+); (c) check frz7
+  log for unresolved-ICALL lines.
 
 1. **xemu reference (note 0019 CLOSED for boot):** STOP was our unofficial
    256 KiB SpiritBoot dev ROM forcing 128 MB (Def Jam #75 failure class).
@@ -469,4 +498,5 @@ arr=0).
 | 2026-11-21 s4i | **level streaming reached + audio wall root-caused (notes 0016/0017)**: flip-done settle chain (patch 0017 + `main.c` chain `0x2E3638→+0x934→ctx+0x8700`) clears post-movie wait → `SOLWORLDM.gex`/wavebanks/`BS_brightwater.xwb` stream; 4 measured seeds more (`0550A0 0FD7D0 135AA0 092010`) lift remaining boot ICALL misses; the "TLS teardown poison" crash **falsified and root-caused**: DSOUND voice `sub_002854B3(this=029A00F4)` slot +0x14=0 → `sub_0028EA91` 24 KB wavebank copy to guest 0x818 tramples exception page + TIB page; TLS guard kept, audio census wrappers (`RECOMP_DS_COPY/DS_VOICE`, `!`=impossible-address auto-log); watch upgraded (guest-stack chain 0019, TF single-step + panic core 0020); surviving crash = `sub_000B08F0+0xDFB2` wild write `esi=0x89D8458B` (same audio subsystem, H22) | (this commit) |
 | 2026-11-21 s4k | **H23 CLOSED (note 0018) + MENU artefact reached**: "wild allocator pointer" = 4-byte esp drift from an unresolved-ICALL skip (`0x27430`, real `ret 4` thiscall; `ICALL_SAFE_AT_CC` skip assumes caller-cleanup) corrupting saved-register pops — proven by esp-delta probes, fixed by seeding measured targets (18-seed file); runs now: no crash @240 s, 152k draws, first content frames incl. **title screen** `reference/fb/frame00016.bmp`; ICALL feedback instrument wired (CMake `SUDEKI_ICALL_FEEDBACK`, `build-fb` probe, SIGTERM dump) for batch seeding; xemu ref investigation: 0.8.139 = latest release, HDD pristine, upstream shows title running (no bugcheck reports) -> our STOP is environment-specific; user taking over xemu playability test manually | (this commit) |
 | 2026-11-22 s4m | **input wall CLOSED (note 0020) + xemu boot fixed (note 0019)**: xemu playability = official SpiritBoot v1.1.0-64MB ROM (unofficial 128MB dev ROM was the STOP; user verified FMVs/audio/pad/rumble on xemu); recomp input = arm toolkit OHCI model (`xbox_OhciInit` in `main.c`, `RECOMP_USB=1`) + patch 0023 (script-pad START bit 0x0200 = real hardware); press-driven proofs (movie skip, Buki loading card, attract demo) vs zero-input baseline; XPP input-chain map (ISR 0x31428B, DPC 0x31495F, glue 0x31052E/0x31053A state fetch); JP disc (`Sennen no Akatsuki`, XBE `1f8a9611…`, same LTCG libs, parked outside git) as second regression sample; next wall = NV2A 3D draw coverage (demo scene freezes at 0 fps when VSH batches skipped) | (this commit) |
+| 2026-11-22 s4n-4o | **freeze walls H26+H27 CLOSED** (notes 0021/0022; patches 0024-0027: sw-method latch+FIFO, hold-until-seen ack ownership, scripted-pad fix, `ke_shadow_init` `InitOnceExecuteOnce` — frz4 core proved the orphaned-mutex double-init); gfault10/11 clean (scene animating, 4.43 fps); gfault12 VSH-IO census = Bink passthrough programs, level scene rasterises 29k tris/pass; new wall H28 = post-attract stall, frz7 core: main thread BUSY in `sub_002CB420`, events healthy (note 0023); README co-authored rewrite + AGENTS rule 9 | (this commit) |
 | 2026-11-21 s4j | **audio wall CLOSED (patch 0022)**: DDS9 master open `sub_0028F8C3` needs AC97 bus-master trap; upstream armed it only on aarch64 (x86-64 Linux fell to NULL-VEH stub) → DSERR_NODRIVER → 'SdaD' create skipped → null-voice 24 KB copy = the whole note-0017 chain. Patch widens POSIX arm to x86-64; with `RECOMP_AC97_READY=1` MCPX APU (SDL2) + AC97 trap up, all 5 sub-inits 0, DS-VOICE!/DS-COPY! 0, wavebanks stream, ~1250 flips. New wall H23: deterministic allocator crash — free-list link `0xFE087E8D` (NV2A aperture value) spliced at real `0x1A9C1D` (`sub_001A9B60` family, misattributed `sub_001A9A50+0x1CD`); census wrappers `sub_0028F8C3/sub_002885AE/sub_0028AF42`, patch 0021 `RECOMP_LOG_ORDS` | (this commit) |

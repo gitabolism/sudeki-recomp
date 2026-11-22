@@ -50,6 +50,12 @@ never progress.
    is a `RECOMP_UNIMPL` site (`scripts/stubs.sh` keeps the count honest);
    a missing kernel ordinal is fixed host-side. Never paper over either by
    patching translated behaviour.
+9. **README tracks progress as we go.** At each stage boundary (and each
+   wall closed), update `README.md`'s stage table and progress bar with
+   the same artefacts cited in `CHANGELOG.md` — it rides in the stage
+   commit, never as its own eager commit. The README is co-authored:
+   the user owns wording; draft, they review. Rule 7 (NO_PUSH) is harness
+   law and lives here — the README never mentions the remote.
 
 ## Autonomy and the approval gate
 
