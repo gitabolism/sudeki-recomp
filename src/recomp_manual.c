@@ -749,16 +749,35 @@ extern void sub_002DB4A0_gen(void);
 void sub_002DB4A0(void)
 {
     extern __thread uint32_t g_ecx;
-    static int on = -1, budget = 400;
+    static int on = -1, budget = 2500;
     if (on < 0) {
         const char *e = getenv("RECOMP_GSVC_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
     }
-    if (on && budget > 0) {
-        budget--;
-        fprintf(stderr, "[SWM] obj=%08X param=%08X class=%u\n",
-                g_ecx, g_eax, (unsigned)((g_eax & 0x1F) - 1));
-        fflush(stderr);
+    if (on && (budget > 0 || (g_eax & 0x1Fu) <= 2u)) {
+        if (budget > 0) budget--;
+        {   /* caller attribution (frz36, note 0023): at entry the guest
+             * stack top holds the return address; the 228k-plateau
+             * re-dispatches (frz35) name their driver this way. Dedup
+             * consecutive identical (param, caller) pairs into a run. */
+            static uint32_t lp = 0xFFFFFFFFu, lc = 0xFFFFFFFFu;
+            static unsigned run;
+            static unsigned n;
+            uint32_t prm = g_eax, cal = MEM32(g_esp);
+            if (prm == lp && cal == lc) {
+                run++;
+                if (((n++) & 0xFFFFu) == 0)
+                    fprintf(stderr, "[SWM] ..still param=%08X from=%08X run=%u\n",
+                            prm, cal, run);
+            } else {
+                if (run)
+                    fprintf(stderr, "[SWM] (x%u)\n", run);
+                run = 0; lp = prm; lc = cal;
+                fprintf(stderr, "[SWM] obj=%08X param=%08X class=%u from=%08X\n",
+                        g_ecx, prm, (unsigned)((prm & 0x1F) - 1), cal);
+                fflush(stderr);
+            }
+        }
     }
     sub_002DB4A0_gen();
 }

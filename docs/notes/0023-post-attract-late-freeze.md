@@ -701,3 +701,88 @@ matching hardware's instant-exit branch — check what
 ke_shadow_lookup(0x2E2F5C) returns in our runs (if a shadow exists
 it blocks; if not, XBOX_TO_NATIVE(handle) wait may be failing with
 WaitFailed=0 → loop exits → matches hardware!).
+
+frz33 (ordinal census, no TITLE_KEVENTS) — THE LIVELOCK PROVEN:
+115,952,491 ordinal-159 (KeWaitForSingleObject) calls in 420 s, of
+which 115,952,483 returned at ret=0x002D592B — the `loc_002D592B`
+wait-loop site (sub_002D57D0's 5911 branch). ~276k it/s: the
+hand-built event has no shadow → handle resolution fails → the wait
+returns failure instantly → the loop's `while (KeWait(...))` never
+exits. This retro-explains every plateau core (frz20/24/26/28/29/
+30/31): thread 1 caught mid-spin in the wait bridge, freezing
+engine-submit + swap pump (same thread). Patch 0032's host SetEvent
+fires (ev=8761) but into an event no one is blocked on — they are
+SPINNING past it. The event route cannot fix a spin: the fix must
+make the wait RESOLVE as hardware would (shadow the guest-built
+event so the wait blocks, then wake it on ring completion).
+
+frz34 (RECOMP_TITLE_KEVENTS=1 + patch 0032, detector fired at
+150 s freeze) — SHAPE CHANGED, WALL MOVED: log 18,477 lines (no
+116M spin); 0x2E2F5C never waits (5911 branch never entered:
+[FREE]=0, js gate never tripped — the spin era is OVER, the shadow
+makes waits real). New terminal state (core 699918): thread 1
+blocked in a REAL KeWaitForSingleObject(0x2E2F4C, reason 6, mode 1,
+timeout 0=INFINITE) at ret=0x001DE3FF — caller chain sub_001DE5C0 →
+sub_001DE310 → sub_0011B020 (engine frame loop), i.e. the GAME's
+own swap/present wait, NOT D3D's ring writer. 0x2E2F4C is a
+title-built NOTIFICATION event (log: "built by the title: host
+event created (notification)"), fed by guest code: KeSetEvent(4C)
+from 0x002DB0BE ×1378 — the DPC dispatcher arm (lifted: loc_002DB0AE
+`KeSetEvent(esi+0x194,0)` after waiting PMC bit 0x1000000 clear).
+That feed STOPPED at log line 17417 (last census dumps to 18409:
+NOPSW frozen at direct=1998 ack=1312; walk STILL drains — rering
+calls=4229 — and D3D still submits — submit=4395, w2C=8793 — but
+new ring blocks carry NO NOP marks, latch counter frozen).
+Mark census: consumed NOP classes 1:1524 — EXACTLY one class-1
+(swap-completion) mark per flip, flips=1524. KeSetEvent(4C)=1378 →
+**146 swap marks consumed but never re-signalled**; XGRAPH flip
+queue depth cap (SWAP wait=5 pinned) jams: engine waits for the
+completion event D3D stops emitting until the queue drains.
+Core aperture: PGRAPH_INTR=0, TRAP=0x100, TRAP_DATA=prm=0x0DF80101
+— a mark's trap words left behind AFTER intr cleared (stale).
+Model: terminal plateau = completion-mark loss accumulation (146)
+exceeding the flip-queue slack, then circular starvation
+(engine waits on 4C ← D3D emits marks only as queue drains ←
+queue drains only on 4C waits). Patch 0034 plan (census first,
+one variable): manual-override wrapper on the GUEST dispatcher
+sub_002DB4A0 (arm 4) — call count + param histogram at dispatch
+entry, to locate where 146 of 1524 marks die: dispatcher-entries
+== latches → loss is DPC scheduling; entries < latches → marks
+vanished between latch and DPC (ack race); dispatcher-in == 4C
+sets → loss inside the arm's condition tree (lift loc_002DB0xx
+deeper). Then frz35 = frz34 recipe + [DISP] census, no detector.
+
+frz35 (full guest-service census, no detector) — STARVATION MODEL
+OVERTURNED; SERVICE-CHAIN RE-SERVICE LIVELOCK FOUND:
+* Dispatcher entries DURING PLATEAU: 228,344 `[SWM]` lines, params
+  0x0DF80101 / 0x10500101 (low5=1 → arm 0 of the 14-entry switch at
+  0x2DB6B4; payload=param>>5 = ring-pointer words, slot=payload&7).
+  So marks DO reach the guest dispatcher ~1k/s at the plateau —
+  marks are not missing.
+* KeSetEvent(4C)=1537, flips=1843, pump/eng/idx=1843 frozen, wait=5.
+* frz34 core aperture evidence: PGRAPH_INTR=0 but TRAP=0x100,
+  TRAP_DATA=PARAM=0x0DF80101 LEFT BEHIND. The pump dispatches on
+  TRAP regardless of INTR → every vblank DPC pass re-services the
+  SAME stale mark (228k re-services ≈ DPC rate × plateau length).
+* Lifting the arm-0 body (loc_002DB4C4: bookkeeping deltas into
+  ctx+0x1C0/1C4/1C8/1D4) proves re-service is ADDITIVE: each pass
+  advances the ring-completion indices again → drift → the swap-
+  completion branch that routes into sub_002DAFF0 (ret 0x2DB43A;
+  its tail = `write PFIFO ack 1 to aperture+0x600100, wait PM bit
+  0x1000000 clear, KeSetEvent(esi+0x194=4C)`) stops firing.
+* Hardware truth: the PGRAPH TRAP register auto-IDLES once the
+  service chain reads it (the same coalescing rule patch 0025
+  relies on at latch time: "trap register idle"). Our model leaves
+  the trap words in RAM forever after the ack pass cleared only
+  INTR. THAT is the missing hardware behavior for this era.
+Patch 0034 (fix candidate): in nv2a_pb_swmethod_done(), when the
+mark was SEEN (already the clear path), also idle TRAP/PARAM/
+TRAP_DATA — not just INTR/PMC — and for non-executor-owned words
+(s_sw_latched==0 with TRAP!=0 at ack time) idle them too, so a
+serviced mark can never be re-dispatched. Re-service census must
+show [SWM] plateau rate collapse from ~1k/s to ~mark rate,
+KeSetEvent(4C) reach flip count, pump/eng climb. frz36 = frz35
+recipe + caller attribution + consecutive-run dedup in [SWM]
+(names the re-dispatching pump call site; proves the x-count).
+One-variable order: frz36 (census only, current binary) first to
+confirm caller + run-lengths; then 0034, frz37.
