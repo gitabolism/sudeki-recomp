@@ -89,6 +89,7 @@ H30 "feeder frozen" signature. Regime census:
   Series 0001..0041 verifies from pin; stubs 432 stable.
   Shell hygiene: never edit census_run.sh mid-run (live bash
     re-reads); pin exact log paths in census greps.
+
 Session 4r (earlier): **H29 anatomy COMPLETE (commit `af91f07`)** —
 three patch-0030 iterations + censuses: v1 ack-thread poll edge never
 observed (drains finish inside a tick); v2/v3 walk-tail drain edge
