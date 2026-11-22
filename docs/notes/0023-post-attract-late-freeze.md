@@ -1682,3 +1682,21 @@ getErrorMessage() - verify with javap against the pinned jar BEFORE
 writing scripts (three compile-fail rounds otherwise, which happened).
 Pseudocode agrees with the lifted C on pump+completion structure
 (no contradictions).
+
+## Outcome (session 4u close-out — what was true)
+
+- frz87's 17,435-flip "deep era" was the RAIN-ANIMATED TITLE screen
+  (fbpeek + visual confirm of dumps 112-141). Plateau depth (189..17435)
+  is luck around ONE wall; no mark-layer knob moves it (0038-0046 closed).
+- The Gameplay gate is navigation -> first PRESENTED level frame.
+- Pump/completion chain structure is TRUE under two independent
+  disassemblers (lifted C + Ghidra 12.2): busy-spin `[aperture+0x400700]`,
+  completion = PCRTC-ack store + `PMC_INTR_0&0x01000000` spin ->
+  `KeSetEvent(this+0x194,1,0)`; `sub_0011ED20` calls the engine directly.
+- RETRACTIONS (stated as facts): the "+0x400700 guest-latch" theory is
+  UNCONFIRMED - no write site exists in the gen tree; frz83-core host
+  frames were stale-symbol artifacts (build-id drift) and prove nothing;
+  "Ghidra is not installed" was false (it is pinned in THIRD_PARTY.md).
+- frz88 + frz89 cores = HEALTHY-era baselines only (both runs killed
+  early by era-blind detector mistakes); matched-symbol PLATEAU core
+  still owed - harness fix in STATE queue item 1 (frz90).

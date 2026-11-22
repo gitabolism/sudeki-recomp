@@ -505,34 +505,41 @@ arr=0).
     (submit 24,493, iGET following the write cursor). New wall H30:
     the engine device-message layer — `sub_0011ED20` stops invoking
     the swap pump; frz41 plateau-core in flight.
+12. **H30 (4u reframe, ACTIVE):** ONE wall, stated in one sentence:
+    the run is healthy until swap-mark dispatch halts (luck-deep,
+    189..17435 flips), and navigation (menu -> Buki -> load) has
+    never completed in the census regime, so no level frame is ever
+    PRESENTED. Static anatomy done (note 0023 4u sections; Ghidra
+    cross-checked). The `+0x400700` spin theory is UNCONFIRMED (no
+    gen-tree write sites) and needs a matched-symbol plateau core —
+    owed by frz90's fixed watcher before any patch 0047.
 
 ## Queue (next concrete actions)
 
-* **PRIORITY (4u->5a): frz89 verdict recorded (inconclusive, harness bug):**
-  the plateau-watcher false-fired at t+2:19 during the fast-boot/FMV
-  era (0.00-fps lines are NORMAL between flip bursts in decode/movie
-  eras - 7 equal lines is not a plateau signature mid-run). Core
-  exists (coredumpctl pid 1124423, SIGABRT 17:48:32, matched symbols)
-  but it is a MOVIE-ERA snapshot, not a plateau. Dumps live at
-  `reference/fb/89*.bmp` (nav_run prefix is `$RUN`, not `frz$RUN`) -
-  all black/FMV era. HARNESS FIXES before the next nav run
-  (frz90): (a) watcher arms only when elapsed >= 420 s AND flips >=
-  1000 before evaluating the 0.00-fps criterion; (b) nav press gate =
-  first `.bik` + 120 s (movies span several .bik opens - 45 s fired
-  mid-FMV); (c) census greps + fbpeek must use prefix `89`/`90`, not
-  `frz89`. Then the GAMEPLAY-artefact check per note 0023: late-dump
-  fbpeek + visual confirm of an animated level scene.
-* If nav failed again: the pad-feed model itself is suspect — add a
-  `[PAD]` state census (XAPILIB state fetch 0x31052E/0x31053A wrappers)
-  to see whether presses reach the game at all post-movie.
-* A/B inventory for later: RECOMP_SWMARK_INTR12/PF/IRQPOST/PB_PARK all
-  opt-in probes; RECOMP_ARM_UNTIL_SEEN=0 (v4) stays the working regime;
-  queue depth 2048 + 0046 idle-clear default-on.
-* Then: confirm level-scene texture coverage on the presented frame
-  (the "0 textured batches" census line).
-* xemu title/menu side-by-side capture (queued since 4m; note 0019
-  boot fixed; xemu_ref.sh QMP greeting fixed 4t; FB-offset remeasure
-  pending).
+* **1 (frz90 nav run, fixed harness):** edit `/tmp/opencode/nav_run.sh`
+  press gate to first `.bik` + **120 s** (45 s fired mid-FMV), then
+  `bash /tmp/opencode/nav_run.sh 90 1500`; arm the plateau watcher ONLY
+  with era guard (elapsed >= 420 s AND flips >= 1000 before the
+  0.00-fps criterion — frz89 false-fired mid-FMV). Verdict:
+  `bash tools/census_snap.sh logs/run-frz90-*.out` +
+  `python3 tools/fbpeek.py reference/fb/90 --diff` + visual confirm of
+  late dumps (prefix is `90`, not `frz90`). Buki/level card frames =
+  nav works; animated textured level scene = GAMEPLAY artefact
+  (CHANGELOG row; README wording is user-owned).
+* **2 (plateau-core forensics, if watcher ABRTs frz90):**
+  `coredumpctl dump <pid> -o /tmp/opencode/sudeki.frz90.core` (find pid
+  via `coredumpctl list sudeki | tail -1`), then `gdb -batch -x
+  /tmp/opencode/core_forensics.bt build/sudeki <core>` (validated) +
+  `thread apply all bt` — compare vs frz88/frz89 HEALTHY baselines;
+  CONFIRM or KILL the `+0x400700` spin theory before any patch 0047.
+* **3 (if nav fails again):** `[PAD]` state census — manual wrappers on
+  XAPILIB state fetch `0x31052E`/`0x31053A` (note 0020 map) to prove
+  whether scripted presses reach the game post-movie at all.
+* Carry-over: RECOMP_SWMARK_INTR12/PF/IRQPOST/PB_PARK stay opt-in
+  probes; `RECOMP_ARM_UNTIL_SEEN=0` (v4) stays the working regime;
+  queue depth 2048 + 0046 idle-clear default-on. Then: texture-coverage
+  confirmation on the first presented level frame; xemu title/menu
+  side-by-side (note 0019 recipe; needs idle GPU).
 
 1. **xemu reference (note 0019 CLOSED for boot):** STOP was our unofficial
    256 KiB SpiritBoot dev ROM forcing 128 MB (Def Jam #75 failure class).
@@ -669,5 +676,5 @@ arr=0).
 | 2026-11-22 s4q | H19 CLOSED (patch 0029 ranked `[UNH]` table + `tools/unh_names.py`: all 40 top unhandled methods benign; executor already rasterises level scene; frz16 dump 27 = fully textured title, 37k colors); frz18 nav recipe PROVED the Buki loading card presents + animates; frz19 proved the tail is a real hang (IO quiescent 150 s pre-plateau); `tools/fbpeek.py` frame forensics; README agent-contract + OpenCode sections drafted (user landed `a89c05a`); AGENTS rule 11 (user) | `8e7c8ed` |
 | 2026-11-22 s4r | **H29 anatomy COMPLETE**: frz20 core = ring writer parked in `KeWaitForSingleObject(0x2E2F5C)`; class-5 NOP arm fires once per run; patch 0030 (drain-edge re-latch) iterated v1 (ack-poll, blind) -> v2/v3 (walk-tail, FIRES: work==drained, latched=1) yet no second wake; frz26 `[PRES]` ring census: plateau BIMODAL (parked writer vs pump-freeze with ring alive, `iGET==cursor`); BEW chain convicted (`0x1D6C` offset 0, releases rejected `off!=0`, channel-block semaphors never written, `sh8700=51747D8B` constant); fix candidate 0031; pre-push audit green (tree+history+secrets+pins) | `af91f07` (push pending user approval) |
 | 2026-11-21 s4j | **audio wall CLOSED (patch 0022)**: DDS9 master open `sub_0028F8C3` needs AC97 bus-master trap; upstream armed it only on aarch64 (x86-64 Linux fell to NULL-VEH stub) → DSERR_NODRIVER → 'SdaD' create skipped → null-voice 24 KB copy = the whole note-0017 chain. Patch widens POSIX arm to x86-64; with `RECOMP_AC97_READY=1` MCPX APU (SDL2) + AC97 trap up, all 5 sub-inits 0, DS-VOICE!/DS-COPY! 0, wavebanks stream, ~1250 flips. New wall H23: deterministic allocator crash — free-list link `0xFE087E8D` (NV2A aperture value) spliced at real `0x1A9C1D` (`sub_001A9B60` family, misattributed `sub_001A9A50+0x1CD`); census wrappers `sub_0028F8C3/sub_002885AE/sub_0028AF42`, patch 0021 `RECOMP_LOG_ORDS` | (this commit) |
-| 2026-11-22 s4u | frz87 deepest run (17,435 flips) = luck, content era is the rain-animated TITLE (fbpeek+visual); nav gate reframed state-driven (`.bik`-log gate, frz89 in flight); pump/completion chain anatomy from lifted C + **new Ghidra 12.2 second-lens project** (flat-image import recipe landed; javap-before-script lesson; frz83-core frames retracted as stale-symbol artifacts); frz88 mistake -> HEALTHY-era core baseline captured (+0x704=0x100 armed, PMC/PGRAPH 0); plateau-watcher for auto matched-symbol core | (this commit) |
+| 2026-11-22 s4u | frz87 deepest run (17,435 flips) = luck, content era is the rain-animated TITLE (fbpeek+visual); nav gate reframed state-driven (`.bik`-log gate, frz89 in flight); pump/completion chain anatomy from lifted C + **new Ghidra 12.2 second-lens project** (flat-image import recipe landed; javap-before-script lesson; frz83-core frames retracted as stale-symbol artifacts); frz88 mistake -> HEALTHY-era core baseline captured (+0x704=0x100 armed, PMC/PGRAPH 0); plateau-watcher for auto matched-symbol core; **close-out:** frz89 inconclusive (watcher false-fired mid-FMV — era-blind detector; both 4u cores are HEALTHY baselines), H30 stated in one sentence, queue = frz90 fixed-harness nav run, BRIEF fci-recomp claim re-measured + Black-2006-Recomp added to prior art (user) | (this commit) |
 | 2026-11-22 s4t | **mark-machinery regime matrix (frz62-83)**: queue-depth 0039 kills drop-overflow but not the plateau; strict one-owner (0040) weaker than v4 churn; walk-suspension (0042) and irq-post (0043) froze boot → opt-in probes; PMC-PF bit (0044) + regime-scoped pop-gate (0045, the 0040 gate had leaked: frz77 187-flip freeze); **frz82 bisect proved the frz66 7113-climb was run luck** (same binary froze at 231) — one stable wall: the guest's swap-mark DISPATCH stops (SWM 135 vs 231 flip-writes vs 150 slot-event sets) while the ring writer stays alive; frz79 core: events healthy, mark machinery idle, engine+credit-gate INFINITE on the next completion; next read = pump/dispatcher chain (sub_002DB250/4A0 + the 0x400700 busy flag + the 0x2DB0BE set condition) | (this commit) |
