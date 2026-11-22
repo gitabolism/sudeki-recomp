@@ -1447,3 +1447,17 @@ on frz62 + frz65 (both v4 builds) only. Protocol fix: census greps
 must pin the exact log path, never `ls -t | head -1`, while another
 run is in flight. frz66 verdict deferred to its real exit; frz68
 (v4 + depth 2048) chained behind it.
+
+frz66 FINAL (strict one-owner, 64-deep queue): the DEEPEST plateau
+yet — movies play, climbing to 3659 flips (~4.5 fps) then freeze at
+3659 with drop=1695. Plateau depths across regimes: 189 -> 1531 ->
+1810 -> 3659: the freeze point MOVES with how long the queue holds
+out, and the victims printed are the class-5 RING-FREE marks
+(param=10500101, patch 0030's NOP arm) — a lost class-5 mark is
+exactly the ORIGINAL H29 signature (writer parks in the ring-free
+wait on 0x2E2F5C forever). Causal chain now: queue overflow ->
+class-5 ring-free mark lost -> ring writer parks -> swap marks stop
+-> D3D swap-slot credit gate (0x2D3497) starves -> pump/eng feed
+frozen = the H30 "device-message layer stops" symptom, all host-
+side, all measured. Depth 2048 (0039) + one-owner (0040) = frz68
+decisive run (in flight; expect drop=0).
