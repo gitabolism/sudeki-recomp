@@ -1461,3 +1461,11 @@ class-5 ring-free mark lost -> ring writer parks -> swap marks stop
 frozen = the H30 "device-message layer stops" symptom, all host-
 side, all measured. Depth 2048 (0039) + one-owner (0040) = frz68
 decisive run (in flight; expect drop=0).
+
+frz66 termination note: killed by the harness at ~270 s (not the
+900 s window) — 3659 flips WAS its last state. Frame forensics on
+its dumps: frz6600019..21 = 42.4k colours, luma 24.6, 230199/230400
+identical pixels between consecutive dumps = a rich but NEARLY
+STATIC scene (rain-class delta only). Ambiguous title-vs-level;
+frz68 (one-owner + depth 2048, feed extended past the movie era)
+in flight — the decisive drop=0 test.
