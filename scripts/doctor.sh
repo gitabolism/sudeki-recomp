@@ -70,4 +70,19 @@ else
     bad "skill drift — run scripts/skills_check.sh and re-vet before trusting skills"
 fi
 
+# 8. pinned RE toolchain (Ghidra + JDK) — optional, but drift is a FAIL
+OPT="${OPT:-$HOME/opt}"
+GHIDRA_DIR="$OPT/ghidra_12.2_PUBLIC"
+JDK_DIR="$OPT/jdk-25.0.5.1+2"
+if [ -x "$GHIDRA_DIR/support/analyzeHeadless" ]; then
+    if [ -x "$JDK_DIR/bin/java" ] \
+       && grep -q "^JAVA_HOME_OVERRIDE=$JDK_DIR\$" "$GHIDRA_DIR/support/launch.properties"; then
+        ok "analysis toolchain: Ghidra 12.2 @ pinned JDK 25 (~/opt, outside git)"
+    else
+        bad "analysis toolchain drift — re-run scripts/analysis_tools.sh (re-verifies digests)"
+    fi
+else
+    warn "analysis toolchain not installed (optional: scripts/analysis_tools.sh)"
+fi
+
 exit $fail

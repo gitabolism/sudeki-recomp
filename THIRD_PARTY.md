@@ -91,6 +91,39 @@ experiment: `scripts/xemu_standalone.sh`. FB-reconstruction VRAM offset
 0x3C00000/pitch 720 (note 0009) matches the old ROM layout — re-measure
 against the v1.1.0-64MB dump before relying on it.
 
+## Reverse-engineering toolchain (Ghidra) — outside the repo, for static analysis
+
+Approved by the user 2026-11-22 ("one more weapon in your arsenal"). Software
+downloads remain an approval-gated act; this is the recorded approval. The
+install is reproducible on a fresh machine by `scripts/analysis_tools.sh`:
+pinned URLs + digests mirrored below, digest gate BEFORE extraction (the
+digest is the trust anchor, the URL is env-overridable for mirrors — a
+tampered archive refuses to extract), installs under `~/opt` only, no sudo,
+nothing on PATH, smoke-tests through `scripts/ghidra.sh`, marker file
+`~/opt/.sudeki-analysis-tools`. `scripts/doctor.sh` check 8 FAILs on drift.
+
+| component | version / build | identity |
+|---|---|---|
+| Ghidra | 12.2 public (tag `Ghidra_12.2_build`, built 2026-10-16), **Apache-2.0** (NSA-published), 569,712,708 B | sha256 `2c2cd776db3c1f6a097ba418922378ac3649cadd5e844a6f5f088ae628a7be67` — matches the digest published in the GitHub release body |
+| Temurin JDK | `jdk-25.0.5.1+2` (jdk_x64_linux_hotspot), **GPLv2 + Classpath Exception**, 141,362,230 B | sha256 `760f91b22c3efc9bd1b64ff950598231be82928cc807e30691a0e7a2995a62c0` — matches Adoptium's published `.sha256.txt`. Ghidra 12.2 requires Java 25 (`application.java.min=25`); a JDK 21 tarball was fetched first and discarded — do not downgrade |
+
+Layout: `~/opt/ghidra_12.2_PUBLIC/` + `~/opt/jdk-25.0.5.1+2/`. The only Java
+linkage on the machine is `JAVA_HOME_OVERRIDE=` inside Ghidra's own
+`support/launch.properties` (rewritten by the installer); the launcher
+bootstraps a `java` lookup BEFORE reading that file, which is why
+`scripts/ghidra.sh` (exports the pinned JDK) is the sanctioned entry point.
+Uninstall: `rm -rf ~/opt/ghidra_12.2_PUBLIC ~/opt/jdk-25.0.5.1+2` — the
+machine is untouched.
+
+Usage policy: Ghidra project DBs and any decompiled pseudocode are analysis
+artefacts → `/tmp/opencode` (or `~/opt`), **never git** — same law as every
+disc-derived artefact. XBE import strategy pending: raw LE binary at the
+image base with the section map from `default_analysis.json`, or a community
+XBE-loader extension — any extension would be a new download = new pin +
+audit entry here. Banner house style for README sections is reproducible
+via `tools/banner.py` (figlet kerned ANSI Shadow, glyph blocks joined by one
+space).
+
 ## Agent skills (fetched, reviewed, pinned)
 
 Installed under `.opencode/skills/` (OpenCode auto-discovers them). Each was

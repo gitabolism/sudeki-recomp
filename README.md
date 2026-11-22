@@ -167,6 +167,39 @@ duplicative — are recorded in `THIRD_PARTY.md`, so the next session does
 not re-litigate them. Pins and digests live there too; the README stays
 opinion, `THIRD_PARTY.md` stays evidence.
 
+## Ghidra — the static-analysis bench (`scripts/analysis_tools.sh`)
+
+```
+██████╗  ██╗  ██╗ ██╗ ██████╗  ██████╗   █████╗
+██╔════╝  ██║  ██║ ██║ ██╔══██╗ ██╔══██╗ ██╔══██╗
+██║  ███╗ ███████║ ██║ ██║  ██║ ██████╔╝ ███████║
+██║   ██║ ██╔══██║ ██║ ██║  ██║ ██╔══██╗ ██╔══██║
+╚██████╔╝ ██║  ██║ ██║ ██████╔╝ ██║  ██║ ██║  ██║
+ ╚═════╝  ╚═╝  ╚═╝ ╚═╝ ╚═════╝  ╚═╝  ╚═╝ ╚═╝  ╚═╝
+```
+
+Cross-referencing statically-linked libraries (D3D8LTCG is a big anonymous
+blob) and recovering structure for the long tail of Gameplay work: the
+bench now includes **Ghidra 12.2** (NSA, Apache-2.0) with the Temurin JDK
+25 it demands (GPLv2+CE) — installed with the user's explicit approval on
+2026-11-22; software downloads stay an approval-gated act.
+
+The install is reproducible on a fresh machine and supply-chained like
+everything else: `scripts/analysis_tools.sh` downloads the pinned archives
+(versions + SHA-256 mirrored in `THIRD_PARTY.md`), **verifies the digest
+before extracting** — the digest is the trust anchor, not the transport, so
+mirror URLs are allowed but a tampered archive refuses to land — installs
+under `~/opt` only, and wires the JDK into Ghidra's own launcher alone:
+nothing on PATH, no system Java, no sudo, uninstall is `rm -rf`.
+`scripts/ghidra.sh` is the entry point, `scripts/doctor.sh` fails the
+check when the pins drift.
+
+What it does not change: Ghidra's project database and any decompiled
+pseudocode are analysis artefacts — they live in `/tmp/opencode`, never in
+git, same law as every disc-derived byte. Section banners in this README
+are house-style by recipe: `python3 tools/banner.py WORD` (kerned figlet
+ANSI Shadow).
+
 ## Guardrails designed around OpenCode (`opencode.jsonc` + `.opencode/commands/`)
 
 ```

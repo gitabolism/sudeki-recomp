@@ -21,3 +21,6 @@ first prompt; run it from an empty clone of this repo.
 5. `scripts/doctor.sh` all green, then report the stage per CHANGELOG.md
    and hand off to STATE.md's queue. Never edit src/recomp/gen/, never
    commit disc-derived or translated bytes, never push (config denies).
+6. Optional RE bench (user-approved 2026-11-22; ~700 MB download):
+   `scripts/analysis_tools.sh` — pinned Ghidra 12.2 + Temurin JDK 25 into
+   `~/opt`, digest-gated, no sudo, nothing on PATH (THIRD_PARTY.md).
