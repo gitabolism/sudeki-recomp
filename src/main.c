@@ -226,6 +226,26 @@ static void install_fault_handler(void)
 
 /* ── Entry ─────────────────────────────────────────────────── */
 
+/* ICALL feedback instrumentation (note 0018): built with
+ * -DRECOMP_ICALL_FEEDBACK (cmake -DSUDEKI_ICALL_FEEDBACK=ON), the runtime
+ * records every indirect-call target+site and dumps it for
+ * tools.recomp.icall_feedback to turn into measured seeds. atexit covers a
+ * clean exit; SIGTERM (what `timeout` sends) gets an explicit dump here. */
+#ifdef RECOMP_ICALL_FEEDBACK
+extern void recomp_icall_feedback_init(void);
+extern void recomp_icall_feedback_dump(const char *path);
+static void icall_fb_term(int sig)
+{
+    (void)sig;
+    recomp_icall_feedback_dump(RECOMP_ICALL_FEEDBACK_PATH);
+    _exit(0);
+}
+#define ICALL_FB_SETUP() do { recomp_icall_feedback_init(); \
+                              signal(SIGTERM, icall_fb_term); } while (0)
+#else
+#define ICALL_FB_SETUP() ((void)0)
+#endif
+
 int main(int argc, char **argv)
 {
     void *xbe_data = NULL;
@@ -233,6 +253,8 @@ int main(int argc, char **argv)
 
     (void)argc;
     (void)argv;
+
+    ICALL_FB_SETUP();
 
     /* Unbuffered output for immediate visibility during debugging */
     setvbuf(stdout, NULL, _IONBF, 0);

@@ -520,3 +520,190 @@ void sub_0028F8C3(void)
     fprintf(stderr, "[DS-INIT] all 5 sub-inits OK (tail not run)\n");
     g_eax = 0;
 }
+
+/* ── game allocator census (note 0017 / H23) ────────────────
+ * sub_0011F070(this): free/splice path reading heap-control links at
+ * this+0x10/0x18/0x1C; the H23 crash splices a node whose link reads
+ * 0xFE087E8D (NV2A aperture space). RECOMP_ALLOC_TRACE=1 prints this,
+ * the control words, and flags links that point above 0xFE000000. */
+extern void sub_0011F070_gen(void);
+
+void sub_0011F070(void)
+{
+    extern __thread uint32_t g_ecx, g_esp;
+    static int on = -1, budget = 400;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_ALLOC_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t self = g_ecx;
+    if (on && budget > 0) {
+        budget--;
+        uint32_t l0 = self ? MEM32(self + 0x10) : 0,
+                 l1 = self ? MEM32(self + 0x18) : 0,
+                 l2 = self ? MEM32(self + 0x1C) : 0;
+        int bad = (l0 | l1 | l2) & 0xFE000000u;
+        fprintf(stderr, "[ALLOC%c] this=%08X +10=%08X +18=%08X +1C=%08X "
+                        "ret=%08X\n", bad ? '!' : ' ', self, l0, l1, l2,
+                MEM32(g_esp));
+        fflush(stderr);
+    }
+    sub_0011F070_gen();
+}
+
+/* sub_001A9A50: the game's block allocator core (guest 0x1A9A50..0x1A9CC0,
+ * one big lift). Reads esi on entry (caller-provided block/list arg) and
+ * walks free/allocated lists via +4/+0xC/+0x14/+0x18/+0x1C links. The H23
+ * crash splices at 0x1A9C1D with a chain tail reading 0xFE087E8D (NV2A
+ * aperture). RECOMP_SPLICE_TRACE=1 logs entry state; ! = any pointer at
+ * or above 0xFC000000 (device aperture: can never be a heap link). */
+extern void sub_001A9A50_gen(void);
+
+void sub_001A9A50(void)
+{
+    extern __thread uint32_t g_esi, g_esp;
+    static int on = -1, budget = 4000;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_SPLICE_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && budget > 0) {
+        budget--;
+        uint32_t s = g_esi;
+        uint32_t l10 = s ? MEM32(s + 0x10) : 0;
+        uint32_t l18 = s ? MEM32(s + 0x18) : 0;
+        uint32_t l1c = s ? MEM32(s + 0x1c) : 0;
+        int bad = (s | l10 | l18 | l1c) & 0xFC000000u;
+        fprintf(stderr, "[SPLICE%c] esi=%08X +10=%08X +18=%08X +1C=%08X "
+                        "ret=%08X\n", bad ? '!' : ' ', s, l10, l18, l1c,
+                MEM32(g_esp));
+        fflush(stderr);
+        /* If we were called from the stream manager (ret 0x11F15E/11F16A),
+         * edi = its control block: probe whether this call changes the
+         * control links (the H23 poison path). */
+        uint32_t ret = MEM32(g_esp);
+        uint32_t esp_in = g_esp;
+        uint32_t before[10];
+        for (int k = 0; k < 10; k++)
+            before[k] = esp_in ? MEM32(esp_in - 4 - 4 * k) : 0;
+        sub_001A9A50_gen();
+        if ((ret == 0x0011F15Eu || ret == 0x0011F16Au) && g_edi
+                && g_edi < 0x04000000u) {
+            fprintf(stderr, "[SPLICE>] edi=%08X +18=%08X +1C=%08X esp=%08X\n",
+                    g_edi, MEM32(g_edi + 0x18), MEM32(g_edi + 0x1C), g_esp);
+            fprintf(stderr, "[SPLICEesp] %08X -> %08X (want +%X)\n", esp_in,
+                    g_esp, ret == 0x11F16Au || ret == 0x11F15Eu ? 8u : 0u);
+            for (int k = 0; k < 10; k++) {
+                uint32_t now = esp_in ? MEM32(esp_in - 4 - 4 * k) : 0;
+                if (now != before[k])
+                    fprintf(stderr, "[SPLICE!] [esp-%02X] %08X -> %08X\n",
+                            4 + 4 * k, before[k], now);
+            }
+            fflush(stderr);
+        }
+        return;
+    }
+    sub_001A9A50_gen();
+}
+
+/* Probe: does the splice walk corrupt the stream manager's saved slot?
+ * In the manager lift, before call 0x1a9a50 (ret 0x11F15E) the guest stack
+ * top is esp-4 = the pushed arg; scan raw stack for the control pointer
+ * around the first splice and report the slot holding it before/after.
+ * Implemented as a wrapper on sub_001A99A0 (the float helper the walk
+ * calls): prints its esp, the caller's arg slot [esp+0x14] before/after —
+ * 0x1a99a0 is documented to WRITE [esp+0x14] (caller's pushed arg). */
+extern void sub_001A99A0_gen(void);
+
+void sub_001A99A0(void)
+{
+    extern __thread uint32_t g_esp;
+    static int on = -1, budget = 200;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_WALK99A0");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && budget > 0) {
+        budget--;
+        uint32_t esp = g_esp;
+        uint32_t arg = esp ? MEM32(esp + 0x14) : 0;
+        fprintf(stderr, "[99A0] esp=%08X [esp+14]=%08X ret=%08X\n", esp, arg,
+                esp ? MEM32(esp) : 0);
+        fflush(stderr);
+        /* Watch the 64 bytes below our entry: the saved-register corridor
+         * of our caller chain. Snapshot, call, diff. */
+        uint32_t before[16];
+        for (int k = 0; k < 16; k++)
+            before[k] = esp ? MEM32(esp - 4 - 4 * k) : 0;
+        sub_001A99A0_gen();
+        uint32_t esp2 = g_esp;
+        fprintf(stderr, "[99A0>] esp=%08X [esp+14]=%08X\n", esp2,
+                esp2 ? MEM32(esp2 + 0x14) : 0);
+        for (int k = 0; k < 16; k++) {
+            uint32_t now = esp ? MEM32(esp - 4 - 4 * k) : 0;
+            if (now != before[k])
+                fprintf(stderr, "[99A0!] [esp-%02X] %08X -> %08X\n",
+                        4 + 4 * k, before[k], now);
+        }
+        fflush(stderr);
+        return;
+    }
+    sub_001A99A0_gen();
+}
+
+/* sub_0011F0C0: streaming arena manager (SOL gex streaming). edi = stream
+ * control: +8 byte cursor (float math for progress), +0x10 arena cursor,
+ * +0x14 limit, +0x18/+0x1C arena low/high block pointers; tail calls the
+ * allocator sub_001A9A50 with esi=[edi+0x18] then esi=[edi+0x1C]. H23:
+ * [edi+0x1C] held 0x00041C83 (a FILE-OFFSET-sized value, not a pointer)
+ * — reading it as a block gave the NV2A-aperture garbage link.
+ * RECOMP_STREAM_TRACE=1 logs the control block per call. */
+extern void sub_0011F0C0_gen(void);
+
+void sub_0011F0C0(void)
+{
+    extern __thread uint32_t g_edi, g_eax, g_esp;
+    static int on = -1, budget = 200;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_STREAM_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && budget > 0) {
+        budget--;
+        uint32_t d = g_edi;
+        uint32_t l18 = d ? MEM32(d + 0x18) : 0, l1c = d ? MEM32(d + 0x1C) : 0;
+        int bad = (l18 && l18 < 0x01000000u) || (l1c && l1c < 0x01000000u);
+        fprintf(stderr, "[STREAM%c] edi=%08X eax=%08X +8=%08X +10=%08X "
+                        "+14=%08X +18=%08X +1C=%08X ret=%08X\n",
+                bad ? '!' : ' ', d, g_eax, d ? MEM32(d + 8) : 0,
+                d ? MEM32(d + 0x10) : 0, d ? MEM32(d + 0x14) : 0,
+                l18, l1c, MEM32(g_esp));
+        fflush(stderr);
+    }
+    sub_0011F0C0_gen();
+}
+
+/* sub_001A9B60: allocator block-walk helper called by the splice core.
+ * ESP-delta probe for H23 (one of its callees leaves the stack +4 short,
+ * desynchronising every later guest stack read). RECOMP_B60_TRACE=1. */
+extern void sub_001A9B60_gen(void);
+
+void sub_001A9B60(void)
+{
+    extern __thread uint32_t g_esp;
+    static int on = -1, budget = 500;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_B60_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && budget > 0) {
+        budget--;
+        uint32_t esp_in = g_esp;
+        sub_001A9B60_gen();
+        fprintf(stderr, "[B60esp] %08X -> %08X (want +8) ret=%08X\n", esp_in,
+                g_esp, esp_in ? MEM32(esp_in) : 0);
+        fflush(stderr);
+        return;
+    }
+    sub_001A9B60_gen();
+}

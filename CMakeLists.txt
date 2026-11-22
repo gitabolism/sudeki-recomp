@@ -50,6 +50,21 @@ add_executable(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME} PRIVATE xboxrecomp)
 
+# Indirect-branch target feedback (note 0018): compile-time instrument.
+# cmake -DSUDEKI_ICALL_FEEDBACK=ON builds a probe binary that records every
+# ICALL target+site it reaches and dumps it on exit; tools.recomp.icall_feedback
+# turns the dump into measured seeds. Default OFF: the OBSERVE stores sit on
+# the hottest path in generated code.
+option(SUDEKI_ICALL_FEEDBACK "record ICALL targets/sites to icall_targets.dump" OFF)
+if(SUDEKI_ICALL_FEEDBACK)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        RECOMP_ICALL_FEEDBACK
+        RECOMP_ICALL_FEEDBACK_PATH="${CMAKE_BINARY_DIR}/icall_targets.dump")
+    target_compile_definitions(xbox_kernel PRIVATE
+        RECOMP_ICALL_FEEDBACK
+        RECOMP_ICALL_FEEDBACK_PATH="${CMAKE_BINARY_DIR}/icall_targets.dump")
+endif()
+
 # Include paths for generated recomp headers
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src

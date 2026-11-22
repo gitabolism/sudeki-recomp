@@ -3,18 +3,21 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-21 (session 4i)
-**Stage:** LIFT complete, ENTRY strong. **Boot runs past the intro movies,
-audio engine now initializes (patch 0022), first-level + wavebank streaming
-completes** (`SOLWORLDM.gex`, `z:\wavebanks\*` incl. `speech_buki`, ~1250
-flips). Two walls: (i) GPU draw coverage — executor skips all vertex-program
-batches, so menu/game frames stay black; (ii) NEW **wild-pointer wall**:
-game allocator (`sub_0011F070`) splices a free-list node reading
-`0xFE087E8D` (NV2A register-aperture value) — fully deterministic. The
-audio init gap (H21) is CLOSED: without the AC'97 bus-master trap DDS9's
-master open returned DSERR_NODRIVER, the 'SdaD' packet create was skipped,
-and a null-voice 24 KB wavebank copy trampled the TIB page (note 0017).
-Flip-completion semantics solved by the settle chain (patch 0017).
+**Last updated:** 2026-11-21 (session 4k)
+**Stage:** LIFT complete, ENTRY strong, **MENU artefact reached** — frame
+dumps carry content and `reference/fb/frame00016.bmp` is the title screen
+("SUDEKI / Press START", 219 distinct colours). The wild-pointer wall (H23)
+is CLOSED and was a lift-adjacent gap, not memory poison: an unresolved
+ICALL (`0x27430`, a real `ret 4` thiscall, func_id miss) hit the
+`RECOMP_ICALL_SAFE_AT_CC` skip path, which assumes caller-cleanup → 4-byte
+esp drift → allocator epilogue pops read wrong saved regs → wild `esi`.
+Seeding measured ICALL targets (note 0018) fixed it; 15 seeds in the file,
+3 more measured (`A8A10 B5A50 BC450`) awaiting next regen. Remaining walls:
+(i) GPU draw coverage for 3D/menu scenes (150 distinct unhandled methods,
+vertex-program batches skipped — movies/title render via the FFP subset);
+(ii) input not yet opened (pad device never opened; "Press START" idle).
+Audio engine + AC97 up (patch 0022); level/wavebank streaming works; flip
+settle chain (patch 0017) intact.
 
 ## Where things are verified
 
@@ -51,6 +54,42 @@ Flip-completion semantics solved by the settle chain (patch 0017).
 - Skills: five pinned, digest gate green.
 
 ## Last run
+
+Session 4k (last cycle, before user took over xemu testing): 18 measured
+seeds regenerated through the full chain (disasm `--seed-functions` →
+func_id → abi → recomp), stubs 432, `scripts/build.sh` ok —
+`env RECOMP_VBLANK=1 RECOMP_PB_EXEC=1 RECOMP_PB_WALK=dma
+RECOMP_KERNEL_LOG_BUDGET=0 RECOMP_AC97_READY=1 RECOMP_FB_WINDOW=1
+RECOMP_FB_DUMP=reference/fb/frame RECOMP_FB_WINDOW_DUMP_EVERY=60
+./build/sudeki` (`logs/run-seed18-225928.out`): **no crash at 240 s**,
+2753 flips, 105 800 draws, 23 content-bearing frames. Earlier 4k:
+`logs/run-seed11-222748.out` (3429 flips, 152 000 draws, first
+title-screen frame `reference/fb/frame00016.bmp`),
+`logs/run-seed27430-222216.out` (crash gone after the 0x27430 seed —
+H23 root cause, note 0018). ICALL feedback instrument wired: CMake
+`-DSUDEKI_ICALL_FEEDBACK=ON` → `build-fb/sudeki` probe dumps
+targets+sites on exit/SIGTERM (`build-fb/icall_targets.dump`; merge →
+`tools.recomp.icall_feedback seeds`). Remaining measured unresolved at
+pause: none pending (A8A10/B5A50/BC450 seeded + dispatched; next run may
+surface more — same protocol).
+
+**xemu reference status at pause (user testing manually):** xemu 0.8.139
+is the *latest official release* (checked vs GH API) — same as pinned.
+HDD qcow2 verified pristine (digest matches pin). Disc is the Redump ISO
+(via `sudeki-world.iso` symlink). Upstream evidence says the title
+RUNS on xemu: compat page "Starts", Jan-2026 report says intro FMVs
+play perfectly, top-issues list has Sudeki *ingame* vertex explosions
+(#2039) — nobody upstream reports a boot-time STOP. So our `STOP 0x7E`
+in the `sub_000223F0` decoder is environment-specific, NOT an xemu-wide
+title bug. Suspects eliminated: HDD cache corruption (pristine), bad
+disc (Redump), stale binary (latest). Open suspects: the `-m 64 -m 128`
+flag doubling in older probe runs (128 won; a clean 64 MB run was never
+completed — probe script QMP/HMP mismatch), xemu-generated EEPROM
+language/AV fields, and the xemu-dashboard HDD interaction. NOTE:
+`~/.local/share/xemu/xemu/xemu.toml` now has `mem_limit = 64` added
+session 4k (was default/extra-flag); if 64 MB stalls at the SpiritBoot
+logo, set it back to 128. xemu ref-script needs the QMP-vs-HMP fix
+before more headless captures.
 
 Session 4i (final cycles): **audio wall closed by patch 0022** —
 `env RECOMP_VBLANK=1 RECOMP_PB_EXEC=1 RECOMP_PB_WALK=dma
@@ -274,32 +313,24 @@ arr=0).
    chain are gone. `RECOMP_AC97_READY=1` now belongs to the working recipe.
 6. **H22 CLOSED:** the `sub_000B08F0` wild crash was the same audio
    poison chain; it no longer occurs.
-7. **H23 (NEW wall — deterministic wild pointer in the game allocator):**
-   with audio up, three runs crash identically (same fault VA `0xFE087E99`)
-   at real code `0x1A9C1D` (dispatch-misattributed to `sub_001A9A50+0x1CD`;
-   real head `sub_001A9B60`): `mov [ebx+0x1c],eax`, `ebx=0xFE087E81`, free
-   chain walked via `[eax+0x18]` from the heap control at `obj+0x1C`
-   (game allocator `sub_0011F070`, `this`=obj with markers 0x3299FC/
-   0x329A00). The link value `0xFE087E8D` is NV2A-register-aperture space
-   (pushbuffer-like). Next: identify the heap-control object (stable VA?),
-   arm `RECOMP_WATCH` on `[obj+0x1C]` / re-arm from a wrapper when
-   `sub_0011F070` first reads the poison, and catch the writer.
+7. **H23 CLOSED (note 0018):** the "wild pointer" was stack drift, not
+    poison — unresolved ICALL `0x27430` (real `ret 4` thiscall, func_id
+    miss) hit the `ICALL_SAFE_AT_CC` skip (assumes caller-cleanup) →
+    4-byte esp deficit → allocator epilogue pops misread → wild
+    `esi`/`edi`. Fix: seed measured targets (feedback-dump pipeline).
+    Lesson: audit every `[ICALL] Failed to resolve VA` line — the skip
+    can corrupt the stack far from where it fires.
 
 ## Queue (next concrete actions)
 
-1. **H23 hunt (primary):** the poison link `0xFE087E8D` is deterministic —
-   find its writer. Cheapest first: a manual wrapper on `sub_0011F070`
-   (game allocator) that, when `MEM32(this+0x1C)` first reads
-   `>= 0xFE000000`, (a) prints `this`, the control block
-   (+0x10/+0x18/+0x1C) and the guest return chain, and (b) if the toolkit
-   exposes an arm-from-C watch entry (`xbox_WatchArm`?), traps the last
-   good control word going forward. If the object VA is stable across
-   runs, pre-arm from env instead.
-2. Cross-check `0xFE087E8D` against NV2A semantics: dump recorded
-   pushbuffer methods near that offset (`nv2a_pb_exec_report`) — a
-   *legitimate* pushbuffer VA sitting in a heap link means the game
-   queued it deliberately and the allocator misuse is downstream of our
-   skipped-vertex batches.
+1. **xemu reference (user-driven):** user is testing xemu playability
+   manually. On resume: fix `scripts/xemu_ref.sh` QMP-vs-HMP, complete a
+   clean `-m 64` headless capture, re-check the STOP (open suspects:
+   EEPROM language/AV fields, xemu-dashboard interaction, memory-flag
+   doubling). Upstream evidence: title runs on xemu, no bugcheck reports.
+2. **Input wall:** pad device never opened ("Press START" idle). Trace the
+   device-open/IOCTL attempts (`[FILE]`, `NtDeviceIoControlFile`) and
+   answer host-side.
 3. **Unhandled-method inventory (GPU wall):** enable the executor's
    unhandled table (already counting: 150 distinct) and dump
    method+count+last_param; cross-reference `nv2a_regs.h`. Identify the
@@ -315,9 +346,11 @@ arr=0).
    reference of the same intro moment (blocked on xemu geometry —
    Blockers).
 6. Seeds file `logs/seeds-icall-0011C640.json` is gitignored (analysis
-   artefact). The measured seed VAs (now seven: `0011C640 01E330 0273EEF
-   0550A0 0FD7D0 135AA0 092010`) are recorded in notes 0011/0017 so
-   `pipeline.sh --seed` stays reproducible without committing them.
+   artefact), now **18 measured VAs**; newest batch recorded in note 0018
+   (`027430 04FCD0 20B710 22BA00 53740 91860 AFBF0 11AF30 A8A10 B5A50
+   BC450`). Batch protocol: `cmake -B build-fb -DSUDEKI_ICALL_FEEDBACK=ON`
+   probe run (SIGTERM flushes `build-fb/icall_targets.dump`) →
+   `tools.recomp.icall_feedback merge` → `seeds --xbe` → union in.
 7. Cleanup between runs: `rm -rf ~/.local/share/xboxrecomp/Cache/*`.
 
 ## Blockers / open questions
@@ -379,4 +412,5 @@ arr=0).
 | 2026-11-21 s4g | **THE phantom 0x8000 solved (note 0011): patch 0014 async-IO PENDING default = upstream-correct return convention on async handles → decode completes byte-exact with default env on disc-exact boot.baf (22 reads, 1.8 MB cache, HANG not CRASH)**; manual-override contract wired (`--exclude-manual` + `sub_00022340` wrapper + REFILL_TRACE); refill/init double-charge proven; patch 0015 event create/wait/set caller trace; SIGABRT-core thread-map recipe; post-decode wall reframed = 3-way event deadlock (worker pump {7,1}, worker B polls 4, main INFINITE on its own-consumed 2) | `7faa86f` |
 | 2026-11-21 s4h | **Boot reaches the title intro + first GPU flips (note 0011 post-scripts 3-5):** post-decode "deadlock" was an unresolved task-completion ICALL `0x0011C640` (measured seed; siblings 1E330/273EEF same cause) → token 4 set → main proceeds; XGRAPHCL flip-pending `ctx+0x8700` solved by `RECOMP_PB_EXEC=1`+`RECOMP_VBLANK=1`+ host `xbox_Nv2aMirrorFence(0x2E3638,0x2C,0x30)` in `src/main.c`; opens `MS Game Studios Logo-final.bik`; 7 frame dumps (black) = first framebuffer artefacts; poster wrappers + RECOMP_POST_TRACE; new wall = NV2A draw-method coverage (150 distinct unhandled) | (this commit) |
 | 2026-11-21 s4i | **level streaming reached + audio wall root-caused (notes 0016/0017)**: flip-done settle chain (patch 0017 + `main.c` chain `0x2E3638→+0x934→ctx+0x8700`) clears post-movie wait → `SOLWORLDM.gex`/wavebanks/`BS_brightwater.xwb` stream; 4 measured seeds more (`0550A0 0FD7D0 135AA0 092010`) lift remaining boot ICALL misses; the "TLS teardown poison" crash **falsified and root-caused**: DSOUND voice `sub_002854B3(this=029A00F4)` slot +0x14=0 → `sub_0028EA91` 24 KB wavebank copy to guest 0x818 tramples exception page + TIB page; TLS guard kept, audio census wrappers (`RECOMP_DS_COPY/DS_VOICE`, `!`=impossible-address auto-log); watch upgraded (guest-stack chain 0019, TF single-step + panic core 0020); surviving crash = `sub_000B08F0+0xDFB2` wild write `esi=0x89D8458B` (same audio subsystem, H22) | (this commit) |
+| 2026-11-21 s4k | **H23 CLOSED (note 0018) + MENU artefact reached**: "wild allocator pointer" = 4-byte esp drift from an unresolved-ICALL skip (`0x27430`, real `ret 4` thiscall; `ICALL_SAFE_AT_CC` skip assumes caller-cleanup) corrupting saved-register pops — proven by esp-delta probes, fixed by seeding measured targets (18-seed file); runs now: no crash @240 s, 152k draws, first content frames incl. **title screen** `reference/fb/frame00016.bmp`; ICALL feedback instrument wired (CMake `SUDEKI_ICALL_FEEDBACK`, `build-fb` probe, SIGTERM dump) for batch seeding; xemu ref investigation: 0.8.139 = latest release, HDD pristine, upstream shows title running (no bugcheck reports) -> our STOP is environment-specific; user taking over xemu playability test manually | (this commit) |
 | 2026-11-21 s4j | **audio wall CLOSED (patch 0022)**: DDS9 master open `sub_0028F8C3` needs AC97 bus-master trap; upstream armed it only on aarch64 (x86-64 Linux fell to NULL-VEH stub) → DSERR_NODRIVER → 'SdaD' create skipped → null-voice 24 KB copy = the whole note-0017 chain. Patch widens POSIX arm to x86-64; with `RECOMP_AC97_READY=1` MCPX APU (SDL2) + AC97 trap up, all 5 sub-inits 0, DS-VOICE!/DS-COPY! 0, wavebanks stream, ~1250 flips. New wall H23: deterministic allocator crash — free-list link `0xFE087E8D` (NV2A aperture value) spliced at real `0x1A9C1D` (`sub_001A9B60` family, misattributed `sub_001A9A50+0x1CD`); census wrappers `sub_0028F8C3/sub_002885AE/sub_0028AF42`, patch 0021 `RECOMP_LOG_ORDS` | (this commit) |
