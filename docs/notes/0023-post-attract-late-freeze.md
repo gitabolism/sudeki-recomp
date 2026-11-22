@@ -1402,3 +1402,25 @@ inside the class-1 mark dispatch); waited pre-swap at 0x002D3497
 dispatched completion -> writer parked before writing swap #2's
 NOP. So boot-era fragility under hold ON lives in the credit-gate/
 completion interplay, not the mark words.
+
+One-owner lifecycle experiments — REVERTED (series back to v4
+churn + 0038, new 0039 = queue depth):
+  frz64 (strict hold): froze at 1 flip in boot; core said mark
+    machinery consumed everything (14/14) and the class census was
+    byte-identical to healthy frz41 — the freeze was DOWNSTREAM:
+    the swap-slot credit gate (sub_002D3420, wait at 0x2D3497 on
+    ctx+0x1DBC=0x2E2F4C) parked with only 2 slot completions set
+    (0x2DB0BE) and 1 swap-NOP mark dispatched.
+  frz66 (same code rerun): SIGSEGV ~100 s into boot, 1 flip, no
+    fault banner, no core stored. Two samples = strict hold is
+    boot-toxic (timing-fragile 2-deep swap credit vs slower ack
+    regime). v4's re-arm churn is empirically boot-load-bearing.
+Reframed plateau culprit (all frozen census runs share ONE number):
+  drop=609 (frz62), 1546 (frz65) — the 64-deep pending queue
+  OVERFLOWS and swap-completion marks are lost; every healthy run
+  (frz41/45/63-era boots) drop=0. Deepening the queue cannot change
+  any timing that worked before; it only stops LOSING marks during
+  busy service windows — hardware never drops (PGRAPH suspends the
+  channel). frz67 = v4 + depth 2048: expect drop=0; if the plateau
+  still forms with drop=0, the drop hypothesis dies and the credit-
+  gate/completion interplay (frz64's downstream signature) is next.
