@@ -271,6 +271,16 @@ int main(int argc, char **argv)
     printf("Xbox memory mapped. Offset: 0x%llX\n",
            (unsigned long long)g_xbox_mem_offset);
 
+    /* GPU fence mirror for Sudeki's statically-linked D3D8LTCG (note 0011
+     * post-script 4): the boot thread's ring drain spins in sub_002D57D0
+     * waiting for the GPU's "consumed" counter — the word at
+     * *(dev+0x30), dev = *(0x002E3638) — to catch up with the title's
+     * own "submitted" cursor at dev+0x2C. On hardware the PM writes it
+     * back; the runtime poll thread mirrors it. Offsets measured from
+     * this image's lift, not guessed. */
+    if (xbox_Nv2aMirrorFence(0x002E3638u, 0x2Cu, 0x30u) != 0)
+        fprintf(stderr, "[BOOT] NV2A fence mirror registration FAILED\n");
+
     /* Step 3: Bring up the emulated APU, gated on the same variable that
      * unmaps its registers for trapping. */
     if (getenv("RECOMP_AC97_READY")) {

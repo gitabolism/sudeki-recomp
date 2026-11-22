@@ -3,18 +3,15 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-21 (session 4g)
-**Stage:** LIFT complete, ENTRY evidence strong. **SOLVED the boot-archive
-wall (note 0011, patch 0014):** the phantom 0x8000 was our bridge
-returning `STATUS_SUCCESS` synchronously for reads on **async** handles.
-Real kernel answers `STATUS_PENDING (0x103)`; the game's init
-(`sub_000221C0`) then does the completion charge once instead of
-double-charging (refill + init). Patch 0014 flips upstream
-`RECOMP_ASYNC_IO` to default-ON. With default env + disc-exact
-`game/boot.baf`: 22 reads cover the whole file, `Z:\boot.baf` =
-1,820,672 B **byte-exact golden**, cache 1.8 MB, **no crash, no flood,
-no padding games**. Wall now = post-decode events `0x48000001/04/06`
-never signalled (HANG, idle wait).
+**Last updated:** 2026-11-21 (session 4h)
+**Stage:** LIFT complete, ENTRY strong. **Boot reaches the title's own
+intro/movie and produces the first GPU flips.** The 0x9E000 read-stop and
+post-decode stalls are fully explained (patch 0014 async-IO + measured
+seeds). With the host fence mirror + `RECOMP_VBLANK=1` + `RECOMP_PB_EXEC=1`
+the game flips at several Hz (640x480, surface `0x00828000`). Frames are
+solid black — the XDK programmable-vertex path's methods are unhandled by
+the toolkit FFP executor. New wall = GPU draw-method coverage (note 0011
+post-script 5).
 
 ## Where things are verified
 
@@ -42,17 +39,47 @@ never signalled (HANG, idle wait).
 
 ## Last run
 
-Default env, disc-exact `game/boot.baf` (sha `b6e5751c…`), patch 0014
-in the series: `scripts/run.sh 40 RECOMP_WATCHDOG_SECS=35
-RECOMP_KERNEL_LOG_BUDGET=0 RECOMP_EVENT_LOG=1`
-→ `logs/run-20261121-191748.log`: **HANG (post-decode idle)** — 22
-reads cover the whole real file (final `@657408 want=22528` = END-token
-region); `Cache/boot.baf` = 1,820,672 B `cmp` **byte-exact vs golden**;
-cache 1.8 MB, no flood, no crash. Steady state: 70 finite waits on
-`0x48000004` (worker B poll), pump INFINITE `{0x48000007,1}`, main
-INFINITE on `0x48000002` (its own rendezvous event, set once, consumed).
+Session 4h: `env RECOMP_VBLANK=1 RECOMP_PB_EXEC=1 RECOMP_PB_SCAN=1
+RECOMP_FB_WINDOW=1 RECOMP_FB_DUMP=reference/fb/frame
+RECOMP_FB_WINDOW_DUMP_EVERY=60 RECOMP_KERNEL_LOG_BUDGET=200
+./build/sudeki` (fence mirror compiled into `src/main.c`) →
+`logs/run-exec1-195554.out`: **PROGRESS** — game boots past the boot
+archive, decodes `startup.baf`, opens `D:\movies\MS Game Studios
+Logo-final.bik`, and **flips**: 7 frame dumps (`reference/fb/*.bmp`,
+gitignored), 640x480, surface `0x00828000` pitch 2560, 234 clears,
+several flips/s. All frames solid black: 8716 unhandled methods across
+150 distinct (NV2A programmable-vertex path). `DECODE-EXACT` still holds.
+Recipe that unblocked the post-decode wall:
+`xbox_Nv2aMirrorFence(0x2E3638,0x2C,0x30)` (compiled) **+ VBLANK=1 +
+PB_EXEC=1**. Default env (no PB_EXEC) still HANGS at `sub_002D3CC0`
+waiting `ctx+0x8700→0` (the flip semaphore the inert executor never
+writes).
 
-## Solved this session (session 4g, note 0011)
+## Solved this session (session 4h, note 0011 post-scripts 3-5)
+
+1. **The post-decode "3-way deadlock" was a lift gap, not events:** the
+   q2 task-completion notify `ICALL 0x0011C640` was unresolved (skipped).
+   `0x11C5F0/0x11C610/0x11C640` are real func_id misses (int3-padded,
+   tail-jmp `0x11D200`). Seeded the measured one → completion notify ran
+   → token `0x48000004` set **for the first time** → main proceeded.
+2. Second/third misses surfaced (`0x001E330`, `0x00273EEF`) — same
+   seed-file mechanism; gen tree now has **zero unresolved ICALLs** at
+   boot (`logs/seeds-icall-0011C640.json`, local per gitignore law;
+   addresses recorded in note 0011).
+3. **Boot reaches the movie:** `startup.baf`, `SOLXM.fubi`,
+   `badger.plap` (FNT/FMH/PSH/SHX chunks), 26 MB VRAM arena,
+   `D:\movies\MS Game Studios Logo-final.bik`.
+4. **Flip wall solved:** XGRAPHCL flip-pending flag `ctx+0x8700` is
+   GPU-written; runtime needs `RECOMP_PB_EXEC=1` (method executor, off
+   by default upstream) + `RECOMP_VBLANK=1` (guest ISR at vector 3
+   claimed) + our `xbox_Nv2aMirrorFence(0x2E3638,0x2C,0x30)` in
+   `src/main.c`. First frame dumps exist (black).
+5. Tools: poster wrappers `sub_00021CD0/sub_000220E0` +
+   `RECOMP_POST_TRACE=1` (settled the task/event anatomy); PC-sampling
+   via two timed cores distinguishes spin vs progress; watchdog
+   regs/NV2A PUT-GET lines are a cheap first diagnostic.
+
+## Solved earlier this session (4g, note 0011 core)
 
 1. **The phantom 0x8000 = the sync-read return convention (patch 0014).**
    First manual-override wrapper (toolkit `--exclude-manual` contract,
@@ -148,67 +175,57 @@ INFINITE on `0x48000002` (its own rendezvous event, set once, consumed).
 
 ## Live hypotheses
 
-1. **H14/H15 CLOSED (session 4g, note 0011):** the phantom 0x8000 was
-   the sync `STATUS_SUCCESS` return on async handles; patch 0014
-   (async PENDING default) makes the boot-archive decode complete
-   byte-exact on the disc-exact file. No file-slack/geometry theory
-   needed at all.
-2. **H16 (primary, post-decode wall, refined by core+budget runs):**
-   three-way deadlock after the pump drains the boot-archive task:
-   worker A pump `sub_001EABD0` INFINITE `{0x48000007, 0x48000001}`;
-   worker B `sub_00021B90` polls `0x48000004` forever; main INFINITE on
-   `0x48000002` (set once by main itself @esp `0x00F7FB0C`, auto-reset,
-   consumed by an earlier wait). Task posters that set 1/4
-   (`sub_00021CD0`@0x21D7F, `sub_000220E0`@0x22147) never run because
-   main is parked. Open question: main's `sub_00011DE0` waits token 2
-   *after* setting it once itself — likely it waits **twice** by design
-   and expects a second set from a producer that our semantics starved,
-   or the XAPI create (all `type=0` Notification) conflates a
-   manual-reset/semaphore variant. Investigate main's chain
-   `sub_00011560 → sub_00012090 → sub_00011DE0` + `sub_0026D47C`.
-3. **H17 (check first, cheap): async reads may have unblocked other
-   subsystems too** — compare the new run's ordinal histogram and file
-   activity vs `logs/run-20261121-172449.log`: more ordinals / new
-   opens (D:, X:, Y:) would say the title gets further overall.
-4. **H13b/H13c dead**: the xemu HDD image holds only an erased
-   `boot.baf` cache-dir entry; xemu runs the title from the same ISO
-   XDVFS (size 0xA6000) we do — hence byte-identical read totals.
-   Unlimited-cap run (cache cap off): the decoder writes forever
-   (4.1 GB @ 45 s) — that was the starved-geometry behaviour only.
-5. H9 (FATX mount/geometry) still queued behind these.
+1. **H14-H18 CLOSED:** async-IO return convention (patch 0014) + three
+   measured seed lifts (`0x11C640/1E330/273EEF`) + host fence mirror
+   (`src/main.c`) + `RECOMP_PB_EXEC=1` + `RECOMP_VBLANK=1` take the boot
+   from the phantom-charge stall all the way to real flips and the title
+   intro movie. Decode still byte-exact.
+2. **H19 (NEW primary wall — GPU draw coverage):** frames flip but are
+   solid black. Executor reports 8716 unhandled methods / 150 distinct —
+   this XDK 5849 D3D build drives the NV2A programmable vertex path
+   (VSH program/constant uploads, indexed vertex buffers, image-blit
+   classes) that the toolkit's FFP executor doesn't implement. First
+   move: dump the unhandled-method table (`nv2a_pb_exec_report`) and
+   classify. Expect this is the Menu-stage work and a long tail.
+3. **H20 (cheap, verify first):** confirm `0x48000004`-set boot tasks
+   don't re-starve later subsystems; the ordinal profile with PB_EXEC is
+   NtWaitForSingle+NtReleaseMutant ×19M/160s on a D3D worker — check it
+   is the movie player, not a lock regression.
+4. **H9 (FATX mount/geometry)** still queued, likely moot now (file
+   opens past the boot archive all succeed).
 
 ## Queue (next concrete actions)
 
-1. **Read main's stall chain statically**: `sub_0026D47C` (XAPI
-   launch?), `sub_00011560`, `sub_00012090`, `sub_00011DE0` — what
-   should produce the second `0x48000002` set; check XAPI
-   `XCreateEvent`/`XCreateEventEx` (manual reset) usage in the game.
-2. **H17 cheap diff:** ordinal histogram + `[FILE]` opens of
-   `logs/run-20261121-191748.log` vs the 4f reference run.
-3. If main's wait is legitimately first-set-by-another-thread, find the
-   producer path (likely `sub_00012090`'s callee list) and why it never
-   posts (event 1/4 posters `sub_00021CD0/220E0` never called).
-4. The decoder-object construction-site question is no longer load-
-   bearing (T=0x8000 site + events 0x48000009/0A at +0x8/+0xC) — keep
-   only if H16 needs it.
-5. Keep the offline tool as the oracle: `--eof 0xA6000` clamp; golden =
-   1,820,672 B confirmed by guest (two independent worlds now: padded
-   run AND async-default run, same bytes).
-6. Cleanup between runs: `rm -f ~/.local/share/xboxrecomp/Cache/*`
-   (no longer GBs with the fix, but keep the habit).
+1. **Unhandled-method inventory:** enable the executor's unhandled table
+   (already counting: 150 distinct) and dump method+count+last_param;
+   cross-reference `nv2a_regs.h`. Identify the minimal set the intro
+   movie/Bink blit needs (image blit vs triangle path).
+2. Decide where method coverage lands: it is host NV2A work in the
+   toolkit (`nv2a_pb_exec.c`) — a **new subsystem the brief didn't
+   contemplate** → architectural gate (see Blockers). Do NOT hand-edit
+   gen/; any fix is executor-side.
+3. Keep the frame-dump recipe as the Menu-stage artefact once draws
+   land: `RECOMP_PB_EXEC=1 RECOMP_VBLANK=1 RECOMP_FB_WINDOW=1
+   RECOMP_FB_DUMP=reference/fb/frame`; side-by-side needs an xemu
+   reference of the same intro moment (blocked on xemu geometry —
+   Blockers).
+4. Seeds file `logs/seeds-icall-0011C640.json` is gitignored (analysis
+   artefact). The three measured seed VAs are recorded in note 0011 so
+   `pipeline.sh --seed` stays reproducible without committing them.
+5. Cleanup between runs: `rm -f ~/.local/share/xboxrecomp/Cache/*`.
 
 ## Blockers / open questions
 
-- Post-decode 3-way event deadlock (note 0011 post-scripts): who owns
-  the second `0x48000002` set, and why task-posters `sub_00021CD0/
-  sub_000220E0` (events 1/4) never run — main parked first.
+- **GPU draw coverage (new primary wall):** frames flip but black;
+  150 distinct unhandled NV2A methods. Inventory first (queued). If
+  coverage means writing a programmable-vertex/VSH executor into the
+  toolkit, that is a large upstream feature — note it as a possible
+  architectural-gate moment, but the inventory itself is pure analysis
+  and proceeds autonomously.
 - xemu's bugcheck (note 0009) must be re-checked against the async
   semantics before using its STOP screen as a "same wall" baseline —
   xemu likely mis-answers the same convention; a corrected xemu
   reference may be possible (config/quirks) or may need its own patch.
-- Whether the 786 MB of `Z:\boot.baf` written before disk-full was ever
-  correct behaviour — explained (starved decoder under the old sync
-  answers); verdict reserved until the reference pipeline matches.
 
 ## Housekeeping facts
 
@@ -223,7 +240,12 @@ INFINITE on `0x48000002` (its own rendezvous event, set once, consumed).
   `RECOMP_IO_WRITE_CSV=<path>`, `RECOMP_EVENT_LOG=1`, `RECOMP_FSCTL_OK=1`,
   `RECOMP_CACHE_CAP_BYTES=<n>`, `RECOMP_CONTIG_ALIAS=1`,
   `RECOMP_WATCH=<guest-va>` + `RECOMP_WATCH_RAW=1`,
-  `RECOMP_KERNEL_LOG_BUDGET`, `RECOMP_WATCHDOG_SECS`.
+  `RECOMP_KERNEL_LOG_BUDGET`, `RECOMP_WATCHDOG_SECS`;
+  **session-4h set that reaches flips:** `RECOMP_PB_EXEC=1
+  RECOMP_VBLANK=1 RECOMP_FB_WINDOW=1 RECOMP_FB_DUMP=reference/fb/frame
+  RECOMP_FB_WINDOW_DUMP_EVERY=60`; `RECOMP_POST_TRACE=1` (poster
+  wrappers), `RECOMP_REFILL_TRACE=1` (refill wrapper). Seeds file for
+  pipeline `--seed` lives at `logs/seeds-icall-0011C640.json` (local).
 - OpenCode layer: `opencode.jsonc` + commands `/resume /status /run /cycle
   /note /lift /handoff /setup`; skills under `.opencode/skills/` (pinned).
 - Remote origin push URL is `NO_PUSH`. Do not "fix" this.
@@ -240,4 +262,5 @@ INFINITE on `0x48000002` (its own rendezvous event, set once, consumed).
 | 2026-11-21 s4c | note 0008 + patch 0008 (`[READ] buf=`): reads land in the decoder's own arena (H12 dead), output is valid decoded data (triplet→8-byte expansion), refill returns 0 on every path; watch pre-arming ruled out (stack jitter); SIGABRT-core recipe added | (this commit) |
 | 2026-11-21 s4e | **xemu reference installed (user-approved) & boots the title to OUR wall**: SpiritBoot-release + `-m 128` → `STOP 0x7E` inside `sub_000223F0` byte loop (EIP 0x226D8, flush `call 0x22270`) — same decoder, same runaway cursor as note 0007; VRAM-forensics recipe (FB @0x3C00000, pitch 720) reconstructs the bugcheck screen as `reference/xemu/` artefact; VRAM contention with inference engine ruled out; note 0009 + `scripts/xemu_{ref,kill,boot_probe,standalone}.sh` + THIRD_PARTY reference table | (this commit) |
 | 2026-11-21 s4f | **boot archive decoded end-to-end (note 0010)**: padded-size diagnostic (+0x8000, reverted) → `Z:\boot.baf` = 1,820,672 B byte-exact vs golden, no flood/crash; wall = game's byte accounting starves reads exactly one 0x8000 segment (phantom refill charge) under our+xemu kernel answers; QINFO patch 0011 (size answers correct), watch fixes 0012/0013, core final-state recipe (`obj = esp+0x78`), tool `--eof/--tokens`, xemu-HDD H13b dead, cap-off run proves no natural termination (4.1 GB/45 s); next: events 0x48000001/04/06 unsignalled post-decode | (this commit) |
-| 2026-11-21 s4g | **THE phantom 0x8000 solved (note 0011): patch 0014 async-IO PENDING default = upstream-correct return convention on async handles → decode completes byte-exact with default env on disc-exact boot.baf (22 reads, 1.8 MB cache, HANG not CRASH)**; manual-override contract wired (`--exclude-manual` + `sub_00022340` wrapper + REFILL_TRACE); refill/init double-charge proven; patch 0015 event create/wait/set caller trace; SIGABRT-core thread-map recipe; post-decode wall reframed = 3-way event deadlock (worker pump {7,1}, worker B polls 4, main INFINITE on its own-consumed 2) | (this commit) |
+| 2026-11-21 s4g | **THE phantom 0x8000 solved (note 0011): patch 0014 async-IO PENDING default = upstream-correct return convention on async handles → decode completes byte-exact with default env on disc-exact boot.baf (22 reads, 1.8 MB cache, HANG not CRASH)**; manual-override contract wired (`--exclude-manual` + `sub_00022340` wrapper + REFILL_TRACE); refill/init double-charge proven; patch 0015 event create/wait/set caller trace; SIGABRT-core thread-map recipe; post-decode wall reframed = 3-way event deadlock (worker pump {7,1}, worker B polls 4, main INFINITE on its own-consumed 2) | `7faa86f` |
+| 2026-11-21 s4h | **Boot reaches the title intro + first GPU flips (note 0011 post-scripts 3-5):** post-decode "deadlock" was an unresolved task-completion ICALL `0x0011C640` (measured seed; siblings 1E330/273EEF same cause) → token 4 set → main proceeds; XGRAPHCL flip-pending `ctx+0x8700` solved by `RECOMP_PB_EXEC=1`+`RECOMP_VBLANK=1`+ host `xbox_Nv2aMirrorFence(0x2E3638,0x2C,0x30)` in `src/main.c`; opens `MS Game Studios Logo-final.bik`; 7 frame dumps (black) = first framebuffer artefacts; poster wrappers + RECOMP_POST_TRACE; new wall = NV2A draw-method coverage (150 distinct unhandled) | (this commit) |

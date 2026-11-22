@@ -158,3 +158,99 @@ same event twice by design, expecting two sets from two producers?).
 Both `0x48000001` and `0x48000002` were created into the *same* main
 stack slot `0x00F7FF40` (sequential creates, different runs? no — same
 run: slot reused after the first event's handle went out of use).
+
+## Post-script 3 — THE post-decode wall is an unresolved ICALL (measured)
+
+Poster wrappers (`sub_00021CD0`/`sub_000220E0`, `RECOMP_POST_TRACE=1`)
++ full event/wait census (`logs/run-20261121-192410.log`) settle it:
+
+- The "3-way deadlock" was misread: token slots hold `0x397920`=`48000001`,
+  `0x397924`=`48000002` (posters' events); `0x48000004` lives in the boot
+  object at `[0x3DC81C+0xA4]` (main's 500 ms poll) and is polled by
+  nobody else. Worker B (`sub_00021B90`) is the **q2 list consumer**:
+  INFINITE wait on `0x397924`, drain list `0x396E98`, per task
+  `ICALL [task+4]` (execute) then `ICALL [[task]](1)` (completion).
+- Task `0x00FD8600` (flags `0x8001` → bit15 routes poster1 to poster2's
+  q2 list; poster1's queue-1/event-1 path is a *different* subsystem)
+  was posted, poster2 set token 2, worker B woke, **executed the task**
+  (boot.baf opened + fully decoded + `Z:\badger.plap` opened — all on
+  worker B), then `ICALL` to **`0x0011C640` FAILED to resolve** and was
+  silently skipped. That call is the task-completion notify:
+  `lock xadd` refcount decrement + store `[arg1+0x28]=1|3` + tail
+  `jmp 0x11D200` — i.e. exactly the code that would mark the task done
+  and let the boot manager signal `0x48000004`, which main polls.
+- `0x11C5E6..0x11C67F` is a gap of three **real** entries missed by
+  func_id (int3-padded, identical bodies, tail-jump `0x11D200` confuses
+  it): `0x11C5F0`, `0x11C610`, `0x11C640`. Measured address from run log
+  → seeded via `--seed-functions` (policy: measured only; seeded just
+  `0x0011C640`; siblings enter only if they too show up measured).
+
+Hypothesis H18: lifting `0x0011C640` makes the completion notify run →
+task marked complete → `0x48000004` set → main's poll returns and boot
+proceeds (next stage: `badger.plap` — the game data archive).
+
+## Post-script 4 — H18 CONFIRMED; new wall = D3D fence mirror (host-side)
+
+Regenerated with the measured seed `0x0011C640` (+ `0x001E330`,
+`0x00273EEF` — all three were func_id misses, all lifted, zero unresolved
+ICALLs now): `logs/run-20261121-193224.log`.
+
+- Task completion notify ran → **`0x48000004` SET** (first time ever);
+  main moved past its poll, opened `Z:\badger.plap`, read the baf TOC,
+  `FNT/FMH/PSH/SHX` chunks (fonts/shaders), allocated the 26 MB VRAM
+  arena at `0x81000000`, `KeConnectInterrupt vector 3` — the deepest
+  boot yet. Workers idle normally (pump {B,1}, worker B token-2 wait).
+- Steady state after ~1 s: main spins with **zero kernel calls** inside
+  `sub_002D57D0` (statically-linked D3D8LTCG, `game_render` category).
+  Loop `0x002D5900`: `dev=[0x002E3638]; while (PUT(dev+0x2C) -
+  *(dev+0x30) … outstanding > need` — D3D waits for the GPU to advance
+  its "consumed" counter word (address in `dev+0x30`, resolved to
+  `0x80065000` in the contiguous window — watchdog regs `edx=80065000`,
+  word reads 0). NV2A USER ring PUT==GET (executor consumed all); the
+  counter word is what never gets written.
+- Fix = the toolkit's per-title fence mirror hook (documented feature,
+  host-side, no guest patch): `xbox_Nv2aMirrorFence(0x002E3638, 0x2C,
+  0x30)` — poll thread copies "submitted" into the word the GPU would
+  acknowledge. Offsets measured from our own lift (this D3D build),
+  registration in `src/main.c` after `xbox_MemoryLayoutInit`.
+  H19: main proceeds into first device/swap-chain init after this.
+
+## Post-script 5 — first flips reached (RECOMP_PB_EXEC + vblank + mirror)
+
+With the mirror compiled in (`src/main.c`, registered at startup):
+`sub_002D57D0`'s drain wait passes; main proceeds into the movie path,
+opens `D:\movies\MS Game Studios Logo-final.bik`, and spins in
+`sub_002D3CC0` on `[ctx+0x8700]==0` — the XGRAPHCL flip-pending flag
+(`ctx = *(*(0x002E3638)+0x934)`); nothing in guest code ever writes it
+0: the GPU does, via the pushbuffer's semaphore-release methods.
+
+Two runtime switches turn out to be load-bearing (both off by default
+in v0.18.0):
+
+1. `RECOMP_VBLANK=1` — raises vblanks to the guest's connected ISR
+   (`KeConnectInterrupt: vector 3 -> routine 0x002DAD20` — XGRAPHCL's;
+   NV2A_VECTOR=3 matches). Log shows `vblank -> ISR claimed it`.
+2. `RECOMP_PB_EXEC=1` — **enables the pushbuffer method executor**
+   (`nv2a_pb_exec`); without it the ring is only walked (GET advances,
+   methods ignored), so BACK_END_WRITE_SEMAPHORE_RELEASE (`0x1D70`)
+   and every draw method are inert → no flip ever happens.
+
+With both: **first frames ever captured** — 7 dumps over 75 s
+(`reference/fb/frame0000X.bmp`, gitignored), 640x480, surface
+`0x00828000` pitch 2560, 234 clears — and the game is flipping at
+several Hz. Frames are **solid black**: the executor counted 8716
+unhandled methods (150 distinct) — the NV2A programmable path this
+XDK D3D build uses (VSH programs/constants, indexed vertex buffers,
+image-blit classes) is outside the toolkit's FFP model, so geometry
+never lands. Next wall = GPU method coverage for the draws (Menu
+stage); inventory the unhandled set first (executor keeps a table —
+`nv2a_pb_exec_report`).
+
+Note also: with PB_EXEC the ordinal profile changed — NtWaitForSingle
++ NtReleaseMutant ×19M in 160 s (D3D thread churn) — normal busy game,
+not a lock stall. `nv2a_pb_set_semaphore_target` remains uncalled in
+the runtime (tests only) — with PB_EXEC on, `0x1D70` still won't write
+unless a target is registered; flips worked anyway, so this title's
+flip completion flows through the DMA_GET/mirror path. If a later wait
+turns out to need the explicit semaphore, register `ctx+0x8700` (chain
+`*(0x002E3638)+0x934+0x8700`) — host-side one-liner.

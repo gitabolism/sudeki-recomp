@@ -135,6 +135,66 @@ void sub_00022340(void)
     fflush(stderr);
 }
 
+/* ── Boot task-poster wrappers (note 0011, RECOMP_POST_TRACE=1) ──────────
+ *
+ * Post-decode deadlock (note 0011 post-scripts): worker pump waits
+ * INFINITE {0x48000007, 0x48000001}, main/worker B poll 0x48000004 in
+ * finite loops. The only code that sets tokens 1 and 4 is sub_00021CD0
+ * (XSetEvent 0x397920 @0x21D7F, and it tail-calls sub_000220E0 @0x21D92
+ * which sets 0x397924 = token 4). If these never run, the game's task
+ * flow starved upstream of the events; if they run but the events never
+ * arrive, the bridge token mapping is at fault. Wrappers log entry with
+ * tid/RA/eax/esi/edi and tail-call the untouched generated body.
+ */
+#include <pthread.h>
+
+extern void sub_00021CD0_gen(void);
+extern void sub_000220E0_gen(void);
+
+static int post_trace_enabled(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        const char *e = getenv("RECOMP_POST_TRACE");
+        cached = (e && *e && *e != '0') ? 1 : 0;
+    }
+    return cached;
+}
+
+void sub_00021CD0(void)
+{
+    if (post_trace_enabled()) {
+        uint32_t task = g_eax;
+        fprintf(stderr, "[POST] q1 tid=%lu ra=%08X task=%08X task+8=%04X "
+                        "lock=%08X unlock=%08X cs=%08X list=%08X ev=%08X\n",
+                (unsigned long)pthread_self(), MEM32(g_esp),
+                task, MEM16(task + 8),
+                MEM32(0x3156C0), MEM32(0x3156C4), MEM32(0x36CC54),
+                MEM32(0x396E8C), MEM32(0x397920));
+        fflush(stderr);
+    }
+    sub_00021CD0_gen();
+    if (post_trace_enabled())
+        fprintf(stderr, "[POST] q1 done list=%08X ev=%08X eax=%08X\n",
+                MEM32(0x396E8C), MEM32(0x397920), g_eax);
+}
+
+void sub_000220E0(void)
+{
+    if (post_trace_enabled()) {
+        fprintf(stderr, "[POST] q2 tid=%lu ra=%08X task=%08X task+8=%04X "
+                        "task+C=%08X list=%08X ev=%08X setthunk=%08X\n",
+                (unsigned long)pthread_self(), MEM32(g_esp), g_esi,
+                g_esi ? MEM16(g_esi + 8) : 0, g_esi ? MEM32(g_esi + 0xC) : 0,
+                MEM32(0x396E98), MEM32(0x397924), MEM32(0x315764));
+        fflush(stderr);
+    }
+    sub_000220E0_gen();
+    if (post_trace_enabled())
+        fprintf(stderr, "[POST] q2 done list=%08X ev=%08X eax=%08X\n",
+                MEM32(0x396E98), MEM32(0x397924), g_eax);
+}
+
 recomp_func_t recomp_lookup_manual(uint32_t xbox_va)
 {
     /*
