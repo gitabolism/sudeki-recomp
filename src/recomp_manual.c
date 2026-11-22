@@ -720,11 +720,14 @@ extern void sub_002DB250_gen(void);
 void sub_002DB250(void)
 {
     extern __thread uint32_t g_ecx;
-    extern void nv2a_pb_swmethod_seen(void);
     static int on = -1, budget = 400;
-    /* This pump reads the PGRAPH words: the latched mark, if any, is
-     * now visible to the guest's service chain (patch 0026 hold rule). */
-    nv2a_pb_swmethod_seen();
+    /* frz51 core correction: the pump ENTRY is NOT the servicing point.
+     * The pump body gates on INTR/PARAM/TRAP words and can bail without
+     * reaching the dispatcher; consuming at this edge (0035 v1-v4 via
+     * seen()) cleared the very words the gates must read, so swap NOPs
+     * were eaten unread and the 4C completion never fired. seen() now
+     * fires at the DISPATCHER entry (sub_002DB4A0), the one place the
+     * mark's param is provably in hand. Census only here. */
     if (on < 0) {
         const char *e = getenv("RECOMP_GSVC_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
@@ -749,7 +752,15 @@ extern void sub_002DB4A0_gen(void);
 void sub_002DB4A0(void)
 {
     extern __thread uint32_t g_ecx;
+    extern void nv2a_pb_swmethod_seen(void);
     static int on = -1, budget = 2500;
+    /* frz51 core: THE servicing point. Reaching the guest dispatcher
+     * means TRAP_DATA was read into eax with the mark's param in hand
+     * — hardware's service read. Consume-at-seen (0035) must trigger
+     * here, not at pump/DPC entry, where the bodies can bail through
+     * their gates and the eaten words never got read (swap NOPs
+     * vanished unread -> 4C never set -> engine INFINITE). */
+    nv2a_pb_swmethod_seen();
     if (on < 0) {
         const char *e = getenv("RECOMP_GSVC_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
@@ -792,11 +803,11 @@ extern void sub_002DAE40_gen(void);
 
 void sub_002DAE40(void)
 {
-    extern void nv2a_pb_swmethod_seen(void);
     static int on = -1, seen = 0;
     uint32_t pmc = MEM32(0xFD000100);
-    /* The DPC body reads the gate/PGRAPH words: service visibility. */
-    nv2a_pb_swmethod_seen();
+    /* frz51 correction: no seen() here either — the DPC body gates on
+     * PMC bits and may bail before any real service; consume happens
+     * at the dispatcher entry (sub_002DB4A0). */
     if (on < 0) {
         const char *e = getenv("RECOMP_GSVC_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
@@ -812,6 +823,61 @@ void sub_002DAE40(void)
         seen++;
     }
     sub_002DAE40_gen();
+}
+
+static volatile unsigned long long g_flip_issue, g_flip_wait;
+static volatile unsigned long long g_swap_pump, g_eng_submit;
+
+/* ── device-message handler census (note 0023 H30, RECOMP_ED20_TRACE=1) ──
+ *
+ * frz45/48/50/53 plateau anatomy: Presents keep issuing and the ring
+ * keeps advancing (submit/iGET climb, patch 0031 semaphore word i0
+ * follows), but FLIP_INCREMENT_WRITE stops: ctx+0x8700 (the XGRAPHCL
+ * flip-PENDING word) reads the poison constant 0x51747D8B, so D3D's
+ * Present path never emits the next flip, the swap pump sub_002D35A0
+ * (pump=flips) and engine submit sub_001E0390 freeze, and 5C/4C stop
+ * firing. sub_0011ED20 is the handler that invokes BOTH the pump and
+ * (transitively) the submit; its callers are the engine message
+ * consumers sub_0001E9E0/EDC0/F0F0, the stream helper sub_00022270
+ * and a tail-jmp from sub_0011D200. Census: invocation count, caller
+ * site (deduped runs), and the flip-pending word at entry — decides
+ * "handler stops being invoked" vs "invoked but the pump branch is
+ * skipped". */
+extern void sub_0011ED20_gen(void);
+
+void sub_0011ED20(void)
+{
+    extern __thread uint32_t g_esp;
+    static int on = -1;
+    static unsigned long long n;
+    static uint32_t lp = 0xFFFFFFFFu;
+    static unsigned run;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_ED20_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on) {
+        n++;
+        uint32_t cal = MEM32(g_esp);
+        uint32_t c = MEM32(0x2E3638);
+        uint32_t sh = (c >= 0x1000u && c < 0x4000000u)
+                        ? MEM32(c + 0x8700) : 0u;
+        if (cal != lp) {
+            if (run)
+                fprintf(stderr, "[ED20] (x%u)\n", run);
+            run = 0; lp = cal;
+            fprintf(stderr, "[ED20] n=%llu from=%08X sh8700=%08X "
+                            "pump=%llu eng=%llu\n",
+                    n, cal, sh, g_swap_pump, g_eng_submit);
+            fflush(stderr);
+        }
+        if (run < 0xFFFFu)
+            run++;
+        if ((n % 2000u) == 0)
+            fprintf(stderr, "[ED20] n=%llu from=%08X sh8700=%08X\n",
+                    n, lp, sh);
+    }
+    sub_0011ED20_gen();
 }
 
 /* ── post-attract render-gate census (note 0023 H28, RECOMP_GATE_TRACE=1) ──
@@ -847,8 +913,6 @@ extern void sub_002D3B50_gen(void);
 extern void sub_002D3CC0_gen(void);
 extern void sub_002D35A0_gen(void);
 extern void sub_001E0390_gen(void);
-static volatile unsigned long long g_flip_issue, g_flip_wait;
-static volatile unsigned long long g_swap_pump, g_eng_submit;
 
 static int swap_census_on(void)
 {

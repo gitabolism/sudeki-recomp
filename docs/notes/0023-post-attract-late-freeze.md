@@ -950,6 +950,28 @@ hardware holding a pending trap); `RECOMP_ARM_UNTIL_SEEN=0` A/B.
 frz50 = full recipe, v4 live. Run-to-run severity variance (226 vs
 4573 flips to freeze) = the race window, consistent.
 
+frz50 (v4): SAME plateau (4574 flips): 4C sets stop exactly at the
+plateau line (last 28902, plateau 29362, ZERO after) while issue
+climbs; census math closes on the host side. frz51 = v4 ABRT core
+(early variant, 227 flips): identical deadlock — main INFINITE on
+4C (0x1DE3FF chain), IO reader pool INFINITE on never-set
+0x48000002-family handles (XAPILIB sub_0026D664), every guest
+thread parked; and the decisive STATE read: sw_latched=0, FIFO
+EMPTY (head==tail=14, 14 in/14 out), ALL trap words ZERO,
+PMC+0x140=1, GET==PUT=0x0009C904 — the host believed every mark
+was SERVICED while the guest had run its dispatcher only 11 times
+against 95 consumes. ROOT of the v1-v4 consume bug: `seen()` fired
+at pump/DPC ENTRY (manual wrappers), but those bodies gate on
+INTR/PARAM/TRAP/PMC words and can bail before dispatch — consuming
+there clears the words the gate must read, so marks get EATEN
+UNREAD (the last swap NOP among them -> 4C never set -> engine
+INFINITE -> IO pool starvation). v5 fix (manual-wrapper side):
+seen() fires ONLY at the DISPATCHER entry (sub_002DB4A0 wrapper) —
+reaching it means TRAP_DATA was read into eax: the true service
+read; pump/DPC wrappers census-only. Hardware rule restated: the
+consume edge is the front-end's method read, not the driver's ISR
+entry. frz52 = v5 validation, same recipe.
+
 frz42/43 USB REGRESSION FOUND — the presses NEVER landed:
 frz40/41/42/43 logs contain ZERO `PAD:` lines and ZERO `[OHCI0]`
 bracket lines (frz16..frz33: "operational after 12220 ms"). The
@@ -977,3 +999,53 @@ consuming a seen mark exactly where the old done() calls under-ran.
 RECOMP_ACK_CONSUME=0 opts out. Expect: SWM run-lengths collapse to
 1, seen_l/ack ratio -> ~1, drop=0, pump/eng climb past 4340-level
 freeze, level frames present. frz39 = same recipe, 0034+0035 live.
+
+frz53 (v5 + GSVC + ABRT core, plateau at 1628 flips) — H30 is NOT
+one wall: this core is the ENGINE-ALIVE flavour, and the host side is
+CLEAN. Thread map: main guest thread inside the XAPI frame loop
+(sub_0011B020 -> sub_0003F1E0 -> sub_00022A00 -> sub_00251430 ->
+sub_00022C90 -> sub_0031053A input fetch -> KfLowerIrql), NOT parked
+on 4C; the two IO-family readers and the stream refiller parked in
+NtWaitForMultipleObjectsEx (XAPILIB sub_0026D6A8 wait helper); OHCI
+thread in its normal Sleep; ack thread yields; timer thread in its
+normal Sleep. Host state at the sample: gate free (gate_owner=0),
+irql_raised_count=0, DPC queue head=52/tail=53 (one queued at that
+instant, not stuck), mark machinery quiet (latched=0, FIFO empty
+head==tail=28, PMC/PGRAPH trap quartet ALL ZERO), ring GET==PUT
+=0x0028DB14 — nothing pending anywhere. v5 consume edge verified:
+seen_l=509 == consume=509, seen_n=15, latch direct=1641 ack=1641.
+Timeline (log-line order): the D3D ring-writer census (sub_002D57D0)
+goes QUIET ~1600 log lines BEFORE the plateau; its LAST line shows
+156 writer calls/s (78 from the pump site 0x2D3640, 78 from the
+engine-submit site 0x1E03D8), submit=4825 climbing, iGET following
+the write cursor, and the patch-0031 channel-block semaphore word
+i0=0x25B1 written and following — the ring machinery is HEALTHY up
+to its own disappearance. Through the whole plateau the Present API
+(sub_002D5BF0 prints once/s) and the XAPI flip-issue (sub_002D3B50,
+issue -> 3080+) keep ticking, and ctx+0x8700 (`sh8700`) reads the
+constant 0x51747D8B — the same poison seen in frz20/frz26.
+Hypothesis H31: the Present path short-circuits BEFORE the D3D
+submit chain while the flip-PENDING word is nonzero; our flip-done
+settle chain (patch 0017) never settles this word/slot, so no flip
+methods are emitted, no swaps complete, pump+eng freeze at the flip
+count, 4C/5C stop firing, and the IO readers starve behind them.
+Probes (census only, no behaviour change): frz55 = RECOMP_WATCH=
+0x2E9890 (ctx=0x2E1190 +0x8700; 4-byte window, patches 0013/0018-
+0020 attribution) — name every writer of the pending word and its
+value sequence; plus the new ED20 census wrapper (RECOMP_ED20_TRACE,
+recomp_manual) — does the device-message handler sub_0011ED20 (the
+only caller of the swap pump sub_002D35A0 and of the engine submit)
+keep being invoked at the plateau, from which site? frz54 = same
+plateau with the ICALL-feedback binary (which guest sites still
+execute host calls when everything is quiet).
+
+Harness error recorded (rule: one run at a time): frz54 (build-fb) and
+frz55 (build) were launched ~30 s apart, so two instances shared
+~/.local/share/xboxrecomp/Cache/. frz54 then ran the feedback build
+and died in the boot era (1 flip, atexit summary at 675 log lines —
+the SUDEKI_ICALL_FEEDBACK probe binary does not survive this recipe;
+its dump stayed stale at 9 KB from Nov 21). frz55 likewise froze at
+1 flip, and my cache wipe mid-run made it worse. Both runs are VOID:
+no behavioural conclusion may be drawn from them. frz56 = clean
+single-instance rerun (v5 + gen tree with the ED20 census wrapper +
+core at the plateau), cache cleared BEFORE the run only.
