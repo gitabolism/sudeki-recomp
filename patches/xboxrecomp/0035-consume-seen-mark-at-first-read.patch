@@ -88,7 +88,7 @@
          InterlockedIncrement(&s_lat_enq);
          return;
      }
-@@ -714,7 +769,6 @@
+@@ -714,17 +769,29 @@
  {
      volatile uint32_t *pmc, *intr;
      int was = (int)InterlockedExchange(&s_sw_latched, 0);
@@ -96,7 +96,34 @@
      if (was) {
          InterlockedIncrement(&s_ack_done);
          if (!InterlockedExchange(&s_sw_seen, 0)) {
-@@ -747,6 +801,8 @@
+             InterlockedIncrement(&s_done_rearm);   /* census (0034 ext) */
+             /* The DPC drained without the service chain ever reading
+              * the words (they were ack-cleared first): the mark was
+-             * not consumed. Re-arm it instead of consuming, and do not
+-             * pop the queue — an unserviced re-arm loop must not eat
+-             * FIFO slots. */
+-            nv2a_pb_swmethod_latch((uint32_t)s_last_param);
++             * not consumed. Patch 0038 (note 0023, frz49 core): do NOT
++             * clear-and-re-arm — that churn was measured at 107/344
++             * acks and the race window (clear lands between the walk's
++             * latch and the guest pump's read) is what created it.
++             * The 0026 ownership rule already says hold the mark until
++             * the chain SEES it: so leave the armed words untouched
++             * and skip this ack entirely. The next guest service read
++             * consumes at the seen edge (0035); an unserviced mark
++             * stays armed exactly like hardware holds a pending trap.
++             * RECOMP_ARM_UNTIL_SEEN=0 restores the churn for A/B. */
++            static int hold = -1;
++            if (hold < 0) {
++                const char *e = getenv("RECOMP_ARM_UNTIL_SEEN");
++                hold = !(e && e[0] == '0');
++            }
++            if (!hold)
++                nv2a_pb_swmethod_latch((uint32_t)s_last_param);
+             return;
+         }
+         pmc  = xbox_Nv2aRegPtr(0x000100);
+@@ -747,6 +814,8 @@
       * trapped NOP re-arrests PGRAPH on the console once its
       * predecessor's service has cleared it. Runs even when nothing was
       * latched now: queued marks would else never pop. */
@@ -105,7 +132,7 @@
      if (s_sw_head != s_sw_tail) {
          LONG t = s_sw_head;
          uint32_t param = (uint32_t)s_sw_param[t];
-@@ -754,6 +810,35 @@
+@@ -754,6 +823,35 @@
          InterlockedIncrement(&s_lat_pop);
          nv2a_pb_swmethod_latch(param);
      }
@@ -141,7 +168,7 @@
  }
  
  /* Census (note 0021): the classes the title actually emits. The jump
-@@ -824,10 +909,12 @@
+@@ -824,10 +922,12 @@
          }
      fprintf(stderr, "%s\n", any ? "" : " none");
      fprintf(stderr, "  [NOPSW] latch direct=%ld enq=%ld drop=%ld pop=%ld "

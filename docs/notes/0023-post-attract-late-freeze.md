@@ -923,6 +923,33 @@ snapshots, re-derive from those). frz47 = same recipe, locking
 fixed; if the plateau clears, flip-completion resumes and the
 level presents.
 
+frz47 (0035 v3 locked FIFO): SAME plateau (4573 flips, issue
+climbs) — locking not the mechanism. frz48: froze only at the very
+tail (4589 flips); raster counter FROZEN at the plateau (walk
+parked) while ring submits climb. frz49 (ABRT-detector core,
+6-consecutive-0-fps): EARLIER catastrophic freeze at 226 flips
+(MS-logo movie era) — full thread map: main guest thread INFINITE
+on 4C (`KeWait(0x002E2F4C)` ret=0x1DE3FF, same engine chain as
+frz34); THREE reader threads INFINITE on NtCreateEvent handles
+0x48000002/0F/13 (`sub_0026D664/0026D77A` = XAPILIB overlapped-IO
+wait helper; one via the stream-refill family sub_00021B90) —
+those tokens NEVER get NtSetEvent in the whole log: the movie/IO
+consumer pool starves; kernel summary = 10.6M x ordinal 234
+(NtWaitForSingleObjectEx) + 10.6M x 221 (NtReleaseMutant) = the
+readers' instant-return retry loop at ~96k/s/thread. Decisive
+census: `rearm=107` of `ack=344` (consume=237) — the ack path
+clears ARMED-but-unread marks and re-arms them (0026 hold rule
+already says hold until seen; the churn only races). Mechanism:
+between the walk's latch and the guest pump's read, an ack pass
+clears the words -> done(was=1,seen=0) -> clear+re-arm -> the
+guest pump sees a dead window -> sometimes the swap NOP never gets
+serviced -> 4C never set -> engine INFINITE -> consumers never
+consume -> pool deadlock. Patch 0038 folded into 0035 v4: the
+unseen branch does NOT ack at all — leave the words armed (that IS
+hardware holding a pending trap); `RECOMP_ARM_UNTIL_SEEN=0` A/B.
+frz50 = full recipe, v4 live. Run-to-run severity variance (226 vs
+4573 flips to freeze) = the race window, consistent.
+
 frz42/43 USB REGRESSION FOUND — the presses NEVER landed:
 frz40/41/42/43 logs contain ZERO `PAD:` lines and ZERO `[OHCI0]`
 bracket lines (frz16..frz33: "operational after 12220 ms"). The
