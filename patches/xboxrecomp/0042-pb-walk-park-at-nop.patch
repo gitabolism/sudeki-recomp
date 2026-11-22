@@ -1,0 +1,104 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -948,6 +948,27 @@
+ static volatile LONG s_rering_lat;    /* ...that reached the latch */
+ static volatile LONG s_rering_ev;     /* ...that reached the host event (0032) */
+ static volatile LONG s_rering_gate;   /* ...gated by an armed mark (0041) */
++/* Patch 0042 (note 0023): walk suspension at a trapped NOP. */
++static volatile LONG s_park_count;
++static volatile int  s_park_req;
++static int pb_park_on(void)
++{
++    static int on = -1;
++    if (on < 0) {
++        const char *e = getenv("RECOMP_PB_PARK");
++        on = !(e && e[0] == '0');
++    }
++    return on;
++}
++/* Consumed by the DMA walk's pb_consume (nv2a_pb_scan.c): returns 1 once
++ * per suspension request; the walk then leaves the NOP's param word
++ * unconsumed and stops, hardware-style. */
++int nv2a_pb_exec_parked(void)
++{
++    int v = s_park_req;
++    s_park_req = 0;
++    return v;
++}
+ 
+ /* Patch 0032 (note 0023, H29): the D3D8LTCG ring-free event object (its
+  * wait loop at sub_002D57D0 loc_002D5911 is `while (KeWaitForSingleObject(
+@@ -1013,9 +1034,10 @@
+             (long)s_lat_pop, (long)s_ack_done, (long)s_trap_idle,
+             (long)s_done_rearm, (long)s_seen_l, (long)s_seen_n,
+             (long)s_seen_consume);
+-    fprintf(stderr, "  [NOPSW] rering calls=%ld latched=%ld ev=%ld gate=%ld\n",
++    fprintf(stderr, "  [NOPSW] rering calls=%ld latched=%ld ev=%ld gate=%ld "
++                    "park=%ld\n",
+             (long)s_rering_call, (long)s_rering_lat, (long)s_rering_ev,
+-            (long)s_rering_gate);
++            (long)s_rering_gate, (long)s_park_count);
+ }
+ 
+ /* Is [addr, addr + bytes) inside memory the guest owns? That is ordinary RAM
+@@ -5028,9 +5050,28 @@
+             if (!imm_vertex_method(method, param)) {
+                 /* Patch 0025 (note 0021): this is exactly the software
+                  * method the console traps; latch the PGRAPH/PMC words
+-                 * so the title's vblank DPC services it. */
+-                if (param && pb_swmethod_on())
++                 * so the title's vblank DPC services it.
++                 * Patch 0042 (note 0023, frz70): hardware suspends the
++                 * channel AT the trapped NOP — the next NOP is not even
++                 * parsed until this one is serviced. frz70 measured the
++                 * no-suspension cost exactly: the walk generated 1807
++                 * marks while the guest serviced 462, the queue backlog
++                 * (1353) starved the swap-slot credit gate, freeze at
++                 * 1807 flips — depth only postpones. So while a mark is
++                 * armed and unconsumed, THIS word suspends the walk
++                 * (the param is not consumed; the next walk replays it).
++                 * RECOMP_PB_PARK=0 restores queue-only behaviour. */
++                if (param && pb_swmethod_on()) {
++                    if (pb_park_on() && s_sw_latched) {
++                        LONG n = InterlockedIncrement(&s_park_count);
++                        if (n <= 3 || (n % 5000) == 0)
++                            fprintf(stderr, "  [NOPSW] park at param=%08X "
++                                            "(x%ld)\n", param, (long)n);
++                        s_park_req = 1;
++                        break;
++                    }
+                     nv2a_pb_swmethod_latch(param);
++                }
+                 note_unhandled(method, param);   /* as before the hold */
+             }
+             break;
+--- a/src/kernel/nv2a_pb_scan.c
++++ b/src/kernel/nv2a_pb_scan.c
+@@ -336,6 +336,7 @@
+  * inline arrays across several kicks, so this is routine, not a desync.) */
+ static uint32_t s_pend_left, s_pend_i, s_pend_method, s_pend_subch;
+ static int      s_pend_noninc;
++static uint32_t s_park_stops;         /* patch 0042: walk suspensions */
+ 
+ /* DMA_GET is the GPU's fetch pointer: nothing at or past it has been read, and
+  * XDK D3D relies on exactly that. Its fence wait reads GET and, when the fence
+@@ -378,6 +379,19 @@
+          * disagree about what the stream said. */
+         if (s_exec_enabled)
+             exec_word(s_pend_subch, m, param);
++        /* Patch 0042 (note 0023): the executor suspended the channel
++         * at this software method (an armed, unconsumed trap owns the
++         * pipeline). Do NOT consume the word, do not advance GET: the
++         * next walk replays this param, exactly like a channel that
++         * resumes after the service interrupt. s_pend_* stay as they
++         * are, so the header parse is not redone. */
++        {
++            extern int nv2a_pb_exec_parked(void);
++            if (nv2a_pb_exec_parked()) {
++                s_park_stops++;
++                return;
++            }
++        }
+         s_get = (s_get + 4) & PB_PHYS_MASK;
+         s_pend_i++;
+         s_pend_left--;
