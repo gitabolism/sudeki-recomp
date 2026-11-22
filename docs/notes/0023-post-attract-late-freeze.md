@@ -1436,3 +1436,14 @@ defect across regimes; frz68 = v4 + depth 2048 (in flight).
 xemu_ref.sh fixed while waiting: the QMP telnet socket was being
 spoken to with an HMP `info status` line (desync) — now greeting +
 qmp_capabilities only (note 0019 capture queue).
+
+LOG-HYGIENE CORRECTION (11:15): the "frz66 plateau at 191 flips,
+drop=609, class-5 drop lines" block above was misattributed — those
+lines belong to the frz62 log (pump=1531 fingerprints match frz62
+exactly); a stale-glob mixup while two launches interleaved. frz66
+(strict hold) is in fact ALIVE and healthy at that moment: 165 s in,
+941 flips climbing at 3.72 fps. The drop=609/1546 conviction stands
+on frz62 + frz65 (both v4 builds) only. Protocol fix: census greps
+must pin the exact log path, never `ls -t | head -1`, while another
+run is in flight. frz66 verdict deferred to its real exit; frz68
+(v4 + depth 2048) chained behind it.
