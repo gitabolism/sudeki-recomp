@@ -56,6 +56,13 @@ never progress.
    commit, never as its own eager commit. The README is co-authored:
    the user owns wording; draft, they review. Rule 7 (NO_PUSH) is harness
    law and lives here — the README never mentions the remote.
+10. **Docs stay lean; every fact has one home.** Rules/harness →
+    `AGENTS.md`, live state → `STATE.md`, stage history → `CHANGELOG.md`,
+    per-anomaly detail → `docs/notes/`. When something changes, update
+    its home only — no repo-wide sweeps echoing the same sentence or list
+    into other files (e.g. a renamed slash command is one line here, not
+    a STATE.md edit). If a paragraph adds nothing actionable for the next
+    session, it does not go in.
 
 ## Autonomy and the approval gate
 
@@ -119,7 +126,9 @@ agent — they get the same supply-chain treatment as code:
 
 ## Slash commands (the harness in OpenCode form)
 
-`.opencode/commands/`: `/resume` (session start), `/status`, `/run <args>`,
+`.opencode/commands/`: `/pickup` (session start — pick up where
+`/handoff` left off; `/resume` avoided because OpenCode has a built-in
+`/resume` = switch session), `/status`, `/run <args>`,
 `/cycle [focus]` (one full work loop), `/note [n] [slug]`, `/lift [seed]`
 (regenerate + rebuild), `/handoff` (session end), `/setup` (fresh machine).
 `opencode.jsonc` mechanically enforces the non-negotiables: `edit` denied on
