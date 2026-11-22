@@ -1,0 +1,22 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -576,8 +576,17 @@
+ static volatile LONG s_sw_latched;
+ 
+ /* Marks waiting for the trap register to free, FIFO, one service per
+- * DPC drain like the hardware's one trap-data register. */
+-#define SWM_PENDING_N 64
++ * DPC drain like the hardware's one trap-data register.
++ * Patch 0039 (note 0023, frz62/frz65 censuses): the queue was 64 deep
++ * and OVERFLOWED in the load era — drop=609 (frz62) / 1546 (frz65) —
++ * and the dropped marks include swap completions, which is exactly
++ * the signature of the terminal plateau (engine/D3D waits on the
++ * swap-slot event ctx+0x1DBC=0x2E2F4C never complete: sites
++ * 0x2D3497 credit gate, 0x1DE5EF engine). Every frozen census run has
++ * drop>>0; every healthy run drop=0. Deepen the queue so a busy
++ * service window cannot LOSE marks; losing is the defect, queueing
++ * is what hardware does (PGRAPH simply suspends the channel). */
++#define SWM_PENDING_N 2048
+ static volatile LONG s_sw_param[SWM_PENDING_N];
+ static volatile LONG s_sw_head, s_sw_tail;
+ 
