@@ -1,6 +1,6 @@
 --- a/src/kernel/nv2a_pb_exec.c
 +++ b/src/kernel/nv2a_pb_exec.c
-@@ -760,6 +760,26 @@
+@@ -760,6 +760,30 @@
      *trap = 0x00000100u;                /* method = NO_OPERATION */
      *tdat = param;                      /* dispatcher's argument */
      *pmc |= 0x00001000u;                /* PMC: PGRAPH asserted */
@@ -16,8 +16,12 @@
 +    {
 +        static int post = -1;
 +        if (post < 0) {
++            /* Opt-IN: boot-era arms with the post default-on froze at
++             * 19 (frz73), 0 (frz74) and 212 (frz75) flips — posting
++             * the line mid-walk delivers the guest ISR at points the
++             * boot swap chain was not built for. Kept as the probe. */
 +            const char *e = getenv("RECOMP_SWMARK_IRQPOST");
-+            post = !(e && e[0] == '0');
++            post = !!(e && e[0] == '1');
 +        }
 +        if (post) {
 +            extern int xbox_IrqPost(int);
