@@ -1571,3 +1571,23 @@ Defaults now: park OPT-IN, post OPT-IN, lifecycle default=strict but
 the healthy regime runs v4 via env. frz77 = MARATHON (frz66 regime
 + sparse nav feed every 60 s, 1500 s window): the artefact hunt —
 first presented level frame in reference/fb/frz77*.
+
+frz79 CORE at the 197-flip plateau (core_probe, v4 semantics, PF
+bit on; frz79.core + frz79_all.out):
+  threads: main IN sub_001DE5C0 (engine swap wait, INFINITE — the
+  census timeout=1 means timeout_ptr==NULL); task feeders parked in
+  sub_0026D664/sub_002C5AC0; ack thread YIELD.
+  guest objects: swap-slot event ctx+0x1DBC=0x2E2F4C header
+  0x00040000 SignalState=0, wait-list EMPTY (host-side waits via
+  ke_shadow); ring-free event ctx+0x1DCC=0x2E2F5C SignalState=1
+  SIGNALED, empty list. Mark machinery fully idle (latched=0,
+  queue empty head==tail=186). EVENT log: 200 sets of 4C from
+  0x2DB0BE ~= flips+3: completions flow 1:1 with executed swap
+  NOPs; the writer stopped writing NEW NOPs while the engine and
+  the credit gate (0x2D3497) wait INFINITE on the next completion.
+  => The terminal state is NOT event-loss: it is the D3D ring
+  WRITER no longer emitting swap NOPs even though the ring-free
+  event is signalled and the mark machinery idle. Next read:
+  sub_002D57D0's writer loop (credit gate + the ctx+0x1DC0/0x1DC4
+  slot bookkeeping at the snapshot: 0x00828000 word at ctx+0x1DB0)
+  and what condition it re-tests before writing swap N+1.
