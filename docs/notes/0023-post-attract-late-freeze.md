@@ -1538,3 +1538,14 @@ at the ISR exit (the hal's irq exit path already calls
 dpc_run_here). frz73 = strict+park+post; frz74 = v4+park+post.
 If the post lifts service to ~vblank rate, flips should track the
 engine's 30/s issue rate and the plateau era becomes navigable.
+
+frz72 (v4 + park, no post) FINAL: 203 flips, park=1627, consume=203
+(service still ~0.4/s) — park throttles to the service rate in BOTH
+lifecycles. frz73 (strict + park + 0043 post): boot-era death at 19
+flips (issue=0, gate calls=1): with strict hold the posted line
+never finds a safe point the walk will take, the words stay armed,
+the channel parks -> deadlock. Park (0042) is harmful in every arm
+tried so far (262/203/19); 0043's post is still untested WITHOUT
+park. Arms in flight: frz74 = v4+park+post (expect another small
+plateau), frz75 = v4 + POST + no park = the service-rate test
+against the frz66 baseline (7113 climbing, no post).
