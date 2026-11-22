@@ -887,7 +887,40 @@ title art). Verdict: 0034+0035 removed the load-era terminal freeze
 end-to-end; the remaining question is pure input FLOW: does a
 press-driven New Game (frz18-proven to the Buki card) now stream
 and PRESENT the level. frz42 = frz18 nav presses + sparse START
-every 12 s, 620 s — the Gameplay-artefact attempt. Our consume waits for
+every 12 s, 620 s — the Gameplay-artefact attempt.
+
+frz42 (nav + START-every-12s tail): the flow REACHED the Buki load
+— dumps 9-21 = "Loading..." card (99.6% black + text), buki.xwb/
+Buki_sfx/speech_buki open at log lines 4373-4496 — then dumps
+33-40 go 100% black, dumps 41-51 show 30-36k-colour frames which
+md5-visual check = ATTRACT MOVIE frames (`D:\movies\Sudeki Atttract
+Mode.bik` opened at line 29018), and a SECOND buki.xwb pass at line
+8706. Reading: the level load was ABORTED back to title/attract —
+prime suspect the START-spam tail (START = cancel/abort in load and
+dialog contexts; the same distortion class the 110 s dense feed
+caused in frz16). frz43 A/B (one variable): identical frz18-proven
+press sequence, ZERO presses after t=95 s. If the level then
+streams and presents, H30 was an artefact of the press tail, not
+the product.
+
+frz42/43 USB REGRESSION FOUND — the presses NEVER landed:
+frz40/41/42/43 logs contain ZERO `PAD:` lines and ZERO `[OHCI0]`
+bracket lines (frz16..frz33: "operational after 12220 ms"). The
+scripted pad only fires once the guest driver programs HcControl.
+Correlation: runs with RECOMP_TITLE_KEVENTS=1 (frz34,35,38-43) lose
+OHCI; the one KEVENTS=1 run WITH patches 0034 (frz37) got
+operational back. frz44 census (patch 0036 `RECOMP_KEWAIT_TRACE`,
+single+multi shadowed waits): at boot the ONLY shadowed waits are
+the two known swap-complete 4C waits (from 0x2D3497 D3D swap,
+0x1DE5EF engine) — no hand-built USB event blocks. Mechanism
+chosen by elimination: shadowed boot waits shift boot timing; the
+OHCI controller thread's deadline (1500 ticks ~12 s) expires
+SILENTLY before the title's HcControl run-write lands -> thread
+exits, pad dead, no diagnostic. Patch 0037: wait indefinitely by
+default, `RECOMP_OHCI_WAIT_S=<n>` restores a deadline, and the
+give-up is now LOUD. frz45 = full recipe + KEVENTS + 0037 +
+frz18 nav presses + START every 30 s tail — the pad-alive
+Gameplay-artefact attempt. Our consume waits for
 the next dpc_run_here (seconds); hardware's equivalent is the
 service write-back itself (instant).
 Patch 0035 (fix candidate, implemented): nv2a_pb_swmethod_service_

@@ -1,0 +1,58 @@
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -2095,6 +2095,39 @@
+         g_eax = 0;
+ }
+ 
++/* Census (note 0023, H29 follow-up): the shadowed waits themselves.
++ * With RECOMP_TITLE_KEVENTS=1 the XAPILIB USB stack never programs
++ * HcControl (frz34-43: zero [OHCI0] lines) — some hand-built event
++ * its chain waits on now blocks forever instead of spinning. This
++ * names every distinct (object, caller) pair that enters a shadowed
++ * wait, with the timeout, so the stalled chain is readable from the
++ * boot log. RECOMP_KEWAIT_TRACE=1. */
++static void recomp_kewait_census(uint32_t object, uint32_t timeout_ptr)
++{
++    static int on = -1;
++    static struct { uint32_t obj, from; } seen[256];
++    static int n, dropped;
++    uint32_t from = g_xbox_kernel_caller;
++    int i;
++
++    if (on < 0) on = getenv("RECOMP_KEWAIT_TRACE") ? 1 : 0;
++    if (!on)
++        return;
++    for (i = 0; i < n; i++)
++        if (seen[i].obj == object && seen[i].from == from)
++            return;
++    if (n < (int)(sizeof seen / sizeof seen[0])) {
++        uint32_t to = 1;
++        seen[n].obj = object; seen[n].from = from; n++;
++        if (timeout_ptr)
++            to = BRIDGE_MEM32(timeout_ptr);      /* -1 = INFINITE */
++        fprintf(stderr, "  [KEWAIT] obj=%08X from=%08X timeout=%d\n",
++                object, from, (int32_t)to);
++        fflush(stderr);
++    } else
++        dropped++;
++}
++
+ /* ── KeWaitForSingleObject (ordinal 159) ─────────────────── */
+ static void bridge_KeWaitForSingleObject(void)
+ {
+@@ -2111,6 +2144,7 @@
+         int type;
+         HANDLE ge = ke_guest_event_prepare(object, &type);
+         if (ge) {
++            recomp_kewait_census(object, timeout_ptr);
+             g_eax = (uint32_t)xbox_KeWaitForSingleObject(
+                 ge, wait_reason, wait_mode,
+                 (BOOLEAN)alertable, XBOX_TO_NATIVE(timeout_ptr));
+@@ -6350,6 +6384,7 @@
+         handles[i] = ke_guest_event_prepare(object, &event_types[i]);
+         if (handles[i]) {
+             guest_events[i] = object;
++            recomp_kewait_census(object, timeout_va);
+         } else {
+             handles[i] = ke_shadow_lookup(object);
+             if (!handles[i])

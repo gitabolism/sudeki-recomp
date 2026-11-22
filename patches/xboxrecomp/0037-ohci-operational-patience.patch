@@ -1,0 +1,31 @@
+--- a/src/usb/ohci.c
++++ b/src/usb/ohci.c
+@@ -1103,10 +1103,26 @@
+         enable  = hc->reg[HcInterruptEnable / 4];
+ 
+         /* Operational is HCFS == 10b in bits 7:6. Interrupting a controller
+-         * the driver has not started yet is not a test of anything. */
++         * the driver has not started yet is not a test of anything.
++         * Patch 0037 (note 0023): the old 1500-tick deadline (~12 s) gave up
++         * SILENTLY; with RECOMP_TITLE_KEVENTS=1 boot timing shifts and the
++         * title's HcControl run-write lands later, so the pad died with no
++         * diagnostic (frz34-43: zero [OHCI0] lines). Wait indefinitely by
++         * default now; RECOMP_OHCI_WAIT_S=<n> restores a deadline. */
+         if ((control & 0xC0u) != 0x80u) {
+-            if (++waited > 1500)              /* 30 s and it never started */
++            static int limit = -1;
++            if (limit < 0) {
++                const char *e = getenv("RECOMP_OHCI_WAIT_S");
++                limit = (e && *e) ? atoi(e) * 1000 / (int)OHCI_TICK_MS
++                                  : 0x7FFFFFFF;
++            }
++            if (++waited > (unsigned)limit) {   /* never started */
++                fprintf(stderr, "  [OHCI0] HcControl never reached "
++                                "operational (%u ms); giving up\n",
++                        waited * OHCI_TICK_MS);
++                fflush(stderr);
+                 break;
++            }
+             continue;
+         }
+         if (!(enable & INTR_MIE))
