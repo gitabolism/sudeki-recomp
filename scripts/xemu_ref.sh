@@ -42,7 +42,7 @@ timeout --signal=INT "$SECS" "$XEMU_BIN" \
 XPID=$!
 
 python3 - "$MON_PORT" "$OUT" "$TAG" "$SECS" <<'PYEOF'
-import socket, sys, time
+import socket, sys, time, json
 port, out, tag, secs = int(sys.argv[1]), sys.argv[2], sys.argv[3], int(sys.argv[4])
 s = None
 for _ in range(120):
@@ -54,21 +54,9 @@ for _ in range(120):
 if s is None:
     sys.exit("monitor never came up")
 
-def cmd(c):
-    s.sendall((c + "\n").encode())
-    time.sleep(0.5)
-    s.settimeout(1.0)
-    try:
-        return s.recv(65536)
-    except socket.timeout:
-        return b""
-
-import json
-print(cmd("info status").decode(errors="replace").strip())
-# xemu strips the HMP screendump; QMP still has it.
-s.settimeout(1.0)
-try: s.recv(65536)
-except socket.timeout: pass
+# QMP telnet is NOT an HMP console: the first line is the greeting JSON,
+# then qmp_capabilities, then commands only (the old `info status` HMP
+# line here desynced the socket — note 0019 follow-up fix).
 def qmp(obj):
     s.sendall((json.dumps(obj) + "\n").encode())
     time.sleep(0.5)
@@ -77,6 +65,11 @@ def qmp(obj):
         return s.recv(65536)
     except socket.timeout:
         return b""
+try:
+    s.settimeout(3.0)
+    print("greeting:", s.recv(65536).decode(errors="replace").strip()[:160])
+except socket.timeout:
+    pass
 print("qmp_caps:", qmp({"execute": "qmp_capabilities"}).decode(errors="replace").strip()[:200])
 t0 = time.time()
 for m in (5, 15, 30, 45, 60, 75):

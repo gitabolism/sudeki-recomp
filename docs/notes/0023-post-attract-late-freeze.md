@@ -1425,3 +1425,14 @@ Reframed plateau culprit (all frozen census runs share ONE number):
   channel). frz67 = v4 + depth 2048: expect drop=0; if the plateau
   still forms with drop=0, the drop hypothesis dies and the credit-
   gate/completion interplay (frz64's downstream signature) is next.
+
+frz66 final (strict hold, shallow queue) — plateau at 191 flips,
+and CRITICALLY drop=609 TOO (enq=142 > pop=74: strict hold never
+advances the queue, so it backs up and overflows the same way v4
+does). Both regimes overflow; the [GFAULT] drop lines name the
+victims: param=10500101 class=5 — the RING-FREE mark (patch 0030's
+class-5 NOP) dropped 3x outright. Queue depth is the common
+defect across regimes; frz68 = v4 + depth 2048 (in flight).
+xemu_ref.sh fixed while waiting: the QMP telnet socket was being
+spoken to with an HMP `info status` line (desync) — now greeting +
+qmp_capabilities only (note 0019 capture queue).
