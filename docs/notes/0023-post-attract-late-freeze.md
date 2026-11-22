@@ -903,6 +903,26 @@ press sequence, ZERO presses after t=95 s. If the level then
 streams and presents, H30 was an artefact of the press tail, not
 the product.
 
+frz45 (pad ALIVE — 0037 confirmed: `operational after 12220 ms`,
+PAD lines firing): New Game reached, buki era at log line 4149,
+steady 1.8 fps until t~217 s, then HARD plateau: flips frozen 4636
+while [PRES] issue climbs to 6265 (presents attempted, never
+completed); NO livelock (drop=0, seen_l==consume==9290, zero dedup
+runs), ring healthy at plateau. NEW suspect convicted by code
+audit: 0035 made done() run on GUEST threads (seen-edge consume)
+beside the ack thread and the walk, but the pending FIFO
+(head/tail/param) had NO lock — two concurrent pops can eat the
+same slot, and a lost swap-completion mark is exactly "flips stop,
+issues climb". 0035 v3: `s_swm_cs` INIT_ONCE-guarded critical
+section around enqueue and pop (same once-init pattern as patch
+0027). Patch-file hazard recorded: re-extracting 0035 from a tree
+that ALREADY contains later patches (0036) smuggles their hunks
+into 0035 and the series re-apply collides — bases must be the
+tree at pin+series(<N) per file (lesson: keep per-patch a/b
+snapshots, re-derive from those). frz47 = same recipe, locking
+fixed; if the plateau clears, flip-completion resumes and the
+level presents.
+
 frz42/43 USB REGRESSION FOUND — the presses NEVER landed:
 frz40/41/42/43 logs contain ZERO `PAD:` lines and ZERO `[OHCI0]`
 bracket lines (frz16..frz33: "operational after 12220 ms"). The

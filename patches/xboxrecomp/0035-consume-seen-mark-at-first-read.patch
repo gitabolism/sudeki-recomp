@@ -32,7 +32,63 @@
      } else {
          InterlockedIncrement(&s_seen_n);
      }
-@@ -714,7 +730,6 @@
+@@ -631,6 +647,34 @@
+     return on;
+ }
+ 
++/* Patch 0035 follow-through (note 0023): done() now runs on GUEST
++ * threads (the seen-edge consume) as well as the ack thread and the
++ * walk, so the pending FIFO (head/tail/param) and the latch/re-arm
++ * sequence have concurrent callers. Enqueue and pop take a lock; the
++ * word clears stay interlocked/idempotent. Without this, two acks
++ * can pop the same slot and a swap-completion mark vanishes —
++ * frz45's flip-frozen-while-issue-climbs plateau is the candidate. */
++static CRITICAL_SECTION s_swm_cs;
++static INIT_ONCE s_swm_cs_once = INIT_ONCE_STATIC_INIT;
++
++static BOOL CALLBACK swm_cs_init(PINIT_ONCE once, PVOID param, PVOID *ctx)
++{
++    (void)once; (void)param; (void)ctx;
++    InitializeCriticalSection(&s_swm_cs);
++    return TRUE;
++}
++
++static void swm_lock(void)
++{
++    InitOnceExecuteOnce(&s_swm_cs_once, swm_cs_init, NULL, NULL);
++    EnterCriticalSection(&s_swm_cs);
++}
++
++static void swm_unlock(void)
++{
++    LeaveCriticalSection(&s_swm_cs);
++}
++
+ static void nv2a_pb_swmethod_latch(uint32_t param)
+ {
+     volatile uint32_t *pmc  = xbox_Nv2aRegPtr(0x000100);
+@@ -655,8 +699,19 @@
+                                 "dropped\n", param);
+             return;
+         }
+-        s_sw_param[t] = param;
++        swm_lock();                     /* 0035 follow-through: multi-writer */
++        t = s_sw_tail; n = (t + 1) % SWM_PENDING_N;
++        if (n == s_sw_head) {
++            swm_unlock();
++            InterlockedIncrement(&s_lat_drop);
++            if (drops++ < 4)
++                fprintf(stderr, "  [GFAULT] pending queue full, param=%08X "
++                                "dropped\n", param);
++            return;
++        }
++        s_sw_param[t] = (LONG)param;
+         s_sw_tail = n;
++        swm_unlock();
+         InterlockedIncrement(&s_lat_enq);
+         return;
+     }
+@@ -714,7 +769,6 @@
  {
      volatile uint32_t *pmc, *intr;
      int was = (int)InterlockedExchange(&s_sw_latched, 0);
@@ -40,10 +96,22 @@
      if (was) {
          InterlockedIncrement(&s_ack_done);
          if (!InterlockedExchange(&s_sw_seen, 0)) {
-@@ -756,6 +771,34 @@
+@@ -747,6 +801,8 @@
+      * trapped NOP re-arrests PGRAPH on the console once its
+      * predecessor's service has cleared it. Runs even when nothing was
+      * latched now: queued marks would else never pop. */
++    swm_lock();                         /* 0035 follow-through: pop is now
++                                         * called from guest threads too */
+     if (s_sw_head != s_sw_tail) {
+         LONG t = s_sw_head;
+         uint32_t param = (uint32_t)s_sw_param[t];
+@@ -754,6 +810,35 @@
+         InterlockedIncrement(&s_lat_pop);
+         nv2a_pb_swmethod_latch(param);
      }
- }
- 
++    swm_unlock();
++}
++
 +/* Patch 0035 (note 0023, H29): consume a SERVICED mark at ack-pass rate.
 + * frz38 attribution: the guest's service chain entered with a mark
 + * latched 606,716 times while done() ran only 4,840 — dpc_run_here (the
@@ -70,12 +138,10 @@
 +{
 +    if (pb_consume_on() && s_sw_latched && s_sw_seen)
 +        nv2a_pb_swmethod_done();
-+}
-+
+ }
+ 
  /* Census (note 0021): the classes the title actually emits. The jump
-  * table of the guest's dispatcher (sub_002DB4A0) keys on param & 0x1F
-  * minus one; class 5 (table slot 4, target 0x2DB60E) is the ring-free
-@@ -824,10 +867,12 @@
+@@ -824,10 +909,12 @@
          }
      fprintf(stderr, "%s\n", any ? "" : " none");
      fprintf(stderr, "  [NOPSW] latch direct=%ld enq=%ld drop=%ld pop=%ld "
