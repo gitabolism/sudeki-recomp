@@ -1469,3 +1469,13 @@ identical pixels between consecutive dumps = a rich but NEARLY
 STATIC scene (rain-class delta only). Ambiguous title-vs-level;
 frz68 (one-owner + depth 2048, feed extended past the movie era)
 in flight — the decisive drop=0 test.
+
+frz66 TRUE final (killed at ~270 s): 7113 flips, 5.73 fps, STILL
+CLIMBING — no plateau inside the window at all. Strict one-owner
+lifecycle nearly doubled the previous deepest reach (3659 -> 7113)
+despite drop=1695. frz68 = same lifecycle + queue depth 2048
+(drop should reach 0): if it climbs clean, the H29/H30 wall is
+CLOSED and the first presented level frame is the next artefact.
+(Shell-hygiene lesson: never edit census_run.sh while a run is
+using it — the live bash re-reads it; frz66's tail threw
+syntax-error noise from my mid-run feed edit.)
