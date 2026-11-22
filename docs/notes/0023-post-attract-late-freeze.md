@@ -1549,3 +1549,9 @@ tried so far (262/203/19); 0043's post is still untested WITHOUT
 park. Arms in flight: frz74 = v4+park+post (expect another small
 plateau), frz75 = v4 + POST + no park = the service-rate test
 against the frz66 baseline (7113 climbing, no post).
+
+frz74 (v4 + park + post): 0 flips at 47 s, park=2 in boot — the
+suspension deadlocks even in v4 once the post changes the ack
+cadence. Killed early; 0042's default flipped to OPT-IN
+(RECOMP_PB_PARK=1) and the series re-extracted/verified. frz75 =
+v4 + post, park OFF (the frz66 baseline + 0043) is the live test.
