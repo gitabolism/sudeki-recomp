@@ -480,19 +480,29 @@ arr=0).
 
 ## Queue (next concrete actions)
 
-* **PRIORITY (4t): verify frz70** (v4-churn + queue-2048 + 0041
-  back-pressure, short feed, 600 s). Pass = the flip climb continues
-  past frz66's 7113 with drop/gate sane (`gate=` grows, drop=0) and
-  the engine feed stays alive through the load era; the artefact
-  hunt then = `reference/fb/frz70*` late dumps (fbpeek + pixel-delta
-  between consecutive dumps = animated level scene) = GAMEPLAY
-  stage artefact -> README stage row + CHANGELOG.
-* If frz70 plateaus anyway: next candidate = walk back-pressure
-  (park the dma walk at the trapped NOP until the mark is consumed)
-  instead of queueing marks at all — bigger surgery in
-  `nv2a_pb_scan.c`, note-before-fix in 0023.
-* A/B still open: strict one-owner (0040) vs v4 churn with 0041 in
-  place (`RECOMP_ARM_UNTIL_SEEN` default vs =0).
+* **PRIORITY (4u): frz87 marathon in flight** (v4 semantics,
+  0046b build, 1500 s window, sparse-pad off): if it climbs into
+  the deep era, the artefact = a presented level frame in
+  `reference/fb/frz87*` (fbpeek + inter-dump pixel delta) =
+  GAMEPLAY stage artefact -> README row + CHANGELOG. If it
+  plateaus like the rest (189..7113 luck band), stop knob-pushing
+  the mark layer.
+* The wall's honest current shape (frz79/82/83 cores + censuses):
+  the guest's swap-mark DISPATCH stops while the ring writer stays
+  alive; the completion path (loc_002DB0A0 spin -> KeSetEvent
+  esi+0x194 at 0x2DB0BE) gates on the PGRAPH NOTIFY source family
+  and the aperture shows half-consumed quartets (INTR=1 TRAP=0).
+  Any increment that makes the guest engage MORE in boot (0043
+  post, 0046-bit arm, 0042 park) deadlocks the boot swap chain —
+  the working set is a fragile equilibrium. Next analysis (static,
+  no new knobs): the pump dispatcher chain sub_002DB250 ->
+  sub_002DB4A0 -> sub_002DE557 and the 0x400700 busy word: find the
+  condition under which the DPC service loop clears TRAP without
+  dispatching, and what the completion path's event esi+0x194 is
+  per swap slot (dump ctx+0x190..0x1DC at plateau).
+* A/B inventory for later: RECOMP_SWMARK_INTR12/PF/IRQPOST/PB_PARK
+  all opt-in probes; RECOMP_ARM_UNTIL_SEEN=0 (v4) stays the working
+  regime; queue depth 2048 + 0046 idle-clear are default-on.
 * Then: confirm level-scene texture coverage on the presented frame
   (the "0 textured batches" census line).
 * xemu title/menu side-by-side capture (queued since 4m; note 0019

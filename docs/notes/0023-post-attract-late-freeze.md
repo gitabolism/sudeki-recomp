@@ -1621,3 +1621,15 @@ loc_002DB0A0 spin + KeSetEvent(esi+0x194) at 0x2DB0BE) gates on the
 whole family when nothing is latched (stale-mask housekeeping).
 frz85 = v4 + 0046 clean arm (PF off, post off) in flight; frz84
 (PF+post+0046) was killed as a variable-mix mistake before data.
+
+frz85 (0046 arm-ON) froze boot at 2 flips -> the NOTIFY-bit ARM is
+opt-in; the idle-mask clearing stays. frz86 (v4 + idle-clear only)
+plateaued at 1832 — inside the normal luck band (189..7113), no
+regression, kept as default. frz87 = 1500 s marathon on this build
+(hunt for a deep climb -> presented level frame artefact). The
+mark/interrupt layer has now had every knob turned (0038-0046):
+plateau depth is luck-dominated around ONE wall (guest swap-mark
+dispatch stops; completion path gates on the NOTIFY family; boot
+dies on any increment that engages the ISR path more). Stop
+knob-pushing; next move is static anatomy of the pump->dispatcher
+chain and the per-slot completion event (esi+0x194) at plateau.
