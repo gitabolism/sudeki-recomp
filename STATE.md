@@ -3,15 +3,19 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-21 (session 4h)
-**Stage:** LIFT complete, ENTRY strong. **Boot reaches the title's own
-intro/movie and produces the first GPU flips.** The 0x9E000 read-stop and
-post-decode stalls are fully explained (patch 0014 async-IO + measured
-seeds). With the host fence mirror + `RECOMP_VBLANK=1` + `RECOMP_PB_EXEC=1`
-the game flips at several Hz (640x480, surface `0x00828000`). Frames are
-solid black — the XDK programmable-vertex path's methods are unhandled by
-the toolkit FFP executor. New wall = GPU draw-method coverage (note 0011
-post-script 5).
+**Last updated:** 2026-11-21 (session 4i)
+**Stage:** LIFT complete, ENTRY strong. **Boot now runs past the intro
+movies into the first playable-level streaming** (`SOLWORLDM.gex`,
+`z:\wavebanks\*`, `BS_brightwater.xwb`, `missiles.xsb`). Two walls:
+(i) GPU draw coverage — executor skips all vertex-program batches, so
+menu/game frames stay black and flips stop after the movies; (ii) an
+**audio-engine init gap** (note 0017 outcome): one wavebank stream submit
+runs on a voice object with an uninitialized child slot, so a 0x6168-byte
+packet copy lands at guest 0x818 — trampling the exception page and the
+runtime TIB page (this, not "TLS lifetime", was the 4i crash), and the
+surviving crash `sub_000B08F0+0xDFB2` writes through a garbage pointer
+(`esi=0x89D8458B`) in the same subsystem. Flip-completion semantics now
+solved by the settle chain (patch 0017 + `main.c` registration).
 
 ## Where things are verified
 
@@ -27,33 +31,86 @@ post-script 5).
   `RECOMP_CONTIG_ALIAS=1` aperture probe (default off), `0008` `[READ]
   buf=` VA, `0009` `RECOMP_IO_WRITE_DUMP` content dump, `0010` `[READ]
   sz=/path=`, `0011` `[QINFO]` size-query trace, `0012`/`0013`
-  `RECOMP_WATCH` arm fixes (errno, multi-page window), **`0014` async-IO
-  return convention = the boot-archive fix**. Table in THIRD_PARTY.md.
+  `RECOMP_WATCH` arm fixes (errno, multi-page window), `0014` async-IO
+  return convention = the boot-archive fix, `0015` event create/wait/set
+  caller trace, `0016` `0x1D70` honor-`0x1D6C`-offset fallback +
+  `RECOMP_SEM_TRACE`, **`0017` flip-done settle chain**
+  (`nv2a_pb_set_flip_done_chain`, ack-tick clear at DMA_GET==DMA_PUT),
+  `0018` watch arming below `XBOX_BASE_ADDRESS`, `0019` watch
+  guest-stack + host-rip attribution, `0020` watch TF single-step re-arm
+  + `RECOMP_WATCH_PANIC`. Table in THIRD_PARTY.md.
   Manual overrides: `--exclude-manual src/recomp_manual.c` now wired into
-  `scripts/pipeline.sh`; first wrapper = `sub_00022340` (stream refill) +
-  `RECOMP_REFILL_TRACE=1`; gen tree emits the body as `sub_00022340_gen`,
-  stubs still 432.
+  `scripts/pipeline.sh`; wrappers = `sub_00022340` (stream refill),
+  `sub_0026C79D` (error-slot setter + TLS guard), `sub_00021CD0/
+  sub_000220E0` (posters), `sub_0028EA91`/`sub_002854B3` (audio census);
+  gen tree emits bodies as `*_gen`, stubs still 432.
 - XBE: pinned SHA-256 ✔. Gen tree regenerated session 4g with
   `--exclude-manual` (one body renamed `sub_00022340_gen`; 432 stubs).
 - Skills: five pinned, digest gate green.
 
 ## Last run
 
-Session 4h: `env RECOMP_VBLANK=1 RECOMP_PB_EXEC=1 RECOMP_PB_SCAN=1
-RECOMP_FB_WINDOW=1 RECOMP_FB_DUMP=reference/fb/frame
-RECOMP_FB_WINDOW_DUMP_EVERY=60 RECOMP_KERNEL_LOG_BUDGET=200
-./build/sudeki` (fence mirror compiled into `src/main.c`) →
-`logs/run-exec1-195554.out`: **PROGRESS** — game boots past the boot
-archive, decodes `startup.baf`, opens `D:\movies\MS Game Studios
-Logo-final.bik`, and **flips**: 7 frame dumps (`reference/fb/*.bmp`,
-gitignored), 640x480, surface `0x00828000` pitch 2560, 234 clears,
-several flips/s. All frames solid black: 8716 unhandled methods across
-150 distinct (NV2A programmable-vertex path). `DECODE-EXACT` still holds.
-Recipe that unblocked the post-decode wall:
-`xbox_Nv2aMirrorFence(0x2E3638,0x2C,0x30)` (compiled) **+ VBLANK=1 +
-PB_EXEC=1**. Default env (no PB_EXEC) still HANGS at `sub_002D3CC0`
-waiting `ctx+0x8700→0` (the flip semaphore the inert executor never
-writes).
+Session 4i (later cycles): audio-wall anatomy via manual wrappers —
+`env RECOMP_VBLANK=1 RECOMP_PB_EXEC=1 RECOMP_PB_WALK=dma
+RECOMP_KERNEL_LOG_BUDGET=0 RECOMP_DS_COPY=1 RECOMP_DS_VOICE=1
+./build/sudeki` → `logs/run-dsvoice-212823.out`: one `[DS-VOICE!]
+this=029A00F4 slot14=00000000 ret=00285689` then one `[DS-COPY!]
+this=0 … off=00000818 dst=00000818 src=027F3698 ret=002893C0` —
+the wavebank chunk (0x6168 B, from `buf=0x027F2E80 want=24936` read)
+copies onto guest 0x818..0x6978 → TIB page zeroed → guarded TLSSET
+(`torn-down TLS` fires once) → surviving crash moves to
+`sub_000B08F0+0xDFB2` writing through `esi=0x89D8458B` during
+`spot_sounds.xwb`/`UISoundScript.xsb` phase. Note 0017 outcome filled
+in; the TLS-lifetime reading is falsified.
+
+Earlier 4i: `env RECOMP_VBLANK=1 RECOMP_PB_EXEC=1 RECOMP_PB_WALK=dma
+RECOMP_KERNEL_LOG_BUDGET=0 ./build/sudeki` (settle chain registered in
+`src/main.c`, TLS guard in `src/recomp_manual.c`) →
+`logs/run-tlsguard-204217.out`: **PROGRESS** — movies play (331 flips),
+then the title streams first-level assets: `SOLWORLDM.gex`,
+`z:\wavebanks\BS_brightwater/Elco_weapons/S_missile.xwb`,
+`D:\sound\missiles.xsb`, second `badger.plap` pass. No crash (TLS guard
+fired once: `[TLSSET] torn-down TLS (fs=00004000 arr=00000000) — store
+skipped`). State at 120 s: main active in `sub_0011D460` (allocator
+scan; PC advances between cores = progress, not spin), NV2A USER
+PUT==GET (`0x000B9018`), vblank DPC re-inserts ~48/s (ICALL
+`FE0001A0` = `KeInsertQueueDpc` slot), **no flips after the movies**
+(menu draws are all vertex-program batches → skipped), zero
+`NtDeviceIoControlFile` (pad device never opened yet).
+`DECODE-EXACT` still holds.
+
+Earlier 4i runs: `logs/run-fd1-202904.out` (first crash site, TLS
+fault), `logs/run-walk1-*.out`/`run-sem1-3` (fence/KickOff/semaphore
+anatomy), `logs/run-watch4k2-203539.out` (4-byte watch on 0x4004 via
+patch 0018), `logs/run-tls1-203840.out` (461 healthy TLSSET then
+arr=0).
+
+## Solved this session (4i; notes 0016, 0017)
+
+1. **Post-movie Present/ring-rearm wait** (`sub_002D3CC0` spinning on
+   `[ctx+0x8700]==1`, ctx=`*([0x2E3638]+0x934)`=0xFD000000, stable
+   across cores): the GPU ring-conpletion word. Patch 0017 =
+   `nv2a_pb_set_flip_done_chain` + ack-tick clear when DMA_GET==DMA_PUT
+   (measured chain, registered in `main.c`) → level streaming reached.
+   The `0x1D70` releases are ring counters whose target resolves via
+   the DMA instance (`0x1D6C` programs offset 0), so the
+   honor-the-offset fallback (patch 0016) never fires; kept as trace.
+2. **TLS teardown crash** at `sub_0026C79D` (XDK error-slot setter,
+   `slot=[[fs:4]+(-37)*4`, tls_index@0x376620=0xFFFFFFDB): after a
+   thread's TLS teardown the TIB array word holds poison (0 /
+   0xC0000000) yet guest code still runs with that `g_fs_base`.
+   Toolkit thread-lifecycle gap (note 0017); probe guard in the manual
+   wrapper skips the store (`RECOMP_TLS_GUARD` default on,
+   `RECOMP_TLS_TRACE=1` census).
+   **CORRECTED later same session (note 0017 outcome):** no thread
+   teardown involved — a DSOUND/XACT packet copy with `this=NULL`
+   (voice child slot +0x14 never initialized) writes a 24 KB wavebank
+   chunk to guest 0x818, zeroing the TIB page as a side effect. Guard
+   kept as insurance; real wall = audio init gap (H21).
+3. Tools: `RECOMP_WATCH` arms below `XBOX_BASE_ADDRESS` (patch 0018);
+   4-byte watch caught `fs:[4]` init (`00770094→00F80094` =
+   `bridge_layout_tls`) and the teardown zero; TLSSET wrapper census;
+   `RECOMP_PB_WALK=dma` is part of the working GPU recipe.
 
 ## Solved this session (session 4h, note 0011 post-scripts 3-5)
 
@@ -193,26 +250,46 @@ writes).
    is the movie player, not a lock regression.
 4. **H9 (FATX mount/geometry)** still queued, likely moot now (file
    opens past the boot archive all succeed).
+5. **H21 (primary boot wall now — audio init gap, note 0017 outcome):**
+   the single poisoned submit is `sub_002854B3(this=0x029A00F4)` whose
+   `+0x14` child slot was never initialized; the copy helper then lands
+   24 KB of wavebank data at guest 0x818. Next: find who *creates* the
+   0x29A00F4 voice object and which earlier Create/init failed under our
+   answers (watch the object header's writes at creation; check
+   `sub_00286BFB`'s wrapper result values / `sub_002885AE` pool alloc
+   returns).
+6. **H22 (same subsystem):** surviving crash `sub_000B08F0+0xDFB2`
+   (`mov [esi+…],edx` with `esi=0x89D8458B`) — garbage pointer in
+   contiguous-window space; likely a poisoned game audio structure
+   upstream of H21. Expect H21's fix to move or clear it.
 
 ## Queue (next concrete actions)
 
-1. **Unhandled-method inventory:** enable the executor's unhandled table
-   (already counting: 150 distinct) and dump method+count+last_param;
-   cross-reference `nv2a_regs.h`. Identify the minimal set the intro
-   movie/Bink blit needs (image blit vs triangle path).
-2. Decide where method coverage lands: it is host NV2A work in the
+1. **H21 next step:** wrap `sub_00286BFB` (the public commit wrapper) and
+   `sub_002885AE` (DSOUND pool alloc, thiscall) to log args + eax results;
+   find which earlier call should have stored the voice child into
+   `[0x29A00F4+0x14]` (creation-time write watch on `0x29A0108` didn't
+   fire — the object's arena addressing is racy between runs; prefer
+   wrapper logs over address watches here).
+2. **Unhandled-method inventory (GPU wall):** enable the executor's
+   unhandled table (already counting: 150 distinct) and dump
+   method+count+last_param; cross-reference `nv2a_regs.h`. Identify the
+   minimal set the intro movie/Bink blit needs (image blit vs triangle
+   path).
+3. Decide where method coverage lands: it is host NV2A work in the
    toolkit (`nv2a_pb_exec.c`) — a **new subsystem the brief didn't
    contemplate** → architectural gate (see Blockers). Do NOT hand-edit
    gen/; any fix is executor-side.
-3. Keep the frame-dump recipe as the Menu-stage artefact once draws
+4. Keep the frame-dump recipe as the Menu-stage artefact once draws
    land: `RECOMP_PB_EXEC=1 RECOMP_VBLANK=1 RECOMP_FB_WINDOW=1
    RECOMP_FB_DUMP=reference/fb/frame`; side-by-side needs an xemu
    reference of the same intro moment (blocked on xemu geometry —
    Blockers).
-4. Seeds file `logs/seeds-icall-0011C640.json` is gitignored (analysis
-   artefact). The three measured seed VAs are recorded in note 0011 so
+5. Seeds file `logs/seeds-icall-0011C640.json` is gitignored (analysis
+   artefact). The measured seed VAs (now seven: `0011C640 01E330 0273EEF
+   0550A0 0FD7D0 135AA0 092010`) are recorded in notes 0011/0017 so
    `pipeline.sh --seed` stays reproducible without committing them.
-5. Cleanup between runs: `rm -f ~/.local/share/xboxrecomp/Cache/*`.
+6. Cleanup between runs: `rm -rf ~/.local/share/xboxrecomp/Cache/*`.
 
 ## Blockers / open questions
 
@@ -240,11 +317,15 @@ writes).
   `RECOMP_IO_WRITE_CSV=<path>`, `RECOMP_EVENT_LOG=1`, `RECOMP_FSCTL_OK=1`,
   `RECOMP_CACHE_CAP_BYTES=<n>`, `RECOMP_CONTIG_ALIAS=1`,
   `RECOMP_WATCH=<guest-va>` + `RECOMP_WATCH_RAW=1`,
+  `RECOMP_WATCH_LEN`/`RECOMP_WATCH_PANIC` (patches 0013/0018/0020),
   `RECOMP_KERNEL_LOG_BUDGET`, `RECOMP_WATCHDOG_SECS`;
   **session-4h set that reaches flips:** `RECOMP_PB_EXEC=1
   RECOMP_VBLANK=1 RECOMP_FB_WINDOW=1 RECOMP_FB_DUMP=reference/fb/frame
   RECOMP_FB_WINDOW_DUMP_EVERY=60`; `RECOMP_POST_TRACE=1` (poster
-  wrappers), `RECOMP_REFILL_TRACE=1` (refill wrapper). Seeds file for
+  wrappers), `RECOMP_REFILL_TRACE=1` (refill wrapper), `RECOMP_TLS_TRACE=1`
+  / `RECOMP_TLS_GUARD` (error-slot setter), `RECOMP_DS_COPY=1`
+  (`sub_0028EA91` packet-copy census, `!` lines always logged),
+  `RECOMP_DS_VOICE=1` (`sub_002854B3` voice-state census). Seeds file for
   pipeline `--seed` lives at `logs/seeds-icall-0011C640.json` (local).
 - OpenCode layer: `opencode.jsonc` + commands `/resume /status /run /cycle
   /note /lift /handoff /setup`; skills under `.opencode/skills/` (pinned).
@@ -264,3 +345,4 @@ writes).
 | 2026-11-21 s4f | **boot archive decoded end-to-end (note 0010)**: padded-size diagnostic (+0x8000, reverted) → `Z:\boot.baf` = 1,820,672 B byte-exact vs golden, no flood/crash; wall = game's byte accounting starves reads exactly one 0x8000 segment (phantom refill charge) under our+xemu kernel answers; QINFO patch 0011 (size answers correct), watch fixes 0012/0013, core final-state recipe (`obj = esp+0x78`), tool `--eof/--tokens`, xemu-HDD H13b dead, cap-off run proves no natural termination (4.1 GB/45 s); next: events 0x48000001/04/06 unsignalled post-decode | (this commit) |
 | 2026-11-21 s4g | **THE phantom 0x8000 solved (note 0011): patch 0014 async-IO PENDING default = upstream-correct return convention on async handles → decode completes byte-exact with default env on disc-exact boot.baf (22 reads, 1.8 MB cache, HANG not CRASH)**; manual-override contract wired (`--exclude-manual` + `sub_00022340` wrapper + REFILL_TRACE); refill/init double-charge proven; patch 0015 event create/wait/set caller trace; SIGABRT-core thread-map recipe; post-decode wall reframed = 3-way event deadlock (worker pump {7,1}, worker B polls 4, main INFINITE on its own-consumed 2) | `7faa86f` |
 | 2026-11-21 s4h | **Boot reaches the title intro + first GPU flips (note 0011 post-scripts 3-5):** post-decode "deadlock" was an unresolved task-completion ICALL `0x0011C640` (measured seed; siblings 1E330/273EEF same cause) → token 4 set → main proceeds; XGRAPHCL flip-pending `ctx+0x8700` solved by `RECOMP_PB_EXEC=1`+`RECOMP_VBLANK=1`+ host `xbox_Nv2aMirrorFence(0x2E3638,0x2C,0x30)` in `src/main.c`; opens `MS Game Studios Logo-final.bik`; 7 frame dumps (black) = first framebuffer artefacts; poster wrappers + RECOMP_POST_TRACE; new wall = NV2A draw-method coverage (150 distinct unhandled) | (this commit) |
+| 2026-11-21 s4i | **level streaming reached + audio wall root-caused (notes 0016/0017)**: flip-done settle chain (patch 0017 + `main.c` chain `0x2E3638→+0x934→ctx+0x8700`) clears post-movie wait → `SOLWORLDM.gex`/wavebanks/`BS_brightwater.xwb` stream; 4 measured seeds more (`0550A0 0FD7D0 135AA0 092010`) lift remaining boot ICALL misses; the "TLS teardown poison" crash **falsified and root-caused**: DSOUND voice `sub_002854B3(this=029A00F4)` slot +0x14=0 → `sub_0028EA91` 24 KB wavebank copy to guest 0x818 tramples exception page + TIB page; TLS guard kept, audio census wrappers (`RECOMP_DS_COPY/DS_VOICE`, `!`=impossible-address auto-log); watch upgraded (guest-stack chain 0019, TF single-step + panic core 0020); surviving crash = `sub_000B08F0+0xDFB2` wild write `esi=0x89D8458B` (same audio subsystem, H22) | (this commit) |

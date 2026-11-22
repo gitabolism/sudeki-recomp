@@ -281,6 +281,13 @@ int main(int argc, char **argv)
     if (xbox_Nv2aMirrorFence(0x002E3638u, 0x2Cu, 0x30u) != 0)
         fprintf(stderr, "[BOOT] NV2A fence mirror registration FAILED\n");
 
+    /* Patch 0017 (note 0016): D3D8LTCG's Present/ring-rearm wait word,
+     * *( *(0x002E3638) + 0x934 ) + 0x8700  — observed 0xFD008700, stable
+     * across three cores. The submit stores 1; the GPU clears it when the
+     * ring is drained; the ack tick now performs that clear. */
+    extern void nv2a_pb_set_flip_done_chain(unsigned, unsigned, unsigned);
+    nv2a_pb_set_flip_done_chain(0x002E3638u, 0x934u, 0x8700u);
+
     /* Step 3: Bring up the emulated APU, gated on the same variable that
      * unmaps its registers for trapping. */
     if (getenv("RECOMP_AC97_READY")) {

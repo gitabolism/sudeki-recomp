@@ -113,6 +113,56 @@ static int refill_trace_enabled(void)
     return cached;
 }
 
+extern void sub_0026C79D_gen(void);
+
+void sub_0026C79D(void)
+{
+    /* note 0017 probe (RECOMP_TLS_TRACE=1): the XDK error-slot setter.
+     * It computes the slot as [[fs:4] + tls_index*4] + 8 with the image's
+     * tls_index (0x376620) negative; a corrupt fs:[4] on some thread made
+     * the deref fault at 0xFFFFFF6C. Log the whole chain per call. */
+    static int on = -1;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_TLS_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    {
+        extern __thread uint32_t g_fs_base;
+        uint32_t fsb = g_fs_base;
+        uint32_t arr = MEM32(fsb + 4);
+        uint32_t idx = MEM32(0x376620);
+        uint32_t slot = arr + idx * 4u;
+        /* note 0017 probe: after a thread's TLS teardown the array word
+         * holds poison (0 or 0xC0000000); the SetLastError-class store has
+         * nothing valid to land in, and the dereference faults the whole
+         * process. Skip the store, keep the run alive to the next gap.
+         * RECOMP_TLS_GUARD=0 disables; RECOMP_TLS_TRACE=1 logs every call. */
+        static int guard = -1, trace = -1;
+        if (guard < 0) {
+            const char *e = getenv("RECOMP_TLS_GUARD");
+            guard = (e && *e && *e == '0') ? 0 : 1;
+        }
+        if (trace < 0) {
+            const char *e = getenv("RECOMP_TLS_TRACE");
+            trace = (e && *e && *e != '0') ? 1 : 0;
+        }
+        if (trace) {
+            fprintf(stderr, "[TLSSET] fs=%08X arr=%08X idx=%08X slot=%08X arg=%08X\n",
+                    fsb, arr, idx, slot, MEM32(g_esp + 4));
+            fflush(stderr);
+        }
+        if (guard && (!arr || arr >= 0xC0000000u)) {
+            static int warned;
+            if (!warned++)
+                fprintf(stderr, "[TLSSET] torn-down TLS (fs=%08X arr=%08X) — "
+                                "store skipped (note 0017; further ones silent)\n",
+                        fsb, arr);
+            return;
+        }
+    }
+    sub_0026C79D_gen();
+}
+
 void sub_00022340(void)
 {
     if (!refill_trace_enabled()) {
@@ -307,4 +357,65 @@ void recomp_unimpl(const char *text, uint32_t va)
         fflush(stderr);
     }
     if (stop) abort();
+}
+
+/* ── DSOUND packet-copy helper (note 0017) ───────────────────
+ * sub_0028EA91(this, off, src): memcpy to *[[this+8]+0x10] + off from src.
+ * The wavebank stream pump writes through that mailbox base; in this run the
+ * base landed on our TIB page (0x4000) and the resulting stores are what the
+ * error-slot setter later faulted on. RECOMP_DS_COPY=1 logs every call's
+ * chain; calls whose computed dst is below the image load address are always
+ * logged (that can never be a legitimate commit ring). */
+extern void sub_0028EA91_gen(void);
+
+void sub_0028EA91(void)
+{
+    extern __thread uint32_t g_ecx, g_esp;
+    static int on = -1, budget = 300;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_DS_COPY");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t self = g_ecx;
+    uint32_t parent = MEM32(self + 8);
+    uint32_t m = parent ? MEM32(parent + 0x10) : 0;
+    uint32_t base = m ? MEM32(m) : 0;
+    uint32_t arg1 = MEM32(g_esp + 4);
+    uint32_t arg2 = MEM32(g_esp + 8);
+    uint32_t dst = base + arg1;
+    int bad = dst < 0x00010000u;
+    if ((on && budget > 0 && !bad) || (bad && budget > 0)) {
+        budget--;
+        fprintf(stderr, "[DS-COPY%s] this=%08X parent=%08X M=%08X *M=%08X "
+                        "off=%08X dst=%08X src=%08X ret=%08X\n",
+                bad ? "!" : "", self, parent, m, base, arg1, dst, arg2,
+                MEM32(g_esp));
+        fflush(stderr);
+    }
+    sub_0028EA91_gen();
+}
+
+/* sub_002854B3(this): the voice-state setter; ecx=this, and it calls the
+ * packet-copy chain with the object stored at [this+0x14]. note 0017: that
+ * slot was 0 and the copy ran with this=NULL. RECOMP_DS_VOICE=1 logs every
+ * call's this and slot. */
+extern void sub_002854B3_gen(void);
+
+void sub_002854B3(void)
+{
+    extern __thread uint32_t g_ecx, g_esp;
+    static int on = -1, budget = 200;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_DS_VOICE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t self = g_ecx;
+    if (on && budget > 0) {
+        budget--;
+        fprintf(stderr, "[DS-VOICE%s] this=%08X slot14=%08X ret=%08X\n",
+                (self && MEM32(self + 0x14)) ? "" : "!",
+                self, self ? MEM32(self + 0x14) : 0, MEM32(g_esp));
+        fflush(stderr);
+    }
+    sub_002854B3_gen();
 }

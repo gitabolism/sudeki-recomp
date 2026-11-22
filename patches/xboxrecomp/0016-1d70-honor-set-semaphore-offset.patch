@@ -1,0 +1,34 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -4197,6 +4197,31 @@
+         *(volatile uint32_t *)(mem + s_sem_va) = param;
+         return;
+     }
++    /* Patch 0016 (note 0016): with no project-registered target, honor the
++     * word the title itself programmed — the last SET_SEMAPHORE_OFFSET
++     * (0x1D6C) value sitting in the register mirror. Sudeki's statically
++     * linked D3D8LTCG programs 0x1D6C once per kick pattern and releases
++     * 0x1D70 per kick; dropping the releases parks the guest forever in
++     * its flip-present wait (sub_002D3CC0, spinning on ctx+0x8700). The
++     * X-Men Legends junk offset the comment above warns about is guarded
++     * out: page-aligned and inside the RAM aperture only. */
++    if (getenv("RECOMP_SEM_TRACE") != 0 && subch == 0 && method == 0x1D6C)
++        fprintf(stderr, "  [SEM] SET_SEMAPHORE_OFFSET -> 0x%08X\n", param);
++    if (subch == 0 && method == 0x1D70) {
++        uint32_t off = s_reg[0x1D6C / 4];
++        static int shown;
++        if (!(off & 0xFFF) && off && off < 0xC0000000u) {
++            uint8_t *mem = (uint8_t *)xbox_GetMemoryOffset();
++            if (getenv("RECOMP_SEM_TRACE") != 0 && shown++ < 8)
++                fprintf(stderr, "  [SEM] release tgt=0x%08X value=0x%08X\n",
++                        off, param);
++            *(volatile uint32_t *)(mem + off) = param;
++            return;
++        }
++        if (getenv("RECOMP_SEM_TRACE") != 0 && shown++ < 8)
++            fprintf(stderr, "  [SEM] release REJECTED off=0x%08X value=0x%08X\n",
++                    off, param);
++    }
+     if (!s_exec_inited) {
+         s_exec_inited = 1;
+         s_gpu.aa_sx = s_gpu.aa_sy = 1.0f;

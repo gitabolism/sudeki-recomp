@@ -1,0 +1,15 @@
+--- a/src/kernel/xbox_memory_layout.c
++++ b/src/kernel/xbox_memory_layout.c
+@@ -1940,6 +1940,12 @@
+ {
+     struct { const void *mapped; uint32_t base; uint64_t size; } win[] = {
+         { g_memory_base,   XBOX_BASE_ADDRESS, (uint64_t)g_memory_size },
++        /* Patch 0018: when the RAM map starts below XBOX_BASE_ADDRESS (it
++         * does whenever XBOX_MAP_START is 0), the low pages — the fake TIB
++         * at 0x4000 among them — are mapped too, and a watch there was
++         * refused as "not in a mapped window" while it plainly was. */
++        { g_memory_base,   XBOX_MAP_START,
++          (uint64_t)(XBOX_BASE_ADDRESS - XBOX_MAP_START) },
+         { g_contig_memory, XBOX_CONTIG_BASE,  XBOX_CONTIG_SIZE },
+         { g_nv2a_memory,   XBOX_NV2A_BASE,    XBOX_NV2A_SIZE },
+         { g_mcpx_memory,   XBOX_MCPX_BASE,    XBOX_MCPX_SIZE },

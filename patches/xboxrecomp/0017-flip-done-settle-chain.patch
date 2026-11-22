@@ -1,0 +1,68 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -383,6 +383,41 @@
+ static uint32_t s_sem_va;
+ void nv2a_pb_set_semaphore_target(uint32_t guest_va) { s_sem_va = guest_va; }
+ 
++/* Patch 0017 (note 0016): the title's Present flip-pending flag, reached
++ * through a pointer chain instead of a pushed semaphore. D3D8LTCG's
++ * submit stores 1 in *(*(dev_ptr_va) + off1) + off2 and spins until the
++ * GPU clears it when the flip completes; the executor clears it at its
++ * own flip (FLIP_INCREMENT_WRITE), the same trade the fence mirror made
++ * for the ring drain. Chain offsets are measured per title. */
++static uint32_t s_flipdone_ptr, s_flipdone_off1, s_flipdone_off2;
++void nv2a_pb_set_flip_done_chain(uint32_t dev_ptr_va, uint32_t off1,
++                                 uint32_t off2)
++{
++    s_flipdone_ptr = dev_ptr_va;
++    s_flipdone_off1 = off1;
++    s_flipdone_off2 = off2;
++}
++
++/* Patch 0017: called from the ack tick when DMA_GET has caught DMA_PUT —
++ * the GPU (us) consumed everything, which is the moment hardware clears
++ * the word. */
++void nv2a_pb_idle_clear_flip_done(void)
++{
++    uint8_t *mem;
++    uint32_t dev, ctx;
++
++    if (!s_flipdone_ptr)
++        return;
++    mem = (uint8_t *)xbox_GetMemoryOffset();
++    dev = *(volatile uint32_t *)(mem + s_flipdone_ptr);
++    if (!dev)
++        return;
++    ctx = *(volatile uint32_t *)(mem + dev + s_flipdone_off1);
++    if (!ctx)
++        return;
++    *(volatile uint32_t *)(mem + ctx + s_flipdone_off2) = 0;
++}
++
+ /* Unhandled methods, ranked. The interesting output is not that something was
+  * skipped but which things dominate, because that is the order to implement
+  * them in. */
+--- a/src/kernel/xbox_memory_layout.c
++++ b/src/kernel/xbox_memory_layout.c
+@@ -1517,6 +1517,21 @@
+          * The advance now happens after the scan, further down, which is
+          * also the only ordering that gives the title real back-pressure. */
+         fence_mirrors_tick();
++        /* Patch 0017 (note 0016): the title's ring/Present settle word.
++         * D3D8LTCG stores 1 in a word reached through a pointer chain
++         * (registered host-side via nv2a_pb_set_flip_done_chain) and
++         * waits for the GPU to clear it once everything submitted has
++         * been consumed. When our DMA_GET matches DMA_PUT, that moment
++         * has arrived; hardware would be raising the write back then. */
++        {
++            extern void nv2a_pb_idle_clear_flip_done(void);
++            uint32_t put_v = *(volatile uint32_t *)
++                             ((char *)regs + NV2A_USER_DMA_PUT);
++            uint32_t get_v = *(volatile uint32_t *)
++                             ((char *)regs + NV2A_USER_DMA_GET);
++            if ((put_v & 0x0FFFFFFFu) == (get_v & 0x0FFFFFFFu))
++                nv2a_pb_idle_clear_flip_done();
++        }
+         dsp_ack_tick();
+         poke_tick();
+         counter_mirrors_tick();

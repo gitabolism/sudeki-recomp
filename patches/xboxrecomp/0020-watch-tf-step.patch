@@ -1,0 +1,130 @@
+--- a/src/kernel/xbox_memory_layout.c
++++ b/src/kernel/xbox_memory_layout.c
+@@ -2099,7 +2099,8 @@
+ static uintptr_t g_watch_hpage, g_watch_hsize;   /* host page (16 KB on arm64 Darwin) */
+ static uint32_t g_watch_snap[4096];
+ static volatile int g_watch_open;     /* page is RW, re-protect pending */
+-static struct sigaction g_watch_prev_bus, g_watch_prev_segv;
++static int g_watch_panic, g_watch_hits;
++static struct sigaction g_watch_prev_bus, g_watch_prev_segv, g_watch_prev_trap;
+ 
+ static void watch_sym(void *pc, const char *tag, int n)
+ {
+@@ -2155,7 +2156,20 @@
+      * guest's own stack holds the truth: values in the image's code range are
+      * the guest call chain (each is directly sub_%08X in the gen tree). */
+     extern uint32_t g_xbox_code_lo, g_xbox_code_hi;
+-    (void)ucv;
++    ucontext_t *uc0 = (ucontext_t *)ucv;
++    Dl_info di0;
++    if (uc0) {
++        uintptr_t rip0 = (uintptr_t)uc0->uc_mcontext.gregs[REG_RIP];
++        if (dladdr((void *)rip0, &di0) && di0.dli_sname)
++            fprintf(stderr, "         host rip=%p <%s>+0x%lx (nearest)\n",
++                    (void *)rip0, di0.dli_sname,
++                    (unsigned long)(rip0 - (uintptr_t)di0.dli_saddr));
++        else if (di0.dli_fbase)
++            fprintf(stderr, "         host rip=%p exe+0x%lx file=%s\n",
++                    (void *)rip0,
++                    (unsigned long)(rip0 - (uintptr_t)di0.dli_fbase),
++                    di0.dli_fname ? di0.dli_fname : "?");
++    }
+     if (g_esp && g_memory_offset) {
+         const uint32_t *sp = (const uint32_t *)((uintptr_t)g_memory_offset + g_esp);
+         int shown = 0;
+@@ -2187,9 +2201,32 @@
+                     (unsigned)(fault - lo), g_esp);
+             watch_posix_stack(ucv);
+             fflush(stderr);
++            /* Patch 0020 probe: core at the Nth in-window trapped write
++             * (RECOMP_WATCH_PANIC=N) so the whole guest state is inspectable
++             * at the moment the writer runs. */
++            if (g_watch_panic && ++g_watch_hits >= g_watch_panic) {
++                signal(SIGSEGV, SIG_DFL);
++                signal(SIGBUS, SIG_DFL);
++                abort();
++            }
+         }
+         mprotect((void *)g_watch_hpage, g_watch_hsize, PROT_READ | PROT_WRITE);
+         g_watch_open = 1;
++#if defined(__linux__) && defined(__x86_64__) && defined(REG_EFL)
++        /* Patch 0020: single-step the faulting thread instead of leaving
++         * faulting thread instead of leaving the page writable for the
++         * poller's 200 us window. The store re-executes, retires, and the
++         * trap flag hands control back to us so the page is write-protected
++         * again one instruction later; writes that followed the trapped one
++         * in the same window then fault individually, each with its own
++         * guest stack. Without this, a block zeroing that starts with a
++         * trapped write hides every later store it makes. */
++        if (g_watch_page && ucv) {
++            ucontext_t *uc = (ucontext_t *)ucv;
++            uc->uc_mcontext.gregs[REG_EFL] |= 0x100u;
++            s_watch_stepping = 1;
++        }
++#endif
+         return;   /* re-executes the store, now allowed */
+     }
+ 
+@@ -2221,6 +2258,36 @@
+     fflush(stderr);
+ }
+ 
++#if defined(__linux__) && defined(__x86_64__) && defined(REG_EFL)
++/* Patch 0020: the single-step leg of the POSIX watch trap (see handler).
++ * Fires on the thread that just re-executed its trapped store; re-protect
++ * the watched page and clear TF so the window closes one instruction after
++ * the store, not 200 us after it. */
++static void watch_posix_step_trap(int sig, siginfo_t *si, void *ucv)
++{
++    if (s_watch_stepping) {
++        ucontext_t *uc = (ucontext_t *)ucv;
++        s_watch_stepping = 0;
++        watch_posix_diff();
++        mprotect((void *)g_watch_hpage, g_watch_hsize, PROT_READ);
++        uc->uc_mcontext.gregs[REG_EFL] &= ~0x100u;
++        return;
++    }
++    if (g_watch_prev_trap.sa_flags & SA_SIGINFO) {
++        if (g_watch_prev_trap.sa_sigaction) {
++            g_watch_prev_trap.sa_sigaction(sig, si, ucv);
++            return;
++        }
++    } else if (g_watch_prev_trap.sa_handler != SIG_DFL
++            && g_watch_prev_trap.sa_handler != SIG_IGN) {
++        g_watch_prev_trap.sa_handler(sig);
++        return;
++    }
++    signal(sig, SIG_DFL);
++    raise(sig);
++}
++#endif
++
+ static void *watch_posix_reprotect(void *unused)
+ {
+     struct timespec ts = { 0, 200 * 1000 };   /* 200 us window */
+@@ -2258,6 +2325,10 @@
+     if (g_watch_len > room)
+         g_watch_len = room;
+     {
++        const char *p = getenv("RECOMP_WATCH_PANIC");
++        g_watch_panic = p && *p ? atoi(p) : 0;
++    }
++    {
+         uintptr_t lo_h = (uintptr_t)g_memory_offset + g_watch_va;
+         g_watch_hsize = (((lo_h + g_watch_len - 1) & ~(g_watch_hsize - 1))
+                          + g_watch_hsize) - g_watch_hpage;
+@@ -2272,6 +2343,14 @@
+     if (sigaction(SIGBUS, &sa, &g_watch_prev_bus) != 0
+             || sigaction(SIGSEGV, &sa, &g_watch_prev_segv) != 0)
+         return 0;
++#if defined(__linux__) && defined(__x86_64__) && defined(REG_EFL)
++    memset(&sa, 0, sizeof sa);
++    sa.sa_sigaction = watch_posix_step_trap;
++    sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
++    sigemptyset(&sa.sa_mask);
++    if (sigaction(SIGTRAP, &sa, &g_watch_prev_trap) != 0)
++        return 0;
++#endif
+     if (pthread_create(&th, NULL, watch_posix_reprotect, NULL) != 0)
+         return 0;
+     pthread_detach(th);
