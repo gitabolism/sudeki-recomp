@@ -1,0 +1,43 @@
+--- a/src/kernel/nv2a_pb_exec.c
++++ b/src/kernel/nv2a_pb_exec.c
+@@ -755,7 +755,22 @@
+         InterlockedIncrement(&s_lat_enq);
+         return;
+     }
+-    *intr = 0x00000001u;                /* PGRAPH: software method */
++    /* Patch 0046 (note 0023, frz83 core): the trap arms the PGRAPH
++     * NOTIFY source bit 0x1000 — the guest's own service code writes
++     * 0x1000 to this register (loc_002DB29A) and its swap-completion
++     * path (loc_002DB0A0 area) gates on that source family; our
++     * bit0-only arming left the completion path taking a partial
++     * route, and the frz83 freeze state showed INTR=1 with TRAP=0:
++     * a half-consumed quartet no host pass owns. Arm both bits.
++     * RECOMP_SWMARK_INTR12=0 restores bit0 only. */
++    {
++        static int b12 = -1;
++        if (b12 < 0) {
++            const char *e = getenv("RECOMP_SWMARK_INTR12");
++            b12 = !(e && e[0] == '0');
++        }
++        *intr = b12 ? 0x00001001u : 0x00000001u;
++    }                                /* PGRAPH: software method */
+     *prm  = param;
+     *trap = 0x00000100u;                /* method = NO_OPERATION */
+     *tdat = param;                      /* dispatcher's argument */
+@@ -912,6 +927,16 @@
+         if (pb_trap_idle_on())
+             nv2a_pb_trap_idle();      /* 0034: service idles the quartet */
+     } else if (pb_trap_idle_on() && !s_sw_latched && s_sw_head == s_sw_tail) {
++        /* Patch 0046: with nothing latched and an empty queue, any
++         * remaining PGRAPH source bit is stale (the guest's w1c
++         * write-backs are plain stores on RAM and can leave partial
++         * masks, e.g. INTR=1 TRAP=0 at the frz83 freeze). Clear the
++         * whole sw-method family so the guest's gates see idle. */
++        volatile uint32_t *pi = xbox_Nv2aRegPtr(0x400100);
++        if (pi && (*pi & 0x00001001u)) {
++            *pi &= ~0x00001001u;
++            InterlockedIncrement(&s_trap_idle);
++        }
+         /* Patch 0040 (note 0023): with the coherent lifecycle this
+          * branch is DEAD by construction — a mark that is armed owns
+          * the flag, and a consumed mark already idled its words. It
