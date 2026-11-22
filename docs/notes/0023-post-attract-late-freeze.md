@@ -1633,3 +1633,52 @@ dispatch stops; completion path gates on the NOTIFY family; boot
 dies on any increment that engages the ISR path more). Stop
 knob-pushing; next move is static anatomy of the pump->dispatcher
 chain and the per-slot completion event (esi+0x194) at plateau.
+
+## frz87 verdict + pump-chain static anatomy (session 4u)
+
+frz87 (marathon, v4 regime): DEEPEST run yet — 17,435 flips, content
+frames (30-36k colors, luma 85) through t+23:45, black at the very end.
+fbpeek of the late dumps: still the TITLE screen (rain-animated - the
+98% inter-delta was weather, not a level). Sparse feed + flip-blind
+presses never completed navigation. Lesson: press timing must be
+STATE-driven -> nav_run.sh gates presses on measured flip count
+(>=350 = past movie era) before touching the menu. frz88 = nav run.
+
+Static anatomy (lifted C, ghidra_pd.txt cross-check via the new Ghidra
+project lens - see THIRD_PARTY):
+- pump sub_002DB250: gate PGRAPH_INTR(+0x400100) bit 0x1000 -> w1c
+  ack 0x1000 -> BUSY SPIN while [aperture+0x400700] != 0 -> EOI
+  sub_002DE557 -> re-read INTR; if INTR&0x100001 and +0x400108 bit6
+  clear -> trap-addr(+0x400704)&0x1FFC==0x100 (NOP) -> dispatcher
+  sub_002DB4A0, else sub_002DB760. Service flag +0x400720 0/1.
+- completion sub_002DAFF0: ring bookkeeping (+0x1C0/1C4/1D4/1D8),
+  port-in 0x80C0 IRQ-line heuristic -> (+0x1B4 bit 0x1000000 gate),
+  then `do { store 1 -> PCRTC_INTR_0 } while (PMC_INTR_0(+0x100) &
+  0x01000000)`, then ICALL 0x3157DC = KeSetEvent(this+0x194, 1, 0)
+  (the swap-slot event 0x2E2F4C!) and optional +0x190 per-slot cb.
+- sub_0011ED20 (the "device-message" pump H28/H30 kept pointing at)
+  CALLS engine sub_001DE5C0 directly and builds 640x480 swap
+  descriptors on stack - the load-state question is who stops
+  invoking sub_0011ED20.
+
+CRITICAL STATIC FACT: grep of the whole gen tree finds NO write site to
+aperture+0x400700 - only readers (pump loc_002DB2A0, present-path
+sub_002D5AD0/sub_002D5B80, sub_002D85D0, EOI-family sub_002DE518).
+So the "guest latched 0x100 into 0x400700" theory is UNCONFIRMED -
+needs a plateau core from the CURRENT binary (frz83 core predates
+0046-era symbols; build-id drift made its host-frame attribution
+unreliable). Next: frz89 core_probe (ABRT at plateau, matched
+symbols): thread rips inside sub_002DB250 (which loc), aperture words
++0x400700/+0x400100/+0x400108/PMC+0x100/PCRTC+0x100, and per-slot
+completion events (ctx +0x190..0x1DC).
+
+Ghidra lens (per user directive 2026-11-22 "secondary lens"): project
+/tmp/opencode/ghidra/sudeki, flat image (VA=file+0x10000 rebuilt from
+default_analysis.json section table - sections are NOT uniformly
+offset; DSOUND sits at +0xF260), BinaryLoader base 0x10000, x86:LE:32,
+full auto-analysis. Script discipline learned the hard way: Ghidra 12
+DecompileResults API = decompileCompleted()/getDecompiledFunction()/
+getErrorMessage() - verify with javap against the pinned jar BEFORE
+writing scripts (three compile-fail rounds otherwise, which happened).
+Pseudocode agrees with the lifted C on pump+completion structure
+(no contradictions).

@@ -117,12 +117,19 @@ machine is untouched.
 
 Usage policy: Ghidra project DBs and any decompiled pseudocode are analysis
 artefacts → `/tmp/opencode` (or `~/opt`), **never git** — same law as every
-disc-derived artefact. XBE import strategy pending: raw LE binary at the
-image base with the section map from `default_analysis.json`, or a community
-XBE-loader extension — any extension would be a new download = new pin +
-audit entry here. Banner house style for README sections is reproducible
-via `tools/banner.py` (figlet kerned ANSI Shadow, glyph blocks joined by one
-space).
+disc-derived artefact. Landed import recipe (session 4u, verified): flat
+image rebuilt from `default_analysis.json` section tables (sections are NOT
+uniformly offset: `.text` sits at raw+0x10000 but e.g. DSOUND at +0xF260;
+each section is placed at `VA-0x10000` in the flat file), imported with
+`-loader BinaryLoader -loader-baseAddr 10000 -processor x86:LE:32:default`
+→ project `/tmp/opencode/ghidra/sudeki`, full auto-analysis; second-lens
+pseudocode via `-process ... -postScript` (script example:
+`/tmp/opencode/ghidra_scripts/DumpPD.java`). API caution: Ghidra 12
+`DecompileResults` = `decompileCompleted()/getDecompiledFunction()/
+getErrorMessage()` — verify API names with `javap` against the pinned jar
+BEFORE writing scripts (measured, not recalled). Banner house style for
+README sections is reproducible via `tools/banner.py` (figlet kerned ANSI
+Shadow, glyph blocks joined by one space).
 
 ## Agent skills (fetched, reviewed, pinned)
 
