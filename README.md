@@ -135,11 +135,43 @@ single background unit and analysis happens inside in-flight windows.
 End: update `STATE.md` (stage, hypotheses, queue, last-run verdict,
 session log line) and commit — never leave uncommitted source changes.
 
-**Skill supply.** Third-party "skills" — instruction files OpenCode
-auto-discovers from `.opencode/skills/` and that then steer the agent —
-get the same supply-chain treatment as code: first-party sources only, or
-a full manual read + payload scan + pinned upstream commit and per-folder
-digest recorded in `THIRD_PARTY.md`. Nothing auto-installs.
+## Skills — the instruction supply chain (`.opencode/skills/`)
+
+```
+███████╗ ██╗  ██╗ ██╗ ██╗      ██╗      ███████╗
+██╔════╝ ██║ ██╔╝ ██║ ██║      ██║      ██╔════╝
+███████╗ █████╔╝  ██║ ██║      ██║      ███████╗
+╚════██║ ██╔═██╗  ██║ ██║      ██║      ╚════██║
+███████║ ██║  ██╗ ██║ ███████╗ ███████╗ ███████║
+╚══════╝ ╚═╝  ╚═╝ ╚═╝  ╚═════╝ ╚══════╝ ╚══════╝
+```
+
+Third-party "skills" are instruction files OpenCode auto-discovers from
+`.opencode/skills/` and that then steer the agent — so they get the same
+supply-chain treatment as code: first-party sources only, or a full
+manual read of every file + a payload scan (network / eval / credential
+/ injection patterns) + a pinned upstream commit + a per-folder digest
+recorded in `THIRD_PARTY.md`. Nothing auto-installs, and
+`scripts/skills_check.sh` fails the check when a folder drifts from its
+digest.
+
+Five are installed — chosen because the curated vendor catalogues
+(anthropics, microsoft, nvidia, …) cover nothing in this repo's actual
+domain: x86 assembly, GDB, valgrind, binary reverse-engineering:
+
+| Skill | Source (pinned) | What it earns us |
+|---|---|---|
+| `gdb` | `mohitmishra786/low-level-dev-skills` | watchpoints, multi-threaded stepping, core dumps — the post-mortem recipe that closed the H27 lock race |
+| `assembly-x86` | same repo | reading lifted/objdump asm and calling-convention forensics — located the 4-byte `esp` drift from an ICALL skip (note 0018) |
+| `valgrind` | same repo | memcheck + cache profiling for host-side glue faults where core dumps don't reach |
+| `reverse-engineering` | same repo | Ghidra/radare2 triage workflows, paired with the toolkit's own naming pass |
+| `diagnosing-bugs` | `mattpocock/skills` | methodology: a tight, red-capable repro before any hypothesis — the mirror image of the note-before-fix loop |
+
+Audit verdicts (Trust Hub / Socket / Snyk where available) and the
+vetted-and-rejected candidates — off-mission scope, unvetted reputation,
+duplicative — are recorded in `THIRD_PARTY.md`, so the next session does
+not re-litigate them. Pins and digests live there too; the README stays
+opinion, `THIRD_PARTY.md` stays evidence.
 
 ## Guardrails designed around OpenCode (`opencode.jsonc` + `.opencode/commands/`)
 
