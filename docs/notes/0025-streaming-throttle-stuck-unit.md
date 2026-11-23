@@ -2397,3 +2397,22 @@ not file size; no input drift — doctor green).
   serviced exactly like the healthy batch. frz168 = BUCK registry dump
   + EF0C0 payload-arg census (prints a4 for every mode-2; zero-payload
   lines = the skip shapes).
+
+## Static law: container object layout + the +0x1C handle-ID map (frz168 era)
+
+- Type-table entries `0x37A3D0[type]` -> container object with vtbl at
+  +0; verified getters: +0x0C = flags/byte, +0x2C = instance counter
+  (1ECF09 dec-under-cs pattern = container destroy), +0x30 = refcount
+  (`dec; jne` at 1ECF10), +0x1C = **handle-ID map**: `[container+0x1C]`
+  -> obj, `[[obj+0xC] + (id>>16)*4]` = async HANDLE for that id
+  (EBD30 consumer). The engine's job id `00A26002` -> hi-word 0x0A26
+  indexes the font container's map — if the map has no entry for 0xA26,
+  EBD30 returns 0 and the pump key leg dies.
+- Loader pump 1EAC50 full shape: `while (e = EBD90(37A3D0, &it))` walk
+  ALL containers, per-container `[container+0xC].dword0` = its bucket
+  chain head -> `EE190` drain with that bucket + tally 3975A8. This is
+  the completion-feeder for every container that EXISTS at pump time.
+  frz164 [ENQ] x4 boot-era calls = exactly this loop's early pass.
+- 1EC2C8 node-init (EC130 tail): bucket pick = `(state>>6)&0x1F` from
+  `[mgr+0x28]`... same 0x20->bucket-0 law through a second path
+  (1EC2FC-F: node state dword +0 of the node, not the manager).
