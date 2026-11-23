@@ -1455,6 +1455,48 @@ void sub_001EF0C0(void)
     sub_001EF0C0_gen();
 }
 
+/* Relay membership: sub_001EC2C0 REGISTERs a manager obj (esi) into
+ * bucket (arg-epoch eax >> 6) & 31 of the 0x37A120 array; sub_001EC4E0
+ * DEREGISTERs (edi). frz103 core: all buckets + all three EF0C0 lists
+ * EMPTY at kill, while 018CF100's pump (x167) never reached its
+ * sentinel -> it was DEREGed mid-work and the next leg was never
+ * REGed. These two print the exact unlink/register sequence. */
+extern void sub_001EC2C0_gen(void);
+
+void sub_001EC2C0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 200) == 0)) {
+        fprintf(stderr, "  [REG] x%u obj=%08X epoch=%08X\n", n, g_esi, g_eax);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EC2C0_gen();
+}
+
+extern void sub_001EC4E0_gen(void);
+
+void sub_001EC4E0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 200) == 0)) {
+        fprintf(stderr, "  [DEREG] x%u obj=%08X\n", n, g_edi);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EC4E0_gen();
+}
+
 /* H31 master switch: sub_001EE7D0 (load-pipeline driver, 60+ call
  * sites) returns immediately when guest global byte 0x397110 == 0.
  * sub_001E0210 (engine frame driver) zeroes that flag on entry and
