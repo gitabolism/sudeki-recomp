@@ -696,3 +696,50 @@ phase is the decisive dataset: does non-movie IO persist?)
   supposed to re-arm the request after the 5th pulse. frz126 adds
   `[EACK]` (1EAB90 ra census) + state-rich `[EACYC]` (f4/f5/e6/e7
   per call, every call printed).
+
+## frz126 — EACK/EACYC state census: the heartbeat module decoded (H31 re-pose x11)
+
+* `[EACK]` (1EAB90, the ONLY producer of loader wake evt6=48000006):
+  exactly 5 calls the whole run, ALL from `1EACC0 + 2152` (its ack
+  branch). Lines 13058,13401,52726,53105,**53913** (16 lines before
+  pump x167=53929). After the 5th ack, evt6 never Set again ->
+  loader WFMO{evt7,evt6} parks.
+* `[EACYC]` (EAAB0) state-rich, 73 calls: EVERY one returns `0x102`
+  immediately with f4=0 f5=0 = early-exit "evt6 not Set" (EAAB0 only
+  proceeds while evt6 is Set, i.e. while a loader pulse is live).
+  Last call x72 at 53897 (32 lines before x167).
+* `[ENQ]` (EE190) = 8 calls: 4 boot-era, then 53114,53481,53926,
+  53936 — two straddle x167; its loader-wake branch (WFSO evt7 ->
+  Reset evt6 -> **Set evt7** -> WFSO evt6 INFINITE, gated on the
+  `EC880(container)` flag byte) was NEVER taken (zero h=48000007
+  Sets in SMEVT).
+* `[REQ]` (EABD0) = 20 entries; late-era 52690/52912 AND one at
+  106936 = the loader thread keeps servicing ATTRACT-era work; it
+  is not dead, it just never gets evt6/evt7 for the LOAD module.
+* frz126 core at kill: EVERY async-load module global is NULL —
+  container `[0x3D7668]=0`, queues `[0x3D7620]/[0x3D768C]/
+  [0x3D7740]/[0x3D771C]=0`, `[0x3D7644]=0`, service-CB list
+  `[0x397564]=0`, `[0x3975AC]=0`. The module is IDLE even though
+  manager `018CF14C` still carries job `0A260002` (frz123). The
+  job's issuing context is no longer hooked into the module.
+* Thread census (BRIEF risk #2 re-check): 17 `PsCreateSystemThread
+  Ex` — 3 boot (`26C68F`,`21AD0`,`21B90`) + 14x worker `2C5AC0`
+  (async IO workers, boot..load era). EVERY start routine has a
+  dispatch entry. Clean.
+* Heartbeat module raw decode: `1EACC0` = loader busy-check +
+  service: iterates CB list `[0x397564]`, `1F1170`; if async
+  container `[0x3D7668]` -> `EAAB0` + `EE190(ctx 3975AC, [0],
+  [0], 3D7668)`; ELSE ack branch if F5|3D7620|3D768C|3D7740|
+  3D771C any nonzero -> `EAB90`; returns `WFSO(evt6,0)!=0`.
+  `1EAD70` = engine load-wait session (single caller `11AF57`,
+  main loop): while EACC0 busy: service ctx 397668 + Sleep(16),
+  up to 300x. `1F1470`/`1F1870` = async issue-and-service loops
+  (CS `37A4D0`, queue selector `ctx+8` in {3D7740,3D771C,3D76F8,
+  3D7764}, issue `1F06C0(ctx)`, wake attempt `EAAB0`, Sleep(5)
+  retry; main-thread checks `[0x379EA0]`, flags 3970E5/E6/E7).
+* Model x11: engine-side load state machine goes IDLE (all module
+  globals NULL, heartbeat never busy, ack branch skipped) while a
+  job is still registered on its manager. The next-leg issue
+  through `1F1470/1F1870` never happens; frz127 censuses EBUSY/
+  EDRV/ISSU1/ISSU2 to name whether those loops exited or spin with
+  ctx==0, and whether EAD70 wait-sessions ever return nonzero.

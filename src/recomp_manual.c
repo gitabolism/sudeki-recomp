@@ -1705,6 +1705,116 @@ void sub_0023AD50(void)
     }
 }
 
+/* frz127b: 1F1470 / 1F1870 = async issue-and-service loops (enqueue
+ * under CS 37A4D0, issue via 1F06C0, wake attempt EAAB0, Sleep(5)
+ * retry; queue selector ctx+8 in {3D7740,3D771C,3D76F8,3D7764}).
+ * If these stop spinning after x167, the next-leg issuer died
+ * upstream; if they spin with ctx==0, the leg was never registered. */
+extern void sub_001F1470_gen(void);
+extern void sub_001F1870_gen(void);
+
+void sub_001F1470(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 120) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        extern __thread uint32_t g_esp;
+        uint32_t ctx = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                           ? MEM32(g_esp + 4) : 0u;
+        fprintf(stderr, "  [ISSU1] x%u ra=%p ctx=%08X out=%08X\n",
+                n, ra, ctx,
+                ctx ? MEM32(ctx + 0x34) : 0u);
+        fflush(stderr);
+    }
+    n++;
+    sub_001F1470_gen();
+    if (on && n < 120) {
+        fprintf(stderr, "  [ISSU1] x%u ->\n", n - 1);
+        fflush(stderr);
+    }
+}
+
+void sub_001F1870(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 120) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [ISSU2] x%u ra=%p\n", n, ra);
+        fflush(stderr);
+    }
+    n++;
+    sub_001F1870_gen();
+    if (on && n < 120) {
+        fprintf(stderr, "  [ISSU2] x%u ->\n", n - 1);
+        fflush(stderr);
+    }
+}
+
+/* frz127: 1EACC0 = loader busy-check/heartbeat (EACK's caller):
+ * service callback list 397564 + 1F1170; if [0x3D7668] (async container):
+ * EAAB0 + EE190(3975AC,[0],[0],3D7668) pulse; else ack branch:
+ * F5|3D7620|3D768C|3D7740|3D771C -> EAB90; ret = WFSO(evt6,0)!=0.
+ * 1EAD70 = engine main-loop load-wait driver (caller 11AF57): loops
+ * EACC0 + Sleep(16) up to 300x while busy. Census both: event-based
+ * logging so the post-x167 silence vs branch choice is visible. */
+extern void sub_001EACC0_gen(void);
+extern void sub_001EAD70_gen(void);
+
+void sub_001EACC0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    unsigned my = n++;
+    sub_001EACC0_gen();
+    uint32_t busy = MEM32(0x3D7668);
+    if (on && (my < 100 || (my % 512) == 0 || busy || g_eax ||
+               MEM8(0x37A0F5))) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [EBUSY] x%u ra=%p c=%08X q20=%08X q8C=%08X "
+                        "al=%02X f5=%u\n",
+                my, ra, busy, MEM32(0x3D7620), MEM32(0x3D768C),
+                (unsigned)(g_eax & 0xFFu), MEM8(0x37A0F5));
+        fflush(stderr);
+    }
+}
+
+void sub_001EAD70(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 200) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [EDRV] x%u ra=%p c=%08X\n",
+                n, ra, MEM32(0x3D7668));
+        fflush(stderr);
+    }
+    n++;
+    sub_001EAD70_gen();
+    if (on && n < 200) {
+        fprintf(stderr, "  [EDRV] x%u -> al=%02X c=%08X\n",
+                n - 1, (unsigned)(g_eax & 0xFFu), MEM32(0x3D7668));
+        fflush(stderr);
+    }
+}
+
 /* frz126 handshake-state probes. The loader/engine wake pair decoded raw:
  *   evt7=[0x37A114]=48000007 ("loader run"), evt6=[0x37A118]=48000006
  *   ("engine parked"); flags [0x37A0F4]=request-pending, [0x37A0F5]=
