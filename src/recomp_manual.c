@@ -1496,12 +1496,17 @@ void sub_001EF0C0(void)
      * 134 "all mode-0" was an artifact — see note 0025 law). */
     uint32_t a3 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
                       ? MEM32(g_esp + 0xC) : 0u;
+    /* frz168: 4th arg = queue-push payload (1EC590 skips entry creation
+     * iff it is 0 -> queue heads never move; frz165/166 law). */
+    uint32_t a4 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                      ? MEM32(g_esp + 0x10) : 0u;
     uint32_t f8 = (a1 >= 0x01000000u && a1 < 0x04000000u)
                       ? MEM32(a1 + 8) : 0xDEADu;
-    if (on && (n < 20 || a1 != pa || (a3 & 3) != pm)) {
+    if (on && (n < 20 || a1 != pa || (a3 & 3) != pm ||
+               ((a3 & 3u) == 2u && (a4 == 0u || a4 == 1u)))) {
         void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
-        fprintf(stderr, "  [EF0C0] x%u ra=%p a1=%08X a1+8=%08X a2=%08X mode=%u\n",
-                n, ra, a1, f8, a2, a3 & 3u);
+        fprintf(stderr, "  [EF0C0] x%u ra=%p a1=%08X a1+8=%08X a2=%08X mode=%u a4=%08X\n",
+                n, ra, a1, f8, a2, a3 & 3u, a4);
         fflush(stderr);
     }
     if (on) { pa = a1; pm = a3 & 3u; n++; }
