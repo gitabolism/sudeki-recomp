@@ -1357,11 +1357,16 @@ void sub_0023B830(void)
     }
     uint32_t mgr = 0;
     if (on) {
-        mgr = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
-                  ? MEM32(g_esp + 8) : 0u;   /* call is (0, mgr) */
+        uint32_t a4 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 4) : 0u;
+        uint32_t a8 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 8) : 0u;
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        mgr = a4;   /* real arg slot: prologue loads ebp from entry esp+4 */
         if (mgr && ((n++ & 0x3F) == 0 || n < 400)) {
-            fprintf(stderr, "  [PUMP] x%u mgr=%08X id=%04X st=%08X "
-                    "node=%08X q=%u:", n, mgr, MEM16(mgr + 0x18),
+            fprintf(stderr, "  [PUMP] x%u ra=%p a4=%08X a8=%08X eax=%08X "
+                    "id=%04X st=%08X node=%08X q=%u:", n, ra, a4, a8, g_eax,
+                    MEM16(mgr + 0x18),
                     MEM32(mgr + 0x28), MEM32(mgr + 4),
                     MEM32(mgr + 0xC0E4));
             for (uint32_t k = 0; k < 0x60u; k += 4) {
