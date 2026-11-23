@@ -1356,8 +1356,10 @@ void sub_0023B830(void)
         on = (e && *e && *e != '0') ? 1 : 0;
     }
     if (on) {
-        uint32_t mgr = MEM32(g_esp + 8);   /* call is (0, mgr) */
-        if ((n++ & 0x3F) == 0 || n < 400) {
+        extern __thread uint32_t g_esp;
+        uint32_t mgr = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                           ? MEM32(g_esp + 8) : 0u;   /* call is (0, mgr) */
+        if (mgr && ((n++ & 0x3F) == 0 || n < 400)) {
             fprintf(stderr, "  [PUMP] x%u mgr=%08X id=%04X st=%08X "
                     "node=%08X q=%u:", n, mgr, MEM16(mgr + 0x18),
                     MEM32(mgr + 0x28), MEM32(mgr + 4),
@@ -1374,38 +1376,184 @@ void sub_0023B830(void)
     sub_0023B830_gen();
 }
 
-/* sub_001EDA20 is the manager tick that DECIDES to pump (test
- * obj+0x28 & 0x200, obj+0x04 non-null, byte@obj[4] != 0). If it runs
- * but skips, the skip reason is logged; if it never runs, the era
- * loop above us stopped. Same env gate as [PUMP]. */
+/* sub_001EDA20 is the manager tick that DECIDES to pump (both pump
+ * call sites live inside it). ENTRY-ONLY probe: no guest/stack
+ * dereferences (g_esp was stale on the faulting thread, frz102).
+ * If [MTICK] keeps printing while [PUMP] goes silent, the tick runs
+ * and its internal gates close; if [MTICK] also goes silent, the
+ * era loop above stopped calling the tick. */
 extern void sub_001EDA20_gen(void);
 
 void sub_001EDA20(void)
 {
-    extern __thread uint32_t g_esi;
     static int on = -1;
-    static unsigned n = 0, skips = 0;
+    static unsigned n = 0;
     if (on < 0) {
         const char *e = getenv("RECOMP_RD_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
     }
-    if (on) {
-        uint32_t o = g_esi;
-        int st = -1;
-        if (o >= 0x10000u && o < 0x80000000u) {
-            n++;
-            uint32_t s28 = MEM32(o + 0x28);
-            uint32_t p04 = MEM32(o + 4);
-            if (s28 & 0x200)                    st = 0; /* busy-skip */
-            else if (!p04)                      st = 1; /* null list */
-            else if (!MEM8(p04))                st = 2; /* head empty */
-            if (st >= 0 && (skips++ & 0xFF) == 0)
-                fprintf(stderr, "  [MTICK] x%u obj=%08X SKIP=%d st=%08X "
-                        "p04=%08X id=%04X\n", n, o, st, s28, p04,
-                        MEM16(o + 0x18));
-        } else if ((n++ & 0xFF) == 0) {
-            fprintf(stderr, "  [MTICK] x%u esi=%08X (bad)\n", n, o);
-        }
+    if (on && (n++ & 0x3F) == 0) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [MTICK] x%u ra=%p\n", n, ra);
+        fflush(stderr);
     }
     sub_001EDA20_gen();
+}
+
+/* sub_001EF1D0 sits in the load-pipeline era loop
+ * (sub_001EC130 -> sub_001EF0C0 -> sub_001EF1D0 -> sub_001EE110 ->
+ * tick) and reads the HMF manager global 0x397668. Entry-only probe:
+ * if this keeps ticking while [PUMP] is silent, the pipeline runs
+ * but the tick's service gate stays shut. */
+extern void sub_001EF1D0_gen(void);
+
+void sub_001EF1D0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n++ & 0xFF) == 0) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [EF1D0] x%u ra=%p\n", n, ra);
+        fflush(stderr);
+    }
+    sub_001EF1D0_gen();
+}
+
+/* H31 master switch: sub_001EE7D0 (load-pipeline driver, 60+ call
+ * sites) returns immediately when guest global byte 0x397110 == 0.
+ * sub_001E0210 (engine frame driver) zeroes that flag on entry and
+ * restores it on its normal exit -- but its EARLY exit at 0x001E0387
+ * (taken when sub_002D2340 returns != 0) leaves the flag 0: the whole
+ * pipeline + pump + managers go silent, exactly what frz101/103/104
+ * census shows. [E0210] logs flag transitions and ret; [POOL] logs
+ * sub_002D2340 args/return + pool globals 0x2E47E4/0x2E47E8; [PALLOC]
+ * logs sub_002D85D0's signed status. */
+extern void sub_001E0210_gen(void);
+
+void sub_001E0210(void)
+{
+    static int on = -1;
+    static unsigned n = 0, dead = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t f0 = MEM8(0x397110);
+    sub_001E0210_gen();
+    uint32_t f1 = MEM8(0x397110);
+    if (on) {
+        n++;
+        if (n < 20 || f1 != 1) {
+            if (f1 != 1 && ++dead % 300 == 1)
+                fprintf(stderr, "  [E0210] x%u flag %u->%u ret=%u (dead x%u)\n",
+                        n, f0, f1, g_eax, dead);
+            else if (f1 == 1 && n < 20)
+                fprintf(stderr, "  [E0210] x%u ok flag=%u ret=%u\n", n, f1, g_eax);
+            if (f1 != 1) fflush(stderr);
+        }
+    }
+}
+
+extern void sub_002D2340_gen(void);
+
+void sub_002D2340(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on)
+        fprintf(stderr, "  [POOL] x%u eax=%08X ecx=%08X cap=%08X blk=%08X\n",
+                n, g_eax, g_ecx, MEM32(0x2E47E8), MEM32(0x2E47E4));
+    sub_002D2340_gen();
+    if (on) {
+        int32_t r = (int32_t)g_eax;
+        if (n < 20 || r < 0)
+            fprintf(stderr, "  [POOL] x%u -> ret=%d (%08X)\n", n, r, g_eax);
+        fflush(stderr);
+        n++;
+    }
+}
+
+extern void sub_002D85D0_gen(void);
+
+void sub_002D85D0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    sub_002D85D0_gen();
+    if (on) {
+        int32_t r = (int32_t)g_eax;
+        if (n < 20 || r < 0) {
+            fprintf(stderr, "  [PALLOC] x%u -> %d (%08X)\n", n, r, g_eax);
+            fflush(stderr);
+        }
+        n++;
+    }
+}
+
+/* Decision points inside the tick/pump pair (frz103: last pump ever
+ * = mgr 018CF100 id=5678 st=00970002; tick's bypass branch pumps only
+ * when sub_001ECC40(job lookup) reports state&3 == 0). [JOB] logs
+ * (id -> job, job[0] state); [HANDLE] logs the async-handle lookup
+ * sub_001E1750(handle) the pump uses for obj+0x04. Exact counts,
+ * printed on (arg,result) transitions + first 20 + every 200. */
+extern void sub_001ECC40_gen(void);
+
+void sub_001ECC40(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    static uint32_t pid = 0xDEAD, pres = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t id = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                      ? MEM32(g_esp + 4) : 0xDEADu;
+    sub_001ECC40_gen();
+    if (on) {
+        uint32_t job = g_eax;
+        uint32_t st = (job >= 0x01000000u && job < 0x04000000u)
+                          ? MEM32(job) : 0u;
+        if (n < 20 || (id != pid || job != pres) || (n % 200) == 0)
+            fprintf(stderr, "  [JOB] x%u id=%08X -> job=%08X st=%08X\n",
+                    n, id, job, st);
+        if (n < 20 || id != pid || job != pres) fflush(stderr);
+        pid = id; pres = job; n++;
+    }
+}
+
+extern void sub_001E1750_gen(void);
+
+void sub_001E1750(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    static uint32_t ph = 0xDEAD, pres = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t h = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                     ? MEM32(g_esp + 4) : 0xDEADu;
+    sub_001E1750_gen();
+    if (on) {
+        if (n < 20 || (h != ph || g_eax != pres) || (n % 200) == 0)
+            fprintf(stderr, "  [HANDLE] x%u h=%08X -> %08X\n", n, h, g_eax);
+        if (n < 20 || h != ph || g_eax != pres) fflush(stderr);
+        ph = h; pres = g_eax; n++;
+    }
 }

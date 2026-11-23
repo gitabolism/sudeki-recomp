@@ -96,6 +96,68 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   `[EF1D0]` era-loop entry counter (pipeline alive?); core dump of
   `018CF100` object + its node list (frz103 core, matched bin).
 
+### frz105: H31.4 REFUTED — E0210/POOL ran ONCE at boot, both succeeded
+
+* `[E0210] x1 ok flag=1 ret=1`; `[POOL] x0 -> ret=0`; `[PALLOC] x0 -> 0`
+  — the engine-frame early-exit branch (`0x001E0387`) never taken in
+  the whole run; `0x397110` stays 1. E0210 is a boot/session-init
+  driver, not a per-frame tick. The 60+ `sub_001EE7D0` call sites are
+  NOT gated off by that flag.
+* Census masks were too coarse to prove chain silence (`[EF1D0] x1`
+  only bounded entries <4096). frz105 reproduced the stall exactly
+  again (314 baf reads, movie loop) — deterministic, no regression
+  from the new probes.
+* frz103-core pre-check: job-table entry `0x37A3D0[0x5678] = 0` at
+  kill, while manager `018CF100`'s current-job id is still `0x5678`
+  (dangling). The job was freed at/after the last pump; nobody looked
+  it up again afterwards (guest would have null-dereffed
+  `sub_001ECC40`'s table path — it did not crash).
+* **H31.5 (working model): the relay's current manager COMPLETES its
+  last job, gets freed-ish, and the DRIVER loop stops advancing to
+  the next archive manager — the next manager in the serial relay is
+  never pumped.** `sub_001ECC40` has no null guard (guest would crash
+  on a dangling id lookup), so post-stall tick must be skipping the
+  lookup entirely — i.e. the chain above tick stopped passing this
+  obj.
+* frz106 census (tight masks: `[MTICK]` /64, `[EF1D0]` /256, plus
+  `[JOB]` id->job+state and `[HANDLE]` h->node, printed on arg/result
+  transitions): decides which link stops carrying the relay — tick
+  entries vs job-lookup verdicts vs pump entries, co-registered with
+  the last baf `[READ]`.
+
+### frz104: era-loop probe — the whole driver chain goes SILENT, and static decode finds the kill switch
+
+* `[EF1D0]` (mask 0xFFF) printed `x1` only: `sub_001EF1D0` entered
+  <4,096 times for the whole run — the load-pipeline chain is NOT
+  entering-and-rejecting, it stops being called. frz103 re-checked:
+  identical census (pump x167 last, 314 baf reads) — deterministic.
+* Static decode of the driver chain (`EE7D0 -> EE2A0 -> EC130 ->
+  EF0C0 -> EF1D0 -> EE110 -> EDA20 tick -> 23B830 pump`):
+  **`sub_001EE7D0` (60+ call sites across the engine) returns
+  immediately when guest global byte `0x397110 == 0`.**
+* `sub_001E0210` (engine frame driver, single call site 0x00012D20)
+  zeroes `0x397110` on ENTRY and restores it at its normal exit
+  (0x001E0378, flag=ebx). Its **EARLY exit at 0x001E0387 returns 0
+  WITHOUT restoring** — flag stays 0 -> every EE7D0-driven subsystem
+  (load pipeline, manager tick, pump) becomes a no-op, while Bink
+  movie + present keep running (separate path). Exactly the observed
+  census shape.
+* The branch is taken when `sub_002D2340` returns != 0. 2D2340 sets
+  pool params (`0x2E47E8`=cap 0x300000, `0x2E47E4`=blk 0x8000) and
+  calls `sub_002D85D0` (sole caller; pool alloc/grow). Negative
+  signed return -> cleanup + error return. So: **H31.4 — the pool
+  allocation behind `0x2E1190` fails, the engine frame early-exits,
+  leaves 0x397110=0, and the whole load pipeline is gated off
+  permanently (deterministic byte-position stall follows because
+  the same request fails at the same byte of the stream every run).**
+* frz105 probe: `[E0210]` flag before/after + ret; `[POOL]` args/ret
+  + pool globals; `[PALLOC]` signed status from 2D85D0. Predicted:
+  E0210 keeps entering every frame post-stall with flag 0->0, POOL
+  ret negative every frame; the status code names the allocator
+  failure (candidate: pool exhaustion — backlog nodes hold the
+  blocks, and the jobs that would free them are gated by the flag:
+  self-lock).
+
 ### frz100/101: the stall is DETERMINISTIC and the pump TICK stops
 
 * frz100 reproduced the read-back stop at the EXACT byte: seq head
