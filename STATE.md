@@ -3,33 +3,31 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-23 06:3x (session 5b, 03:0x–06:3x)
+**Last updated:** 2026-11-23 12:0x (session 5c, 06:3x–…)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
 (xemu same-moment capture still owed, see Queue);
-**navigation works**; load-stall wall (H31, re-posed x14, home = note
-0025) in ONE sentence: the streaming machinery COMPLETES its whole
-job set cleanly and goes quiet (frz133: 522 CQ pushes all mode-0
-completions incl. the terminal manager itself; zero pump-chain
-pushes ever), while the engine-side issue chain
-(task-table->6AD00->74F10->7D1E0->157B10->EF770 new-session) fires
-only x2 at boot — and this is NOT input self-sabotage (frz134 A/B:
-frz18-exact presses, zero tail STARTs, terminal shape identical).
-frz128→134 census arc complete; nav_run36a.sh = clean-press harness.
+**navigation works**; load-stall wall (H31, re-posed x24, home = note
+0025) in ONE sentence: the terminal manager's desc keeps a pending
+count of 1 forever (frz138 unmatched waiter-open; frz150 core desc
+`00F95738` key `06610B29`), so its zero-count CLOSE never runs —
+loader/submit/attach tiers and the loader itself stay alive and
+retry the same jobs to the deterministic PUMP x167 terminal while
+the game sits on a static "Loading..." screen.
 
 ## Where things are verified
 
 - Toolkit: `xboxrecomp/` @ v0.18.0 / `37b61d589168adee3680fabd51805ee81427bf07`;
   `scripts/doctor.sh` green (XBE SHA-256 pin, skill digests, stubs
-  432 agree). Patch series **`0001..0051`**; the patch-by-patch table
+  432 agree). Patch series **`0001..0052`**; the patch-by-patch table
   lives in THIRD_PARTY.md (its one home); `scripts/build.sh` resets
   to the pin and re-applies in order.
 - Manual overrides (`src/recomp_manual.c`, `--exclude-manual`): census
   wrappers incl. PUMP/S9720/S99D0/EE110/EE190(ENQ)/MTICK/EED70/CQ/
   SMEVT/SRST/F0F80/POST/REFILL/EACK/EACYC/EBUSY/EDRV/ISSU1/ISSU2 +
+  INIT/CTOR/UP/FAM census tier + WINC/WDEC/CLOSE waiter ledger +
   cache-writer/audio/swap wrappers. All source changes are complete
-  units, committed; `build/sudeki` currently carries the frz127-era
-  probes — the frz128 probes (ENQ flag/state, SRST) are committed
-  but need the gen+build in Queue 1 before they take effect.
+  units, committed; build era = frz151 (INIT probes), frz152 probes
+  (waiter ledger) committed awaiting gen+build.
 - Raw-bytes decode law (verified against lift): `.text` file offset =
   VA − 0x11000 + 0x1000 (capstone direct on the XBE; the earlier
   0x1F0000-offset decode was garbage — deleted from note 0025).
@@ -38,8 +36,8 @@ frz128→134 census arc complete; nav_run36a.sh = clean-press harness.
 - Ghidra bench installed; flat-import recipe in THIRD_PARTY.md; the
   `/tmp/opencode/ghidra` project was lost to a host reboot — no
   re-import needed so far (capstone raw decode replaced it).
-- Git: pushed `origin/main = f4495af` per `git reflog` (4 pushes;
-  last two postdate the recorded user-approved push `7ce51cb`).
+- Git: `origin/main = 77f770f` per `git reflog` (four pushes
+  postdating the recorded user-approved push `7ce51cb`).
   **User question (rule 7):** AGENTS says the remote is `NO_PUSH`,
   but `remote.origin.pushurl` is a live SSH URL and pushes happened
   after `7ce51cb`. Confirm posture (re-approved pushes, or restore
@@ -83,6 +81,33 @@ message/object-graph tier; submit-API law found; xemu capture law work.**
   (collision law); `xemu_fbpeek --zorder` (0x1A3B000 = block-swizzled
   TEXTURE, FB law still open); `xemu_qmp_probe.sh` written (screenshot
   question); shell-chain timeout law (keep timeouts > run ETAs).
+- frz145-146 regime arc: vblank-TICK death in 145-era = boot-era
+  LOTTERY (3rd matrix-law confirmation; patch 0052 VBLDIAG);
+  hangwatch v1 (ord-161 spin threshold) CONVICTED as confounder —
+  healthy eras spin 160/161 at >100k/s; hangwatch v2 = vblank-tick
+  lag law. frz146c/frz146b/frz148: healthy full eras.
+- frz146c/148 census (healthy, PUMP x167 terminal): CTOR/CTOR2/CTRX/
+  REGT/RQ/HND/MSG/MKLU/TBLU/SWEEP ALL x0; SUBM/ATT2/ATT3/ATT4 caps
+  saturated -> object-graph pose CONFIRMED. frz148 core RA census:
+  ATT2/ATT3 called inside retry drivers 1F5A70/1F5AE0, ATT4 inside
+  20ABF0; gdb `info symbol` on bin+core = direct symbolization law.
+- Visual wall (frz146c FB dumps): after START, a static black
+  "Loading..." screen to kill — the endless-load state IS the wall.
+- Census tag law: tags unique, blocks count==1, gcc-syntax-check
+  before commit (a double-committed probe block hid in HEAD for 5
+  builds; a REG/[REG] collision nearly reversed the registrar verdict).
+- frz149-152 arc (this close-out): dead-chain census ALL x0
+  (UP1-4/FAM2-12/REGT/class ctors) but **CORE-READ CORRECTION**:
+  handler lists 3975E4/E8 populated from boot (identity-chunk core
+  addressing law; earlier "empty" read was a 0x10000 math bug);
+  CRT static-init tier (initterm 26CFF8, 271-thunk table 33D410,
+  insert thunks 2815Exx/2819Bxx) + waiter ledger decoded
+  (EC130 inc / EC350 dec / zero-count CLOSE 1F92E0+1ED9B0);
+  terminal desc F95738 key 06610B29 size 0x373F (frz150 core);
+  INIT tier all ticked (frz151); PUMP x167 = full manager-array
+  scan, terminal = only st=0x25120 slot. fresh-reader audit #3
+  applied (note 0025 dedupe, CHANGELOG backfill ENTRY/THREADS/MENU,
+  THIRD_PARTY hygiene, README Status sync).
 Session 5b (03:0x–06:3x): **frz128→134 census arc; H31 stands with
 clean input; harness START-spam confounder convicted then EXONERATED
 as cause; xemu FB capture pipeline live.**
@@ -134,17 +159,18 @@ log.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x23: the game's message/scene
-   object graph is never BUILT (healthy-era confirmed); the visual
-   wall is a static "Loading..." screen — load jobs complete but the
-   object graph that ends a load doesn't exist).** frz146c (healthy
-   full era): CTOR/RQ/HND/MSG/MKLU/TBLU/SWEEP ALL x0 while
-   SUBM/HUB/TITER/TCTO churn to the deterministic PUMP x167 wall.
-   Registry lead: task-type registrar 49B10 ("exploration"/"ability"/
-   ...) <- 491C0 <- 8A790 (vtable-only); frz147 (running) censuses
-   REG/RGCX/RGT + RSRC1-4 (5D740/5D880/64990/64AD0) + ATT1-4 — the
-   highest LIVING rung names the missing caller. Regime law active:
-   verify vblank ticks + SUBM depth in first 200 s before ANY verdict.
+1. **H31 (ACTIVE, note 0025, RE-POSED x24: ONE waiter never closes —
+   the terminal manager's desc (core: `00F95738`, key `06610B29`,
+   size `0x373F`) keeps pending-count 1, so its zero-count CLOSE
+   (1F92E0 + 1ED9B0 + vtbl[0](1)) never runs and the load never
+   ends; the loader/submit/attach tiers are ALIVE and retry the
+   same jobs forever).** frz151: INIT tier ran at boot; object-CLASS
+   ctors x0 = post-load consequence, not cause. frz150 core: both
+   handler lists (3975E4/3975E8) populated from boot via CRT
+   static-init (26CFF8 + 271-thunk table); ATT census = live
+   list-B dispatch; ATT2 allocates accepted job objects.
+   frz152 (running): WINC/WDEC/CLOSE ledger names the unmatched
+   open and the desc that never reaches zero-count.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop
    (0005); async-IO return convention = the phantom charge (0011);
@@ -157,23 +183,21 @@ log.
 
 ## Queue (next concrete actions)
 
-* **1. frz147 RUNNING (REG/RGCX/RGT + RSRC1-4 + ATT1-4 census)** —
-  highest living rung names the dead edge; then frz148 targets one
-  rung above whichever ticks last. hangwatch v2 + BIN-tag copy are
-  standing procedure.
-* **2. Menu artefact completion (rule 6):** xemu shotseq now uses
-  unique dump names (collision fixed); FB law still OPEN (linear +
-  Z-order both decode TEXTURE at 0x1A3B000; `0x3C00000` pitch-720
-  law = old-ROM debug-overlay era only). QMP probe decides whether
-  an in-emulator screenshot path exists.
-* **4. Write-path decision**: capacity enforcement (patch 0005)
+* **1. frz152 (WINC/WDEC/CLOSE waiter ledger) gen+build+run** once
+  frz151 lands — ledger pairs every waiter open/close by desc; the
+  unmatched inc names the lost completion; CLOSE census proves which
+  descs reach zero-count. Terminal desc = manager+0x08 (frz150 core:
+  `00F95738`, key `06610B29`, size `0x373F`).
+* **2. Menu artefact completion (rule 6):** xemu shotseq unique-name
+  pair still owed; FB law OPEN (linear + Z-order both decode TEXTURE
+  at 0x1A3B000); `xemu_qmp_probe.sh` unrun decides screenshot path.
+* **3. Write-path decision**: capacity enforcement (patch 0005)
   sits on `bridge_NtWriteFile` which the guest never uses (patch
   0051 log proves raw thunk route). Move it into `kernel_file.c` or
   retire it — affects disk-full experiments only.
-* **5. Then the Gameplay gate:** first presented level frame =
+* **4. Then the Gameplay gate:** first presented level frame =
   fbpeek + visual + texture-coverage carry-over; xemu side-by-side
-  of the SAME load as corroborator only (item 3's script fix serves
-  both).
+  of the SAME load as corroborator only.
 * Carry-over: prior-art hour unspent (upstream Discord "Sudeki"
   search; Black-2006 `black`-branch runtime fixes for streaming/APU
   — BRIEF Prior art); JP disc regression sample later; roadmap
@@ -187,13 +211,14 @@ log.
 
 ## Blockers / open questions
 
-- **H31 wall write-up (AGENTS work-loop rule):** 41+ runs
-  (frz93→134), 14 re-poses, 4 header-level facts overturned mid-wall
+- **H31 wall write-up (AGENTS work-loop rule):** 50+ runs
+  (frz93→152), 24 re-poses, 5 header-level facts overturned mid-wall
   (regime split, trailer-bit4, events-never-Set, START-spam
-  confounder). Host side now EXONERATED end-to-end (frz128–134:
-  loader healthy-parked, completions complete, input A/B clean);
-  the wall is engine-side re-issue. Next comparison if the static
-  decode stalls: xemu kernel trace of the same load.
+  confounder, empty-handler-lists core misread). Host side
+  EXONERATED end-to-end (frz128–134); wall narrowed to ONE
+  never-closed waiter on the terminal desc (frz138/frz150 core);
+  frz152 ledger closes or re-poses it. Next comparison if the
+  ledger stalls: xemu kernel trace of the same load.
 - User question (rule 7): push posture — see "Where things are
   verified" Git bullet.
 
@@ -207,19 +232,19 @@ log.
   RECOMP_PRES_TRACE=1 RECOMP_EVENT_LOG=1 RECOMP_GSVC_TRACE=1
   RECOMP_RD_TRACE=1 RECOMP_MISSING_FILES=all RECOMP_POST_TRACE=1
   RECOMP_LOG_ORDS=123,138,145,205,225`).
-- Harness current: `/tmp/opencode/nav_run35.sh` (8-start spam,
-  early-kill on `[PUMP] x167 `) and `/tmp/opencode/nav_run36a.sh`
-  (frz18-exact presses, no early kill — clean-input A/B);
-  `core_forensics.bt` + `core_ram.py` Core class. `/tmp/opencode`
-  is tmpfs: everything there vanishes on host reboot.
+- Harness current: `/tmp/opencode/nav_run45.sh` (pad gate: OHCI
+  raised 00000002|4 OR vblank-600 fallback; early SIGABRT on
+  `[PUMP] x167 `) + `tools/hangwatch.sh` v2; core reads via
+  `tools/corepeek.py` + the identity-chunk law (note 0025).
+  `/tmp/opencode` is tmpfs: everything there vanishes on host reboot.
 - Other useful env: `RECOMP_CACHE_CAP_BYTES`, `RECOMP_WATCH=<va>…`,
   `RECOMP_SEM_TRACE`, `RECOMP_LOG_ORDS=…` (patch homes: THIRD_PARTY
   table).
 - Harness: `scripts/{doctor,pipeline,build,run,stubs,new_note,env,
   skills_check}.sh`; logs -> `logs/`, captures -> `reference/`
   (gitignored); cores via `coredumpctl dump <pid>` (~2.4 GB each —
-  26 now / ~11 GB in /tmp/opencode; prune to frz117/121/123/126/127
-  era at next pause); cache dir `~/.local/share/xboxrecomp/Cache/*`
+  dumped set: frz138/144/145b/146b/148/150 in /tmp/opencode; prune
+  at next pause); cache dir `~/.local/share/xboxrecomp/Cache/*`
   between long runs.
 - Shell law: never edit a script a live bash re-reads; never edit
   `src/recomp_manual.c` while a gen+build chain is in flight (gen
@@ -229,11 +254,11 @@ log.
   binary to `/tmp/opencode/sudeki-frzNN.bin`); watcher stdout
   block-buffered; kill by exact pid or `pgrep -x sudeki` (NEVER
   `pgrep -f`).
-- Seeds file (local, 18 measured VAs): `logs/seeds-icall-0011C640.json`.
+- Seeds file (local, 19 measured VAs): `logs/seeds-icall-0011C640.json`.
 - Deterministic markers: PUMP x167 terminal, EE110=167, baf-read
   counts vary by kill timing (don't pin on them); regime pinned in
   run header from now on.
-- Git: never push (rule 7); local commits through `729777e` (+ this
+- Git: never push (rule 7); local commits through `f497810` (+ this
   close-out); every agent commit this session is factory/docs only.
 
 ## Session log (chronological; HH:MM = commit times)
@@ -262,4 +287,5 @@ log.
 | 11-22 18:50–19:23 s4v | **H30 ROOT-CAUSED (note 0024)**; frz91 probe; user-approved history scrub + rule 12 | `19b5f4f` `ff20cad` |
 | 11-22 19:56–22:3x s4w | **H31 framed (note 0025)**; frz92 GPU-wall-dead verdict chain; patch 0047; /review harness + first audit + README sync | `c4b9be4`..`7ce51cb` |
 | 11-22 22:0x–11-23 02:5x s5a | frz107-127 census arc; H31 re-posed x12 to issuer level (1F1470 once/1F1870 never; wake supply evt6 x5 only); patches 0048-0051; raw-decode law; regime split refuted; /review audit #2; frz128 probes committed | `230ede7`..`b0204cd` |
-| 11-23 03:0x–06:3x s5b | frz128→134 census arc: evt7 polarity closed, loader healthy-parked, submit chain runs (ISSMTH x17 drain/SWEEP x0), state-3 refuted, 522 CQ pushes all-completions, START-spam confounder convicted then exonerated (frz134 clean-input reproduces wall) -> **H31 re-posed x14: engine-side stop-of-issue**; xemu FB capture pipeline live (`reference/xemu/title90.png`) | `99d6370`..`729777e` |
+| 11-23 03:0x–06:3x s5b | frz128→134 census arc: evt7 polarity closed, loader healthy-parked, submit chain runs (ISSMTH x17 drain/SWEEP x0), state-3 refuted, 522 CQ pushes all-completions, START-spam confounder convicted then exonerated (frz134 clean-input reproduces wall) -> **H31 re-posed x14: engine-side stop-of-issue**; xemu FB capture pipeline live (`reference/xemu/title90.png` — later adjudicated torn-FMV, see s5c Queue) | `99d6370`..`729777e` |
+| 11-23 06:3x–13:0x s5c | frz135→152 census arc + patch 0052 (vblank-diag; frz145 death = regime lottery); hangwatch v1 convicted→v2; object-tier census ALL x0 (frz146c/148/150/151) then **CORE-READ CORRECTION**: handler lists populated, ATT tier = live dispatch, ATT2 allocs job objects; CRT static-init + waiter-ledger (EC130/EC350/CLOSE) decoded; terminal desc F95738/key 06610B29 named; INIT tier alive; **H31 re-posed x24: one never-closed waiter**; audit #3 applied (CHANGELOG backfill, note dedupe, README/THIRD_PARTY sync) | `546c64e`..`f497810` |
