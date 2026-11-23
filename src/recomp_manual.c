@@ -1633,6 +1633,56 @@ void sub_001EAAB0(void)
     }
 }
 
+/* Job-table slot teardown: sole clearer of MEM32(slot*4+0x37A3D0)=0
+ * (unlink job -> free -> push free-slot list at 0x3641A8, count
+ * 0x397594). esi = slot index. If [JOBFREE] slot=5678 fires right
+ * after the last pump, the stuck leg's job was destroyed while the
+ * manager still waited on it -> pump then sees job==NULL forever. */
+extern void sub_001ECB10_gen(void);
+
+void sub_001ECB10(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 60 || (n % 128) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t job = (g_esi * 4u + 0x37A3D0u >= 0x01000000u)
+                           ? MEM32(g_esi * 4u + 0x37A3D0u) : 0u;
+        fprintf(stderr, "  [JOBFREE] x%u slot=%08X job=%08X ra=%p\n",
+                n, g_esi, job, ra);
+        fflush(stderr);
+    }
+    n++;
+    sub_001ECB10_gen();
+}
+
+/* Pump mask-region marker: F9620 is called from the pump only at
+ * 23B976/23B985 (MEM16(mgr+0x2E)!=0 path) and from F99D0 at
+ * 1F9A2D — ra distinguishes; proves how far the pump walked the
+ * edx-derived path per call. */
+extern void sub_001F9620_gen(void);
+
+void sub_001F9620(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 30 || (n % 128) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [S9620] x%u ra=%p\n", n, ra);
+        fflush(stderr);
+    }
+    n++;
+    sub_001F9620_gen();
+}
+
 /* Pump's two service processors (frz106 pump chain). F99D0's body
  * refuses at loc_001F9B5C unless popcount(ebx)==1 && popcount(ecx)==1
  * && ebx==ecx BEFORE its RESADD site at 1F9DAF; if [S99D0] fires but
