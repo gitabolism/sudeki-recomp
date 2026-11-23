@@ -1984,3 +1984,29 @@ mgr 018CF14C = same heap era as frz150):
   flag + desc state bit 0x1000 per node, and the loader-kick 1EACC0 census
   tail; the last unknown = WHO completes the in-service node (its WDEC +
   bit-clear) and why it never runs for the terminal burst node.
+
+## frz157 — THE ORDERING: terminal record opened+drained BEFORE the manager exists
+
+Census-precise timeline (era BF, WINC/ENQ/EE110/MCOR lines, no poll lag):
+- 59574 WINC x207 opens waiter on BF14C (slot memory uninit: ctr=0,
+  word+2C 0->1 orphan).
+- 59575 EF0C0 x435 a1=BF14C a1+8=0 (no desc loaded) mode=2 -> no-owner
+  branch -> implicit EC590 push to 3D7620; healthy siblings x436/x437
+  (a1=018A7B68+) have a1+8 != 0 (desc loaded) at the SAME moment.
+- 59590-59724 MCOR x43-x49 construct the SEVEN sibling managers
+  BF188..BF2F0 (ra EE2A0+0x3517) — AFTER the submit.
+- 59806-59820 ENQ x3/x4: loader drain moves 3D7620 -> 3975A8 relay.
+- 59809 EE110 x166 a0=BF14C **arr=00000000 cnt=0** -> ret 01: the relay
+  processor saw the manager WITHOUT its desc pointer ([a0+8], set only at
+  the inline init, detected <=59854 by poll-diff) and processed the
+  record EMPTY -> never completed -> orphan +1 forever.
+- ISERV: EC3E0 (refcount release) never ran for ep=BF14C (0 hits);
+  EACYC frozen at x72 (all exits 102); PUMP rescans to kill.
+So H31 = submit-before-spawn at the ENGINE tier: the terminal burst's
+first request for the seven-manager batch (id 0A26xxxx) is issued by the
+engine BEFORE the batch-spawn leg of EE2A0 runs; every healthy sibling
+manager was spawned earlier. EE2A0 host ra differ: WINC ra=+15313,
+batch ctors ra=+0x3517 — different calls; ordering chosen by caller.
+NEXT (frz159): census EE2A0 ENTRY (args + ra + which internal leg) and
+the SUBM 2C-2D thunk ra at 59574 -> name the engine call site that
+submits first; compare with a healthy batch spawn ordering.
