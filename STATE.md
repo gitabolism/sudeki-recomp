@@ -81,16 +81,17 @@ Earlier sessions live in the notes (0005–0025) + the session log; the
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x2): the load stalls when
-   `startup.baf` config reads stop at 41 %.** frz96 phase census:
-   opening FMV `FMA01_poem.bik` consumed 1.00x, all wavebanks 1.00x,
-   attract loops, but `Cache//startup.baf` (game-written X: install,
-   27.7 MB) reads 11.3 MB in bursts w/ 33 KiB strided seeks then
-   goes silent; all reads succeed (got=want) -> CONSUMER side
-   parked. GPU/events/marks healthy; extraction disc-exact. Next:
-   frz96 core forensics (reader thread park site + last read buffer
-   0x02E775E0/0x81759A80 + BAF object). Old "cur/done queue" census
-   was movie pacing (labels fixed in recomp_manual.c).
+1. **H31 (ACTIVE, note 0025, RE-POSED x3): the load stalls when
+   `startup.baf` config reads stop at 41 % — deterministically at
+   read-head `0xAD5D09`.** frz101 census: pumped managers drain
+   while the HMF-class queue (`0xFD9550`, global `0x397668`) keeps
+   an unserviced ~177-node backlog; last pump tick == last read.
+   Consumer chain named: `sub_001EDA20` tick -> `sub_0023B830` pump
+   -> vtbl[1] -> `sub_0001E170` -> `sub_00270FBD`. Next datum:
+   `[MTICK]` (which gate closes / who stops calling the tick).
+   Serving layer exonerated read+write; GPU/events healthy. Old
+   "cur/done queue" census was movie pacing (labels fixed in
+   recomp_manual.c).
 2. H14–H30 CLOSED — one-line lessons index (homes = notes 0005–0024):
    cache capacity ends the boot write-loop (0005); async-IO return
    convention = the phantom charge (0011); ICALL-skip stack drift
