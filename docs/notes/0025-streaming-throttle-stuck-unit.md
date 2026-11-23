@@ -2024,3 +2024,41 @@ the same EE2A0 call window: the submit leg opens the waiter on the not-yet
 slot's inline init lands after the loader already drained the record
 (EE110 arr=[mgr+0x14]=0 witness). Control frz160: poll-watch healthy
 era-invariant sibling 018A7B68 -> when does ITS +0x14 array appear?
+
+## Static tier — SUBMIT API 1EE7D0 full anatomy + completion-path law (frz155 core + capstone)
+
+- 1EE7D0 = lookup-first submit: `1EDC20` name/hash lookup (via 1EE6D0);
+  HIT -> attach waiter (bl<0: new(8) node + [mgr+0x14]? inc arr-ref :
+  **inc word [mgr+0x2C]** @1EE724) then `1EEEE0` kick; MISS -> `1EE2A0`
+  create/relay (sole path seen at the wall; EENT per-id calls).
+- Inside EE2A0 the same fork exists: node alloc @1EE618 (bl<0 path,
+  arr-ref vs **inc word [+2C]** @1EE645) or `1EC130` WINC @1EE682 (bl>=0).
+  RIGHT AFTER the WINC: `test bl,0x60; jne return-node` — if flag bits
+  0x20|0x40 CLEAR, guard `[[node+4]+8]`: desc-pointer NULL -> node is
+  RELEASED (vtbl[0](1)) and submit returns NULL. Terminal orphan implies
+  the burst call carried flag 0x60-set (guard skipped) while siblings
+  passed it — frz161 must print the flag byte at 1EE682.
+- **1EEEE0 = THE completion/decrement path (the missing ledger half!):**
+  [mgr+0x14] != 0 -> dec array-ref, at 0 -> 1EEE20 (record sweep);
+  else **dec word [mgr+0x2C]; at 0 -> 1F92E0 + 1ED9B0 + vtbl[0](1)** =
+  the desc CLOSE chain. WINC x207 shows cnt(before)=0 -> attach made it
+  1; core at kill [+2C]=1 -> **NO 1EEEE0 decrement ever arrived for
+  BF14C**. CLOSE census (1F92E0) only saw the terminal branch of this
+  same function — the dec itself was never censused.
+- Singleton law: `1ED970` = default-manager singleton (flag [0x397590],
+  ptr [0x39758C], ctor 1EEBE0, size 0x3C). Core frz155: BOTH ZERO ->
+  the EE2A0 singleton leg (1EE540/1EE5EE) NEVER ran whole-run.
+- frz155 core live-RAM compare (law re-verified: core_off =
+  0x13670000 + guest VA; the 0x10000-shift was read again and produced
+  fake garbage — re-pin before ANY core read):
+  terminal 018BF14C: +14=0, +18(id)=0A260002, +28(st)=00010120, +2C=1;
+  healthy 018A7B68: +14=0(!), +18=00F40001, +28=00020120, +2C=2.
+  => array-null is NOT the discriminator (healthy also 0 at kill);
+  +4 "name garbage" is ALSO present on healthy managers (B5E076E0...) =
+  it is a per-object HASH, not a name — the EA3D4B48 determinism only
+  says the terminal hash field = stack residue at a fixed slot (init
+  variant skipped the hash write), weaker than "name lookup failure".
+- NEXT frz161: KICK census on 1EEEE0 (mgr, dec kind, pre/post counts,
+  ra) + WINC probe add flag byte bl (arg dword at [esp+0x328] region =
+  EENT a-list) -> settles (a) whether any completion ever targeted the
+  terminal manager, (b) whether the 0x60 flag skipped the desc guard.
