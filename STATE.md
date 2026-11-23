@@ -3,180 +3,194 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-23 00:5x (session 5a)
-**Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**;
-**navigation works**; load-stall wall (H31) anatomy now at pump /
-service-processor level: final leg = manager `018CF14C` (job id
-`0A260002` at `+0x18`, size `0x1400` at `+0x1C`); its pump x167
-(bypass site, `eax=scratch ptr`) reads the handle object via the
-`047CE4/1145D/1152A` vtable chain, takes the trailer dword
-`3EF04C91` (`buf+6140`, bit4 CLEAR) -> SYNC `F9720` branch, ret=1;
-after that pump/tick servicing is silent and the loader wait-cycle
-(`EAAB0`) loops `WAIT_TIMEOUT (0x102)` forever — load events
-`0x37A118/0x37A114` are NEVER Set in any run; job-slot teardown
-`ECB10` fires ZERO times. TWO REGIMES: **R1 fresh-install** (pumps
-freeze ~x119 in sentinel polls, final job never created) vs **R2
-reused-install** (pump x167 + cycling 17-position record chain over
-the installed-cache tail). Patch 0050 (positioned IO = pread/pwrite,
-NT FPO semantics) is correct but NOT the wall — the guest uses
-explicit Set-Position + seq reads.
+**Last updated:** 2026-11-23 02:1x (session 5a, started 22:0x)
+**Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
+(xemu same-moment capture still owed, see Queue);
+**navigation works**; load-stall wall (H31, re-posed x9, home = note
+0025) at heartbeat-producer level: the servicing chain
+`loader wait -> EE190 pulse -> EE110 -> EDA20 tick -> 23B830 pump`
+runs 167 iterations and dies at pump x167 (job `0A260002`, manager
+`018CF14C`, size `0x1400` = one 5120-B record); the job is NOT stuck
+by any data gate — at kill the pump gate is structurally OPEN (job
+byte0=0, flags eligible, handle resolvable). The loader then waits
+INFINITE `{48000007, XAPI-msg event}` and every wake/pulse producer
+falls silent; frz125 (`[SMEVT]` on `26D5AE` SetEvent + `[F0F80]`
+queue census + `POST` task trace) names the wake that should fire
+pulse #6 but doesn't. ONE regime (fresh vs reused cache identical,
+frz121); loader events DO get Set (5 pulses = 5 Sets) — "events
+never Set" is dead.
 
 ## Where things are verified
 
 - Toolkit: `xboxrecomp/` @ v0.18.0 / `37b61d589168adee3680fabd51805ee81427bf07`;
-  `scripts/doctor.sh` green (also XBE SHA-256 pin, skill digests).
-  Local changes = patch series `patches/xboxrecomp/0001..0047`;
-  **the patch-by-patch table lives in THIRD_PARTY.md** (its one home);
-  `scripts/build.sh` resets `src/` to the pin and re-applies in order.
-- Manual overrides (`src/recomp_manual.c`, `--exclude-manual` in
-  `scripts/pipeline.sh`): refill/error-slot/posters/audio census/
-  swap-gate census wrappers; gen tree emits `*_gen` bodies; stubs 432.
-- Ghidra bench installed (12.2 @ pinned JDK, doctor green); the flat
-  import recipe is in THIRD_PARTY.md — **project at `/tmp/opencode/
-  ghidra/sudeki` was lost to the host reboot; re-import when needed**.
-  `/tmp/opencode` is ephemeral: cores/harness scripts cited below may
-  need recreation (harness: `nav_run3.sh`, `frz_watch2.sh`,
-  `core_forensics.bt` — all re-derivable from the notes).
-- Git: scrubbed+reseated history **pushed**; `origin/main = 7ce51cb`
-  (user pushed, verified 20:1x). Pre-scrub backup bundle + map were
-  deleted after push verification (audit drift fixed: they were cited
-  as live).
+  `scripts/doctor.sh` green (XBE SHA-256 pin, skill digests, stubs
+  432 agree). Patch series **`0001..0051`**; the patch-by-patch table
+  lives in THIRD_PARTY.md (its one home); `scripts/build.sh` resets
+  to the pin and re-applies in order.
+- Manual overrides (`src/recomp_manual.c`, `--exclude-manual`): census
+  wrappers incl. PUMP/S9720/S99D0/EE110/EE190(ENQ)/MTICK/EED70/CQ/
+  SMEVT/F0F80/POST/REFILL + cache-writer/audio/swap wrappers.
+- Raw-bytes decode law (verified against lift): `.text` file offset =
+  VA − 0x11000 + 0x1000 (capstone direct on the XBE; the earlier
+  0x1F0000-offset decode was garbage — deleted from note 0025).
+  Kernel thunk placeholders `[0x3156xx]=0xFE000000+i*4` are the real
+  bridge VA encoding (slot = index into the XBE import table).
+- Ghidra bench installed; flat-import recipe in THIRD_PARTY.md; the
+  `/tmp/opencode/ghidra` project was lost to a host reboot — no
+  re-import needed so far (capstone raw decode replaced it).
+- Git: pushed `origin/main = f4495af` per `git reflog` (4 pushes;
+  last two postdate the recorded user-approved push `7ce51cb`).
+  **User question (rule 7):** AGENTS says the remote is `NO_PUSH`,
+  but `remote.origin.pushurl` is a live SSH URL and pushes happened
+  after `7ce51cb`. Confirm posture (re-approved pushes, or restore
+  NO_PUSH) — agent keeps pushing nothing either way.
 - JP second sample: `~/Downloads/xbox/sudeki-jap/default.xbe`
   (parked, outside git; naming `<game>-<region>/`).
 
 ## Last run
 
-Session 5a (22:0x-00:5x): **frz107->116 census arc; H31 anatomy at
-processor level; patches 0048/0049/0050 landed.**
-- frz108-109 funnel: walk `EF1D0` only ~66 session-wide (earlier
-  "~255" was the registrar count); walks match legs by
-  `obj+0x10 == ctx-filter`.
-- frz110 (`[EACYC]/[RESREL]/[RESADD]` + `LOG_ORDS=123,138,145,205,
-  225`): wait cycle loops `0x102` (loader thread NOT parked); load
-  events NEVER Set; `RESADD` (sole caller `F99D0`@1F9DAF) = 0 events.
-- frz111/112: 5th/6th deterministic R2 replays; `F99D0` fired ONCE
-  ever (boot attract cmd via `sub_00240390`) -> relay legs run via
-  SYNC `F9720`; `JOBFREE` (`ECB10`, sole `0x37A3D0` slot clearer)
-  fires ZERO times per run.
-- PUMP probe arg-slot fix (bypass site = 1 arg): true final-leg mgr
-  = `018CF14C` id `0A260002` size `+0x1C=0x1400`; the old "018CF100
-  id=5678" reading was the wrong stack slot.
-- frz113 core: trailer dword `3EF04C91` (bit4 clear -> sync branch);
-  5120-B record buffers all-zero in-core while installed file has
-  mixed data at the seq positions.
-- patch 0048 `[READSEQ]`: seq positions JUMP (24.6M->27.6M->back) =
-  guest does explicit Set-Position + seq reads on one handle.
-- patch 0050 pread/pwrite (NT FPO semantics): correct, but frz116
-  shows the wall unchanged -> guest never relied on the broken
-  semantics; keep the fix regardless.
-- REGIME SPLIT REFUTED (frz121): fresh-install reaches the SAME
-  x167 terminal pump (id 0A260002, node EA3D4B48, backtrace
-  1EDB68<-1EE160<-1EE221); frz116's x119 freeze was kill-timing,
-  not a regime. Heartbeat decoded raw: EAACC0 (per-frame) ->
-  EAAB0 wait-cycle (events 37A114/37A118 created via 26D54D;
-  NtSetEvent IS seen on 48000007/04 - loader wakes, work still
-  incomplete) + EE190 -> EE110 -> EDA20 -> pump. EE110/EDA20 stop
-  while the wait-cycle loops: frz122 [EE190]/[EE110] probes name
-  the broken link.
-- Boot era reads DISC `game/startup.baf` (8,585,216 B positioned,
-  installer); load era streams INSTALLED `Cache//startup.baf`
-  (27,762,688 B seq); installed vs disc: 0/2096 identical 4K blocks
-  (install expands+relocates; disc byte-compare invalid).
+Session 5a (22:0x–02:1x+): **frz107→125 census arc; H31 anatomy
+complete to the heartbeat producer; patches 0048–0051.**
+- Terminal shape (deterministic, fresh AND reused cache): PUMP x167
+  = last servicing call ever (bypass site, mgr `018CF14C`, id
+  `0A260002`, node key `EA3D4B48`, backtrace `1EDB68<-1EE160<-
+  1EE221`); EE110=167, MTICK=167, CQ(23AD50), F9720 — ALL silent
+  after (frz124 per-event EE110 probe: last x166 2 lines before
+  x167; 100k log lines of attract-movie IO only).
+- Pump raw decode: async/sync branch = `job[+8]` bit2 (`0x06610B21`
+  -> sync `F9720`); tick pump gate = `MEM8(job)==0` — OPEN at kill
+  (frz117/123 core forensics; core reader law: find ram base via the
+  `FE000000..FE000008` triple at `[0x3156C0]`).
+- Loader wait anatomy (raw): `EABD0` (single caller `21B1B`) holds
+  CS `37A0F8` across INFINITE wait on `{48000007, [0x397920]}`;
+  `EAAB0` 5-ms cycle ("poll" `[0x315818]` = RtlTryEnterCS);
+  `F0F80` processes worker queues `[0x3D771C/720/740]` (all null at
+  kill) and its handshake Sets the loader events (5 Sets = 5
+  pulses); `EF1D0` bucket walk (bucket `37A120+((tick>>6)&31)*4`,
+  all-empty at kill) waits on the loader container via `EAAB0`;
+  `26D5AE/CE`=Set/ResetEvent, `26D77A/78C`=WFSO/WFMO, `26D54D`=
+  CreateEvent.
+- `[ENQ]` wrapper IS `EE190`: 4-5 calls EVER per run = the pulses.
+  Pulse servicing = per-manager `EE110 -> EDA20 -> pump` walks.
+- Install integrity proven: write map covers `0..27,762,688` once,
+  no gaps; the polled 17-position tail slots ARE zeros the guest
+  itself installed; the cycling reads are the attract movie.
+  No level `.baf` ever opens. Boot-era `startup.baf` (disc,
+  8,585,216 B) -> installed `Cache//startup.baf` 27,762,688 B.
+- Regime split REFUTED (frz121). Patch 0050 (pread/pwrite = NT FPO
+  semantics) correct, not the wall. Patch 0051: writes dispatch
+  `case 236 -> xbox_NtWriteFile` directly — the bridge-side `[WRITE]`
+  log + patch-0005 capacity check never see the real writes
+  (decision owed, see Queue).
+- /review audit ran (fresh context, this session): artefacts verified
+  (patches no gaps, cores, hashes, doctor green, stubs 432); drift
+  applied by this compaction (regime/trailer-bit4/events-never-Set
+  deleted from the header; queue items 1-2 were moot). Audit's
+  direction verdict: H31 is the critical path AND the closest
+  artefact — keep, but close the Menu side-by-side gap in parallel.
 
-Earlier sessions live in the notes (0005-0025) + the session log; the
-4n-4w blocks are summarized there, not here.
+Earlier sessions live in the notes (0001–0011, 0016–0025) + session
+log.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x7): the final relay leg's job
-   never completes -> its manager never sentinelizes; servicing gates
-   shut; loader wait-cycle spins.** R2 terminal shape: pump x167
-   (bypass site, handle `E1750 -> 010E3178`, trailer `3EF04C91` ->
-   `F9720` sync branch, ret=1); after it: zero pumps, but the tick's
-   `23A4F0` leg still fires 256+ times during stall -> tick RUNS,
-   pump gates (`D550`, job-state&3, `HI8(obj+0x28)&2`) shut;
-   `EAAB0` loops WAIT_TIMEOUT; events never Set; `ECB10` never fires.
-   frz117 census: `[EED70]` (completion handler `F9720` calls at
-   1F92C9/1F99A9), `[D550]` (tick gate helper), per-event `[MTICK]`
-   -> names the failing gate or proves completion ran without any
-   Set path.
-2. H14–H30 CLOSED — one-line lessons index (homes = notes 0005–0024):
-   cache capacity ends the boot write-loop (0005); async-IO return
-   convention = the phantom charge (0011); ICALL-skip stack drift
-   (0018); AC97 trap arch gap (0019 era, patch 0022); input = arm
-   OHCI + scripted-pad START bit (0020); sw-method latch/ack chain
-   (0021); `ke_shadow_init` double-init (0022); load-state pump
-   pause is the game's own design (0023); service-chain livelock
-   (0023); D3D RAM events need shadow mirrors — `RECOMP_TITLE_
-   KEVENTS=1` is now part of the working recipe (0024).
+1. **H31 (ACTIVE, note 0025, RE-POSED x9): the post-x167 wake never
+   fires, so the heartbeat that would finish job `0A260002` never
+   runs.** Candidates named and being measured by frz125: (a) task
+   producer `21CD0`/`220E0` (POST trace) stops posting the next-leg
+   task upstream of the loader; (b) `26D5AE`-routed SetEvent sites —
+   SMEVT census names which handshake died; (c) worker-queue refill
+   (`[0x3D7720]` pending list) — F0F80 census proves emptiness.
+   Data-side gates all REFUTED (job byte0=0, queue lists null,
+   buckets empty, install complete).
+2. H14–H30 CLOSED — one-line lessons index (homes = notes
+   0001-0011/0016-0024): cache capacity ends the boot write-loop
+   (0005); async-IO return convention = the phantom charge (0011);
+   ICALL-skip stack drift (0018); AC97 trap arch gap (0019 era,
+   patch 0022); input = arm OHCI + scripted-pad START bit (0020);
+   sw-method latch/ack chain (0021); `ke_shadow_init` double-init
+   (0022); load-state pump pause is the game's own design (0023);
+   service-chain livelock (0023); D3D RAM events need shadow mirrors
+   — `RECOMP_TITLE_KEVENTS=1` part of the recipe (0024).
 
 ## Queue (next concrete actions)
 
-* **1. frz120 (missing-file census)**: add `RECOMP_MISSING_FILES=all`
-  to the recipe and look for failed opens during the load era (the
-  final leg may await a level archive the guest never opened
-  successfully). Cheap, one knob.
-* **2. Pump branch decode**: at x167 `eax = handle 0x00010040`
-  (LO8 bit4 SET -> async branch) but `F99D0` never fires; `S9720`
-  stall-era ra = pump+8654 (= `23B9DC` SYNC branch) -> the branch
-  input at `23B9B2` is NOT `eax` as lifted: re-verify the lifted
-  `PUSH/POP` ordering around `23B8F2-23B913` (trailer-path vtable
-  icalls may clobber `edx` before the branch) or run Ghidra on
-  `23B830..23BA9F` (bench re-import recipe in THIRD_PARTY).
-* **3. Write-path bypass follow-up**: guest writes dispatch
-  `kernel_thunks case 236 -> xbox_NtWriteFile` directly; patch-0005
-  capacity check + old `[WRITE]` log sit on the unused
-  `bridge_NtWriteFile`. Decide whether to move capacity enforcement
-  into `kernel_file.c` (affects disk-full experiments only).
+* **1. frz125 verdict (IN FLIGHT, log `logs/run-frz125-020517.out`)**:
+  `[SMEVT]` ra+handle for every loader-event Set; `[F0F80]`
+  `[0x3D7740/71C/720]` census; `[POST]` task-producer entries.
+  Decision tree: POST silent post-x167 -> who gates the poster
+  (task queue consumer?); POST fires but SMEVT no Set -> consumer
+  side; SMEVT fires on other handles -> map the missing Set's owner
+  (guest site) and why it never runs.
+* **2. Menu artefact completion (rule 6, one run-window): xemu
+  title-screen capture for side-by-side with `reference/fb/frz35*`
+  dumps** — needs the QMP/HMP headless fix (note 0019 recipe).
+  Interleave between frz cycles; `reference/xemu/` today holds only
+  the STOP screen.
+* **3. Write-path decision**: capacity enforcement (patch 0005)
+  sits on `bridge_NtWriteFile` which the guest never uses (patch
+  0051 log proves raw thunk route). Move it into `kernel_file.c` or
+  retire it — affects disk-full experiments only.
 * **4. Then the Gameplay gate:** first presented level frame =
   fbpeek + visual + texture-coverage carry-over; xemu side-by-side
-  of the SAME load as corroborator (needs the QMP/HMP script fix;
-  note 0019 recipe) — corroborator only, not the shortest path.
-* Carry-over (opt-in probes unchanged: SWMARK_INTR12/PF/IRQPOST/
-  PB_PARK; regime v4 + TITLE_KEVENTS + queue-2048 + 0046 + write
-  knobs now proven safe one-run-at-a-time); JP disc regression
-  sample later; roadmap staging (vanilla -> Vulkan -> features) per
-  the user directive, untouched. Post-playable feature order named
-  by the user (2026-11-22): HDR -> Raytracing -> Multiplayer
-  (LAN/VPN co-op + split-screen). Prior art for that stage:
-  `github.com/sudeki-together/sudeki-mp` (SudekiMP — hooks the GOG
-  Windows `SUDEKI.exe`, same SOL engine; AGPL-3.0; deep engine RE
-  docs: structures/engine-functions/combat-graph/lan-arena protocol;
-  reference value only — any code reuse is a license call for the
-  user; never vendored without it).
+  of the SAME load as corroborator only (item 2's script fix serves
+  both).
+* Carry-over: prior-art hour unspent (upstream Discord "Sudeki"
+  search; Black-2006 `black`-branch runtime fixes for streaming/APU
+  — BRIEF Prior art); JP disc regression sample later; roadmap
+  staging (vanilla -> Vulkan -> features) per the user directive;
+  post-playable feature order named by the user (2026-11-22):
+  HDR -> Raytracing -> Multiplayer (LAN/VPN co-op + split-screen);
+  prior art `github.com/sudeki-together/sudeki-mp` (SudekiMP —
+  hooks GOG `SUDEKI.exe`, same SOL engine; AGPL-3.0; deep engine RE
+  docs; reference value only — any code reuse is a license call for
+  the user; never vendored without it).
 
 ## Blockers / open questions
 
-- None blocking. xemu reference boots the title (note 0019); its
-  headless-capture script needs the QMP/HMP fix before side-by-side
-  work (queue item 4).
+- **H31 wall write-up (AGENTS work-loop rule):** 30+ runs
+  (frz93→125), 9 re-poses, 3 header-level facts overturned mid-wall
+  (regime split, trailer-bit4, events-never-Set). No host-side
+  exoneration yet: with the job gate provably open and queues empty,
+  the missing piece is a game-side producer; if frz125 exonerates
+  all three candidates, next re-pose compares against a real
+  reference trace (xemu kernel trace of the same load — item 2
+  serves).
+- User question (rule 7): push posture — see "Where things are
+  verified" Git bullet.
 
 ## Housekeeping facts (recipe home)
 
-- Working recipe (frz92+ regime): `RECOMP_VBLANK=1 RECOMP_PB_EXEC=1
-  RECOMP_PB_WALK=dma RECOMP_KERNEL_LOG_BUDGET=0 RECOMP_AC97_READY=1
-  RECOMP_USB=1 RECOMP_ARM_UNTIL_SEEN=0 RECOMP_TITLE_KEVENTS=1` +
-  FB dumps (`RECOMP_FB_WINDOW=1 RECOMP_FB_DUMP=reference/fb/NN
-  RECOMP_FB_WINDOW_DUMP_EVERY=60`) + census (`RECOMP_IO_READ_LOG=1
-  RECOMP_GATE_TRACE=1 RECOMP_PRES_TRACE=1 RECOMP_EVENT_LOG=1
-  RECOMP_GSVC_TRACE=1`); harness trio `nav_run3.sh` (pad-gated nav),
-  `frz_watch2.sh` (flips AND GATE-acc progress), `core_forensics.bt`.
-- Other useful env: `RECOMP_MISSING_FILES=all`, `RECOMP_IO_WRITE_*`,
-  `RECOMP_CACHE_CAP_BYTES`, `RECOMP_WATCH=<va>[_LEN/_RAW/_PANIC]`,
-  `RECOMP_SEM_TRACE`, `RECOMP_LOG_ORDS=...`, `RECOMP_POST/REFILL/
-  DS_*/TLS_*/PB_UNH_TABLE` traces (patch homes: THIRD_PARTY table).
+- Working recipe (frz92+ regime, nav_run2x): `RECOMP_VBLANK=1
+  RECOMP_PB_EXEC=1 RECOMP_PB_WALK=dma RECOMP_KERNEL_LOG_BUDGET=0
+  RECOMP_AC97_READY=1 RECOMP_USB=1 RECOMP_ARM_UNTIL_SEEN=0
+  RECOMP_TITLE_KEVENTS=1` + FB dumps + census (`RECOMP_IO_READ_LOG=1
+  RECOMP_IO_WRITE_LOG=1 RECOMP_IO_WRITE_MAX=0 RECOMP_GATE_TRACE=1
+  RECOMP_PRES_TRACE=1 RECOMP_EVENT_LOG=1 RECOMP_GSVC_TRACE=1
+  RECOMP_RD_TRACE=1 RECOMP_MISSING_FILES=all RECOMP_POST_TRACE=1
+  RECOMP_LOG_ORDS=123,138,145,205,225`).
+- Harness trio current: `/tmp/opencode/nav_run32.sh`,
+  `frz_watch*.sh`, `core_forensics.bt` (+`core_ram.py` Core class —
+  ram-base finder above). `/tmp/opencode` ephemeral.
+- Other useful env: `RECOMP_CACHE_CAP_BYTES`, `RECOMP_WATCH=<va>…`,
+  `RECOMP_SEM_TRACE`, `RECOMP_LOG_ORDS=…` (patch homes: THIRD_PARTY
+  table).
 - Harness: `scripts/{doctor,pipeline,build,run,stubs,new_note,env,
   skills_check}.sh`; logs -> `logs/`, captures -> `reference/`
-  (gitignored); cores via `coredumpctl dump <pid>` (~2.4 GB each);
-  cache dir `~/.local/share/xboxrecomp/Cache/*` between long runs.
+  (gitignored); cores via `coredumpctl dump <pid>` (~2.4 GB each —
+  23 now / 9.8 GB in /tmp/opencode; prune to frz117/121/123-era at
+  next pause); cache dir `~/.local/share/xboxrecomp/Cache/*`
+  between long runs.
 - Shell law: never edit a script a live bash re-reads; never rebuild
   `build/sudeki` while a run/core is in flight (copy the binary to
-  `/tmp/opencode/sudeki-frzNN.bin` for matched forensics); watcher
-  stdout is block-buffered (file lag != dead watcher).
+  `/tmp/opencode/sudeki-frzNN.bin`); watcher stdout block-buffered;
+  kill by exact pid or `pgrep -x sudeki` (NEVER `pgrep -f`).
 - Seeds file (local, 18 measured VAs): `logs/seeds-icall-0011C640.json`.
-- Git posture: push only with the user's explicit approval (AGENTS
-  rule 7); history was rewritten once, user-approved 2026-11-22, and
-  re-verified clean at HEAD and in `origin/main`.
+- Deterministic markers: PUMP x167 terminal, EE110=167, baf-read
+  counts vary by kill timing (don't pin on them); regime pinned in
+  run header from now on.
+- Git: never push (rule 7); local commits through `524d2f6`; every
+  agent commit this session is factory/docs only.
 
 ## Session log (chronological; HH:MM = commit times)
 
@@ -202,4 +216,5 @@ Earlier sessions live in the notes (0005-0025) + the session log; the
 | 11-22 07:59–12:38 s4s/4t | **H29 livelock CLOSED (0034/0035)**; regime matrix frz62-83 (0039-0046); frz82 proved depth=luck | `f5df7d8`..`c168fa0` |
 | 11-22 12:38–17:55 s4u | frz87 deepest = title-era luck; pump-chain anatomy; Ghidra bench; close-out | `105e357`..`f00a8bf` |
 | 11-22 18:50–19:23 s4v | **H30 ROOT-CAUSED (note 0024)**; frz91 probe; user-approved history scrub + rule 12 | `19b5f4f` `ff20cad` |
-| 11-22 19:56– s4w | **H31 framed (note 0025)**; frz92 GPU-wall-dead verdict chain; patch 0047; /review harness + first audit + README sync (drafts) | `c4b9be4`.. |
+| 11-22 19:56–22:3x s4w | **H31 framed (note 0025)**; frz92 GPU-wall-dead verdict chain; patch 0047; /review harness + first audit + README sync | `c4b9be4`..`7ce51cb` |
+| 11-22 22:0x–11-23 02:1x s5a | frz107-125 census arc; H31 re-posed x9 to heartbeat-producer level; patches 0048-0051; raw-decode law; regime split refuted; frz125 in flight; /review audit #2 | `7f37ab3`..`524d2f6` |
