@@ -2890,6 +2890,7 @@ void sub_001EE2A0(void)
             fprintf(stderr, "  [EENT] x%u -> %08X\n", n - 1, m);
         fflush(stderr);
     }
+}
 
 /* frz161: 1EEEE0 = THE completion/decrement path (static law, note 0025):
  * [mgr+0x14] array-ref dec (at 0 -> 1EEE20 sweep) ELSE dec word
