@@ -1170,3 +1170,35 @@ FUNCTIONS were never exercised past their gates. frz135 = `[SUB2A]`
 AT ALL (boot-era bulk submits may use them — if x0 whole-run, the
 engine's request module never issues follow-up chunks and the cursor
 law at 25,137,248 is explained from the requester side).
+
+## frz135 — SUB2A x0 / SUB2B x62, and a probe-arg law: EF0C0 "mode" was mis-slated
+
+Run `logs/run-frz135-064104.out` (clean-press harness, full window,
+`[PUMP] x167` terminal at line 56128 — same shape).
+
+* `[SUB2A]` (1FD660 bulk submit) = **0 calls whole-run**.
+* `[SUB2B]` (208E60) = **62 calls** (lines 12445..55070 — stops
+  ~1k lines before the terminal pump). Entry: ecx=0,
+  eax=014A5D20.. (object), esp+8 = heap ptrs `00F7F654/00F7F6C8`
+  (request arg objects, NOT static); returns eax = 2,0x1C,6,1,4,5...
+
+**PROBE BUG (law):** the EF0C0 probe printed `mode = arg2 & 3`
+(`MEM32(esp+8)`) — but raw decode puts mode in **arg3** (`ebp =
+[esp+0x14]` after 2 pushes = esp0+0xC; site `1FD699` pushes
+`2` third-from-top). arg2 = the request ARRAY (aligned) -> `&3`
+always 0. So "EF0C0 mode 1/2 never requested" (frz133/134) is an
+ARTIFACT of my probe, not a fact. Retracted. The 167 pump services
+themselves prove the 3D7620 chain WAS fed (splice path 1EC590/
+1EC6B0 inside EF0C0, not via 23AD50 — consistent with CQ census
+showing zero 23AD50 pushes to 3D7620).
+
+Honest H31 pose (x15): the requester 208E60 DOES run (x62) and
+stops ~at the terminal; 1FD660 bulk-submit never runs. Question
+narrows to: WHY does 208E60 stop issuing chunk requests while the
+terminal descriptor block still shows ~13 MB remaining (`0x00C87000`
+at FBB330+8 in the frz131 core)?
+
+frz136: (1) fix EF0C0 mode read to esp+0xC; (2) SUB2B full arg +
+edx census; (3) MODA/MODB/MODC entry census for the module entries
+`1FC680/1FC8E0/1FD950` (1FD660's callers); (4) early-kill watcher
+re-armed -> core for ra symbolization (nav_run37).
