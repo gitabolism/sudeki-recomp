@@ -1697,3 +1697,30 @@ guest-side. CTOR/MSG/RQ/HND all x0 (never got to their era).
   the per-tag BIN lived inside that killed chain -> next launch had no
   binary ("ABRT gate: game died pre-nav"); (3) 3rd BIN-tag miss.
   BIN-copy must be a separate completed call before launch.
+
+## frz146c — HEALTHY full era to PUMP x167: message tier absent CONFIRMED; visual wall = "Loading..."
+
+Run `logs/run-frz146c-104014.out` (vblank 24600 ticks @45 Hz whole-run,
+hangwatch-v2 clean, terminal PUMP x167 manager `018CF14C` = frz141 era).
+
+- Healthy-era census: SUBM x256 (capped+tail), HUB0 x61, TITER x61,
+  TCTO x33 — loader/hub/submit tiers fully alive to the wall.
+  **CTOR/CTOR2/CTRX x0, RQ1/RQ2 x0, HND1/HND2/H7E4 x0, MSG1/MSG2 x0,
+  MKLU/TBLU/SWEEP x0** — the resource-request handlers, the
+  message-dispatcher classes, the scene tick and menu-task tiers are
+  ALL absent in a healthy run to the deterministic wall. Object-graph
+  pose CONFIRMED (frz144's x0 was not a regime artifact).
+- VISUAL WALL (`reference/fb/1460000xx.bmp`): early dumps = animated
+  SUDEKI title (`f4d48eee` era frames); from dump #15 on, a **static
+  black screen with "Loading..." + spinner** through the terminal
+  burst. So NAV's START is consumed, the game ENTERS the level load,
+  and the load never completes — the resubmit loop + missing object
+  graph is exactly what "Loading... forever" means. (Era note:
+  frz141-era runs stayed title-visible to kill; nav depth varies by
+  regime, the Loading screen is the deepest visual state yet.)
+- Registry lead (frz140: task-type global `[0x3762EC]` NULL at kill):
+  static decode found THE registrar 49B10 (pushes "exploration",
+  "unique", "singleplay", "ability", "spiritstrike", "skill" from
+  pool 3229E8), sole caller 491C0 <- 8A790 (vtable-only). frz147
+  censuses REG/RGCX/RGT + resource upper rungs RSRC1-4 + attach
+  callers ATT1-4.
