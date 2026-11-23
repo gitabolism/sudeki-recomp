@@ -1853,3 +1853,24 @@ era only ever raised `00000004` x18 / `00000040` x2 — game sat in
   manager never CLOSES (pending stuck 1, unclosed open = EE2A0 relay
   1EC148). Next probe generation must NAME that request (id/file),
   not census more tiers.
+
+## frz151 — INIT tier CONFIRMED run at boot; PUMP walk anatomy (frz150 log)
+
+- frz151 (healthy, PAD x9, PUMP x167 terminal, mgr 018BF14C era):
+  INIT0(11DE0)/INIT1(8A880)/INITR(8A940 root scene ctor)/C8AD40/
+  C8AEC0/C8AFD0 all TICK (x0 print) — the whole scene-root init tier
+  ran exactly once at boot. Object-class tier still x0 (REGT/RGT/
+  RSRC1-4/UP1-4/FAM2-12/CTOR-family) — those class ctors are
+  post-load consequences, not init-tier gaps.
+- PUMP walk (frz150, all 167 lines): a stride-scan over the manager
+  ARRAY (+0x38 per slot): x1..x159 walk healthy managers all showing
+  id=0002 st=000x5184 variants, eax=02611EA4 (shared node); x160-166
+  six managers id=FFFF st=00015300 (eax=0); x167 = THE terminal
+  manager (018CF14C) id=0002 st=00025120 — the ONLY manager in that
+  state, and the walk never resumes (EE110 stops at 167).
+  Healthy-vs-terminal discriminator = state word bit 0x100/0x64
+  (0x5184 vs 0x5120) + pending [mgr+0x2C]=1 (frz138 (a)).
+- frz152 (running): WINC/WDEC ledger pairs waiter opens (1EC130:
+  inc [[desc+0x14]] or word [desc+0x2C]) with closes (1EC330->
+  1EC350 dec; zero-count runs 1F92E0+1ED9B0+desc->vtbl[0](1) = the
+  DESC CLOSE). The unmatched open names the lost completion.
