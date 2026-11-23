@@ -1355,10 +1355,10 @@ void sub_0023B830(void)
         const char *e = getenv("RECOMP_RD_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
     }
+    uint32_t mgr = 0;
     if (on) {
-        extern __thread uint32_t g_esp;
-        uint32_t mgr = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
-                           ? MEM32(g_esp + 8) : 0u;   /* call is (0, mgr) */
+        mgr = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                  ? MEM32(g_esp + 8) : 0u;   /* call is (0, mgr) */
         if (mgr && ((n++ & 0x3F) == 0 || n < 400)) {
             fprintf(stderr, "  [PUMP] x%u mgr=%08X id=%04X st=%08X "
                     "node=%08X q=%u:", n, mgr, MEM16(mgr + 0x18),
@@ -1374,6 +1374,10 @@ void sub_0023B830(void)
         }
     }
     sub_0023B830_gen();
+    if (on && mgr && n < 400) {
+        fprintf(stderr, "  [PUMP] x%u -> ret=%08X\n", n, g_eax);
+        fflush(stderr);
+    }
 }
 
 /* sub_001EDA20 is the manager tick that DECIDES to pump (both pump
@@ -1495,6 +1499,58 @@ void sub_001EC4E0(void)
     }
     n++;
     sub_001EC4E0_gen();
+}
+
+/* Producer side: sub_001EE190(list=eax, queue=ecx, scratch, flag) is
+ * the enqueue/wait cycle over the mode lists; sub_001EABD0 is the
+ * game-level load-request API (single caller 0x00021B1B). If these
+ * go silent at the stall, the PRODUCER stopped -- the engine is
+ * waiting for the last leg to signal completion, and the leg never
+ * does. */
+extern void sub_001EE190_gen(void);
+
+void sub_001EE190(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    static uint32_t pl = 0xDEAD;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t a1 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                      ? MEM32(g_esp + 4) : 0u;
+    if (on && (n < 40 || g_eax != pl || (n % 200) == 0)) {
+        fprintf(stderr, "  [ENQ] x%u list=%08X queue=%08X a1=%08X\n",
+                n, g_eax, g_ecx, a1);
+        fflush(stderr);
+    }
+    if (on) { pl = g_eax; n++; }
+    sub_001EE190_gen();
+    if (on && n < 40) {
+        fprintf(stderr, "  [ENQ] x%u -> %08X\n", n, g_eax);
+        fflush(stderr);
+    }
+}
+
+extern void sub_001EABD0_gen(void);
+
+void sub_001EABD0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 200) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [REQ] x%u ra=%p\n", n, ra);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EABD0_gen();
 }
 
 /* H31 master switch: sub_001EE7D0 (load-pipeline driver, 60+ call
