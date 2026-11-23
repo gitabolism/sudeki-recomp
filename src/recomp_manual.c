@@ -2288,7 +2288,32 @@ CENSUS(sub_0007D1E0, "TCTO", 120)
  * called post-boot = game logic never requests stage 2 (engine-side,
  * as posed) vs called-and-rejected (host-side gap). */
 extern void sub_001EE7D0_gen(void);
-CENSUS(sub_001EE7D0, "SUBM", 200)
+
+/* frz164: [SAPI] arg census on 1EE7D0: 6 push args (frz159 push list:
+ * a1=EBX-a5=scratch-ptr-struct, a2/a3 frame locals, a4=EDI, + 2 stack).
+ * x159 showed a5 = TEMPLATE object (018C5D88) only on the terminal id;
+ * siblings a5=0. [SAPI] prints id(a2), a1/a4/a5 per call. */
+void sub_001EE7D0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 300 || (n % 512) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t av[6] = {0};
+        if (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+            for (int k = 0; k < 6; k++) av[k] = MEM32(g_esp + 4 + 4 * k);
+        fprintf(stderr, "  [SAPI] x%u ra=%p id=%08X a1=%08X a4=%08X a5=%08X\n",
+                n, ra, av[1], av[0], av[3], av[4]);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EE7D0_gen();
+}
 
 /* frz144: message-leaf tier. F1CA0 routes cmd 0x37=55 -> SWEEP on the
  * scene object; F1D50 is the sibling guard ([edi+0x14]&0x200 family).
@@ -3383,8 +3408,7 @@ void sub_001ECC40(void)
 
 extern void sub_001E1750_gen(void);
 
-void sub_001E1750(void)
-{
+void sub_001E1750(void){
     static int on = -1;
     static unsigned n = 0;
     static uint32_t ph = 0xDEAD, pres = 0;
