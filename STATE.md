@@ -69,10 +69,15 @@ processor level; patches 0048/0049/0050 landed.**
 - patch 0050 pread/pwrite (NT FPO semantics): correct, but frz116
   shows the wall unchanged -> guest never relied on the broken
   semantics; keep the fix regardless.
-- REGIME SPLIT: R1 fresh-cache (frz116: pumps freeze ~x119 sentinel
-  polls, final job never created) vs R2 reused-cache (frz103-115:
-  pump x167 + 17-position chain cycles). All "deterministic" replays
-  so far were R2; pin the regime in run headers from now on.
+- REGIME SPLIT REFUTED (frz121): fresh-install reaches the SAME
+  x167 terminal pump (id 0A260002, node EA3D4B48, backtrace
+  1EDB68<-1EE160<-1EE221); frz116's x119 freeze was kill-timing,
+  not a regime. Heartbeat decoded raw: EAACC0 (per-frame) ->
+  EAAB0 wait-cycle (events 37A114/37A118 created via 26D54D;
+  NtSetEvent IS seen on 48000007/04 - loader wakes, work still
+  incomplete) + EE190 -> EE110 -> EDA20 -> pump. EE110/EDA20 stop
+  while the wait-cycle loops: frz122 [EE190]/[EE110] probes name
+  the broken link.
 - Boot era reads DISC `game/startup.baf` (8,585,216 B positioned,
   installer); load era streams INSTALLED `Cache//startup.baf`
   (27,762,688 B seq); installed vs disc: 0/2096 identical 4K blocks
