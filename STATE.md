@@ -49,6 +49,33 @@ frz128→134 census arc complete; nav_run36a.sh = clean-press harness.
 
 ## Last run
 
+Session 5c (06:3x–…): **frz135→142 census arc; wall narrowed to the
+task-ISSUER tier; submit-API law found; xemu capture law work.**
+- frz135-137: SUB2A(1FD660) dead-code x0; WALK x31 = complete task
+  list; corrected EF0C0 mode census (mode2 x279 — probe-arg law);
+  terminal manager = ONE never-closed request (pending word stuck 1).
+- frz138: pending-count ledger — whole streaming era balanced,
+  terminal burst nets +1; unclosed open = `EE2A0` relay (`1EC148`).
+- frz140: dispatch tier dies EXACTLY with session 31; loader drain
+  era outlives it; batch-dword race refuted (plain single-open leak);
+  queue heads ALL ZERO at kill (no stuck task); `0x115000`
+  never-lifted law found; SWEEP x0 = command 55 never posts; scene
+  global `[0x3DC83C]` = stub at kill.
+- frz141: `0x115000` seeded -> 0 resolve-fails (law closed, wall
+  unchanged); FRM x0 (vtable fanout not probe-reachable) -> census
+  by method wrappers; **heap-VA drift law** (manager `018BF14C ->
+  018CF14C` across seed-era change): watch data globals across eras.
+- frz141 FB dumps: at kill the game SHOWS an ANIMATED SUDEKI TITLE —
+  frame tier alive; wall = START never advances (no next task batch).
+- Static: `1EE7D0` = THE job-submit API (single master gate
+  `MEM8(0x397110)`, all direct-called from the 2C-2D thunk region);
+  `1EE400` is NOT a function (mid-body label of EE2A0 — JPSS retired);
+  ISSMTH ancestry runs solely through `6AD00->74F10->7D1E0`.
+- Harness: gen law (recomp takes no data-file args; seeds =
+  `pipeline.sh --seed` at disasm); xemu_shotseq unique dump names
+  (collision law); `xemu_fbpeek --zorder` (0x1A3B000 = block-swizzled
+  TEXTURE, FB law still open); `xemu_qmp_probe.sh` written (screenshot
+  question); shell-chain timeout law (keep timeouts > run ETAs).
 Session 5b (03:0x–06:3x): **frz128→134 census arc; H31 stands with
 clean input; harness START-spam confounder convicted then EXONERATED
 as cause; xemu FB capture pipeline live.**
@@ -100,19 +127,22 @@ log.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x20: the task-ISSUER tier
-   goes silent after batch ~31 — the scene/script never submits the
-   next task batch).** frz141: 115000 seed closed the ICALL-failure
-   law (0 resolve-fails; wall unchanged); FRM(15B640) x0 = that
-   vtable fanout is not probe-reachable (no guarded ICALL site) ->
-   census by METHOD wrappers: MKLU(20E9B0, sole caller of scene
-   executor 20F1A0)/JPSS(1EE400) in frz142 (running, + scene-global
-   watch `[0x3DC83C]`), TBLU(6AD00)/TCTO(7D1E0) queued frz143.
-   ISSMTH x33-34 = task tier fired only for the boot batches; SWEEP
-   x0 = command 55 never posts; scene global = stub `0281BE50` at
-   kill. Heap-VA drift law: manager moved `018BF14C->018CF14C` when
-   the seed set changed — watch DATA GLOBALS across eras, re-derive
-   heap records per era.
+1. **H31 (ACTIVE, note 0025, RE-POSED x21: endgame = ENGINE RESUBMIT
+   LOOP; the vtable message tier is the invisible edge).** frz142
+   overturned the "issuer silent" pose: SUBM hit its print cap (x199,
+   cap law: count==LIM = saturation), job-record tier ticks to the
+   terminal burst itself; terminal era CYCLICALLY re-creates the
+   same jobs (id/ptr pairs `0AC20002->02967C30`, `0A7F0002->02967A8C`
+   x3), EACK between bursts FROM the loader pump region (1EACC0),
+   EBUSY x2560 whole-run. Dispatch tier never died (WALK "x30" was
+   the cap) — frz140's tier-death laws retired. Scene global
+   `[0x3DC83C]` written ONCE at boot to `0281BEC0` — scene object
+   EXISTS; SWEEP x0 = cmd 55 never arrives OR leaf tier is
+   dispatch-invisible (MKLU/FRM/TBLU/SWEEP all x0 vs ticking
+   direct-call tiers). frz143 run (in flight) = tail-sampled censuses
+   + MSG1(F1CA0)/MSG2(F1D50) leaf probes + `[0x397110]` gate watch.
+   Heap-recycle law: log-quoted heap VAs are recycled by kill time —
+   core forensics must be live-watched or per-era re-derived.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop
    (0005); async-IO return convention = the phantom charge (0011);
@@ -192,10 +222,14 @@ log.
   26 now / ~11 GB in /tmp/opencode; prune to frz117/121/123/126/127
   era at next pause); cache dir `~/.local/share/xboxrecomp/Cache/*`
   between long runs.
-- Shell law: never edit a script a live bash re-reads; never rebuild
-  `build/sudeki` while a run/core is in flight (copy the binary to
-  `/tmp/opencode/sudeki-frzNN.bin`); watcher stdout block-buffered;
-  kill by exact pid or `pgrep -x sudeki` (NEVER `pgrep -f`).
+- Shell law: never edit a script a live bash re-reads; never edit
+  `src/recomp_manual.c` while a gen+build chain is in flight (gen
+  reads OLD manual, make compiles NEW -> `undefined reference to
+  sub_X_gen` — explains all three "transient" wrap misses); never
+  rebuild `build/sudeki` while a run/core is in flight (copy the
+  binary to `/tmp/opencode/sudeki-frzNN.bin`); watcher stdout
+  block-buffered; kill by exact pid or `pgrep -x sudeki` (NEVER
+  `pgrep -f`).
 - Seeds file (local, 18 measured VAs): `logs/seeds-icall-0011C640.json`.
 - Deterministic markers: PUMP x167 terminal, EE110=167, baf-read
   counts vary by kill timing (don't pin on them); regime pinned in
