@@ -56,7 +56,8 @@ def qmp(o, timeout=120):
                 continue
             if "event" in j:
                 continue
-            if j.get("id") == o["id"]:
+            if j.get("id") == o["id"] or ("return" in j or "error" in j):
+                # xemu's QMP replies sometimes omit the echoed id
                 return line
         try:
             chunk = s.recv(65536)
