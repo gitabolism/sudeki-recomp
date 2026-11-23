@@ -2442,18 +2442,10 @@ void sub_001EC130(void)
     if (on && (n < 300 || (n % 256) == 0)) {
         uint32_t d = g_eax, node = g_esi;
         uint32_t ctr = d ? MEM32(d + 0x14) : 0;
-        fprintf(stderr, "  [WINC] x%u desc=%08X node=%08X ctr=%08X cnt=%04X state=%02X\n",
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [WINC] x%u desc=%08X node=%08X ctr=%08X cnt=%04X state=%02X ra=%p gesp=%08X\n",
                 n, d, node, ctr, d ? MEM16(d + 0x2C) : 0,
-                d ? MEM8(d + 0x28) : 0);
-        fprintf(stderr, "    stack:");
-        {
-            uint32_t sp = g_esp;
-            for (int k = 0; k < 8 && sp; k++) {
-                fprintf(stderr, " %08X", MEM32(sp));
-                sp = MEM32(sp);
-            }
-        }
-        fprintf(stderr, "\n");
+                d ? MEM8(d + 0x28) : 0, ra, g_esp);
         fflush(stderr);
     }
     n++;
