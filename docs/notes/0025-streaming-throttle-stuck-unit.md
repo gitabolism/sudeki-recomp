@@ -1262,3 +1262,39 @@ trust `coredumpctl list | tail -1` — stale tail).
   13.1 MB left UNQUEUED when the walker stopped (batch ids 0..0x1E
   ran; nothing pending). The task-list producer, not the consumer,
   is the dead edge — frz137 WALK census identifies its driver.
+
+## frz137 — WALK x31 = the COMPLETE task list; install is byte-complete; wall = pending-count stuck at 1
+
+Run `logs/run-frz137-072632.out` (real run after the harness
+self-abort; early-kill core pid 272995; PUMP x167 at line 56293,
+same terminal shape).
+
+* `[WALK]` (2027B0): **x31 entries, ONE caller ra** (single wrapper
+  site), a1 = fresh heap task-descriptors, a2 = the container ctx
+  (`F7F654/F7F6C8/F7F55C`). First batch's record shows `u16[+0x24]
+  = 3104` then 257/257/0... — the task list is consumed to
+  completion (31/31). EF0C0 modes again 120x0 + 279x2 — identical
+  census. THE STREAMING JOB SET IS ENTIRE.
+* INSTALL LAW (offline): disc `game/startup.baf` = 8,585,216 B
+  source; the CACHE `startup.baf` is a game-BUILT FMH container
+  27,762,688 B (NOT a copy — byte-compare vs disc is meaningless).
+  Block census: 420/424 64K blocks non-zero (4 zero blocks = legit
+  FMH sparse regions, last nonzero 0x1A70000 < EOF) — install
+  COMPLETE. Extent math: 128 KB allocs (27233F push 0x20000 at
+  20356F) -> ~217 extents vs 228 mode-2 splices + 167 services ✓.
+* STATE LAW: manager `+0x2C` is a PENDING-COUNT **word**, not a
+  state id: `inc word [+0x2c]` at 1EBA28/1EBF11/1EC148/1EC2E5/
+  01EDCD3/01EE645/01EE724/01EF010, `dec word + cmp 0` at 1EC390
+  and 1EEEFF (completion), sentinel `mov word,0xFFFF` at 1EDF91/
+  1EE596. Terminal manager count = **1** at kill: exactly ONE
+  request never closed (its desc F95738, key-suffix 10B29 vs
+  container key-suffix 10B21 = namespace +8 law, siblings share it
+  and completed -> key mismatch is a RED HERRING).
+* frz131's "done managers state=3" reading is superseded: 3 and 1
+  are open-request COUNTS, not states.
+
+H31 pose x17: **one request on the terminal manager never receives
+its completion**; everything else closes cleanly. frz138 =
+`RECOMP_WATCH=0x18BF178` (count word, len 4) + SCH1..4/TITER census:
+per-write guest stacks show WHO opened the 11th-era extra request
+and who stopped closing it.
