@@ -2852,6 +2852,37 @@ void sub_001EC3E0(void)
     }
 }
 
+/* frz159: EE2A0 entry census. EE2A0 is the 0x30C-frame submit/relay/spawn
+ * mega-function: its WINC leg (1EE682) opened the orphan; its batch-spawn
+ * leg (EE2A0+0x3517 -> MCOR x43-49) constructed the seven managers 16 lines
+ * LATER. Different internal legs per call; the CALLER ordering is the
+ * wall. [EENT] prints host caller ra + first args per call so the terminal
+ * burst shows: submit-call vs spawn-call and who issued each. */
+extern void sub_001EE2A0_gen(void);
+
+void sub_001EE2A0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 60 || (n % 100) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t a1 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 4) : 0u;
+        uint32_t a2 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 8) : 0u;
+        fprintf(stderr, "  [EENT] x%u ra=%p eax=%08X a1=%08X a2=%08X\n",
+                n, ra, g_eax, a1, a2);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EE2A0_gen();
+}
+
 /* 26D5AE = guest SetEvent wrapper (all loader-event signals route
  * through it; EVENT_LOG can't name the CALL SITE). ra + handle per
  * call: which handshake stopped producing wakes after pulse #4. */
