@@ -1905,3 +1905,27 @@ mgr 018CF14C = same heap era as frz150):
   PUMP x167 terminal. frz153 (same BIN, harness v46): RECOMP_WATCH=
   0x018CF154 (owner slot manager+0x08) -> WHO clears it at the
   terminal burst (race vs EC2C0 re-splice) — the last unknown edge.
+
+## frz153/153b — owner-slot watch: trap path UNRELIABLE (law), alias-divergence REFUTED
+
+- frz153 (arm CF154, era BF) / frz153b (arm BF154, era BF, matched): only the
+  4 boot byte-writes (host libc memset, guest stack 1173B/400000/11623 = CRT
+  heap zero-fill) were trapped. No post-boot trap in either run.
+- Cores at kill (frz152b CF, frz153 BF): terminal manager +8 = 00F95738 and
+  word[+2C] = 0001 (final pending 1, ledger-reconciled) — the slot IS written
+  post-boot (EF0C0 x435 read 0 at line ~58400), yet the mprotect/TF-step trap
+  never saw it. LAW: the POSIX watch trap is untrustworthy for slow census;
+  use patch 0053 poll-diff (trap-free, transition log interleaved with
+  census markers).
+- Alias-divergence theory REFUTED: 0x80000000 immediates in .text = 53, all
+  controller/D3D flag words (01xxxx region), none in the 1EC-221 loader tier;
+  and the toolkit's 0x80000000 contiguous window is deliberately SEPARATE
+  storage (aliasing would land pinned pools on the XBE — upstream comment),
+  so a 0x8|VA heap write would corrupt, not hide.
+- RAM mirrors: base + 28 mirror views of one mapping, contiguous host span;
+  mprotecting only the canonical view would miss mirror-view stores (latent
+  law for future watch work — cores show all views consistent).
+- frz154/154b (same BIN + patch 0053, watch LEN 0x40 over the whole manager
+  object, POLL=150ms, BF and CF armed): first transition log of the manager
+  block; the change lands between census markers -> writer localized by
+  interleaved WINC/EF0C0/SUBM lines.
