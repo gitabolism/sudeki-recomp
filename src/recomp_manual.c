@@ -1380,7 +1380,7 @@ void sub_0023B830(void)
              * walk bucket table 0x37A120[0..31] chains (entry, cnt, mgr,
              * flags) + queue heads/counters 3D75FC..3D7718, 3975A8/AC. */
             static int dumped = 0;
-            if (!dumped && MEM16(mgr + 0x2C) != 0) {
+            if (!dumped && MEM16(mgr + 0x2C) != 0 && (MEM32(mgr + 0x28) & 0x20u)) {
                 dumped = 1;
                 fprintf(stderr, "  [BUCK] mgr=%08X pend=%04X st=%08X +4=%08X +8=%08X +14=%08X\n",
                         mgr, MEM16(mgr + 0x2C), MEM32(mgr + 0x28),
@@ -2946,6 +2946,46 @@ void sub_001EE2A0(void)
                     MEM8(m + 0x28), MEM32(m + 8));
         else
             fprintf(stderr, "  [EENT] x%u -> %08X\n", n - 1, m);
+        fflush(stderr);
+    }
+}
+
+/* frz169: 1EED20 = manager NAME/KEY installer (called from EE2A0 fresh-
+ * manager leg at 1EE32D, esi=mgr, eax=arg). Static: if [eax+4]!=0 ->
+ * [mgr+0x28]|=0x200 + string copy from [eax+4]; ELSE [mgr+4]=[eax+0].
+ * Terminal ended with NO 0x200 + [mgr+4]=stack-garbage-looking hash ->
+ * ELSE leg. [NAM] prints eax, [eax], [eax+4] at entry + mgr fields at
+ * exit to identify the arg object and branch for EVERY creation. */
+extern void sub_001EED20_gen(void);
+
+void sub_001EED20(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_eax;
+    extern __thread uint32_t g_esi;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t arg = g_eax, mgr = g_esi;
+    int show = on && (n < 200 || (n % 512) == 0);
+    if (show) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t f0 = 0, f4 = 0;
+        if (arg >= 0x10000u && arg < 0x04000000u) {
+            f0 = MEM32(arg);
+            f4 = MEM32(arg + 4);
+        }
+        fprintf(stderr, "  [NAM] x%u ra=%p arg=%08X [%08X]=%08X [+4]=%08X mgr=%08X\n",
+                n, ra, arg, arg, f0, f4, mgr);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EED20_gen();
+    if (show && mgr >= 0x01000000u && mgr < 0x04000000u) {
+        fprintf(stderr, "  [NAM] x%u -> mgr+4=%08X st=%08X\n",
+                n - 1, MEM32(mgr + 4), MEM32(mgr + 0x28));
         fflush(stderr);
     }
 }
