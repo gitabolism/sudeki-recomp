@@ -2818,6 +2818,40 @@ void sub_001FE690(void)
     sub_001FE690_gen();
 }
 
+/* frz157: EC3E0 = relay-node refcount release (dec [node+0xC]; at 0 ->
+ * unlink/free via 23AC90; EF1D0 bumps refs while walking buckets). The
+ * terminal burst node stays in-service (desc state bit 0x1000) with its
+ * refs never reaching 0 -> EACYC handshake repeats forever. [ISERV] per
+ * call: node, ref before/after, queue slot [node+8], epoch [node+0x10]. */
+extern void sub_001EC3E0_gen(void);
+
+void sub_001EC3E0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t node = g_eax;
+    if (on && (n < 300 || (n % 512) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t ref = (node >= 0x10000u && node < 0x4000000u) ? MEM32(node + 0xC) : 0;
+        fprintf(stderr, "  [ISERV] x%u ra=%p node=%08X ref=%u q=%08X ep=%08X\n",
+                n, ra, node, ref,
+                (node >= 0x10000u && node < 0x4000000u) ? MEM32(node + 8) : 0,
+                (node >= 0x10000u && node < 0x4000000u) ? MEM32(node + 0x10) : 0);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EC3E0_gen();
+    if (on && (n < 300 || (n % 512) == 0)) {
+        uint32_t ref = (node >= 0x10000u && node < 0x4000000u) ? MEM32(node + 0xC) : 0;
+        fprintf(stderr, "  [ISERV] x%u -> ref=%u\n", n - 1, ref);
+        fflush(stderr);
+    }
+}
+
 /* 26D5AE = guest SetEvent wrapper (all loader-event signals route
  * through it; EVENT_LOG can't name the CALL SITE). ra + handle per
  * call: which handshake stopped producing wakes after pulse #4. */
