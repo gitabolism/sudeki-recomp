@@ -1,0 +1,46 @@
+diff --git a/src/kernel/kernel_file.c b/src/kernel/kernel_file.c
+--- a/src/kernel/kernel_file.c
++++ b/src/kernel/kernel_file.c
+@@ -1418,8 +1418,9 @@
+     else
+         n = read(fd, Buffer, Length);
+     if (seqlog && !ByteOffset && n >= 0)
+-        fprintf(stderr, "  [READSEQ] fd=%d pos %lld -> %lld n=%zd\n",
+-                fd, pos0, (long long)lseek(fd, 0, SEEK_CUR), n);
++        fprintf(stderr, "  [READSEQ] fd=%d pos %lld -> %lld n=%zd path=%s\n",
++                fd, pos0, (long long)lseek(fd, 0, SEEK_CUR), n,
++                (w32_handle_path(FileHandle) ? w32_handle_path(FileHandle) : "?"));
+     if (n < 0) {
+         XBOX_TRACE(XBOX_LOG_FILE, "NtReadFile(handle=%p) errno=%d", FileHandle, errno);
+         IoStatusBlock->Status = STATUS_UNSUCCESSFUL;
+@@ -1453,11 +1454,30 @@
+     }
+ 
+     overwrite_settle(fd);
++    static int wlog = -1;
++    static long wseen = 0;
++    if (wlog < 0) {
++        const char *e = getenv("RECOMP_IO_WRITE_LOG");
++        wlog = (e && *e && *e != '0') ? 1 : 0;
++    }
++    long long wpos0 = (wlog && !(ByteOffset && ByteOffset->QuadPart >= 0))
++                          ? (long long)lseek(fd, 0, SEEK_CUR) : -1;
+     ssize_t n;
+     if (ByteOffset && ByteOffset->QuadPart >= 0)
+         n = pwrite(fd, Buffer, Length, (off_t)ByteOffset->QuadPart);
+     else
+         n = write(fd, Buffer, Length);
++    if (wlog) {
++        wseen++;
++        long long wpos1 = (ByteOffset && ByteOffset->QuadPart >= 0)
++                              ? (long long)ByteOffset->QuadPart + (n > 0 ? n : 0)
++                              : (long long)lseek(fd, 0, SEEK_CUR);
++        long long wpos0e = (ByteOffset && ByteOffset->QuadPart >= 0)
++                              ? (long long)ByteOffset->QuadPart : wpos0;
++        const char *wp = w32_handle_path(FileHandle);
++        fprintf(stderr, "  [WRITE236] #%ld fd=%d pos %lld -> %lld n=%zd path=%s\n",
++                wseen, fd, wpos0e, wpos1, n, wp ? wp : "?");
++    }
+     if (n < 0) {
+         XBOX_TRACE(XBOX_LOG_FILE, "NtWriteFile(handle=%p) errno=%d", FileHandle, errno);
+         IoStatusBlock->Status = STATUS_UNSUCCESSFUL;
