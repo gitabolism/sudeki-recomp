@@ -56,6 +56,48 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
 
 ## Outcome
 
+* frz101 core (killed 20 s after the last read): the HMF manager
+  class singleton (global `0x397668` -> `0xFD9550`) is NOT one of the
+  three pumped objects: its queue still holds an UNSERVICED node —
+  `+04 begin=0xFB97A0`, cursor `+08=0xFB97C4` (one taken),
+  `+0C end=0xFBA9E8` (~177 nodes of stride 0x24 queued). Node0:
+  `81000000 00010000 00010000 00000001 <ptr 010B1EA0> ...` —
+  identical shape in the frz100 core (end=0xFBB354): a standing
+  backlog whose servicing stopped. NOTE: the `<ptr>` and node fields
+  decoded so far landed on `PC_TOTALstartup` debug blocks (tags
+  0x336734/0x3367AC recur 164x heap-wide = allocator/vector tags),
+  so node-field semantics stay UNRESOLVED — but queue-with-backlog
+  vs drained pumped managers is solid, and the decisive probe is
+  `[MTICK]`: which object class does `sub_001EDA20` tick, and which
+  gate closes.
+
+### frz100/101: the stall is DETERMINISTIC and the pump TICK stops
+
+* frz100 reproduced the read-back stop at the EXACT byte: seq head
+  `0x00AD5D09` = 11,363,693 B (40.9 %), identical to frz97; frz98/99
+  land ~0.5 % off (different log eras). The container itself: the
+  X: install is a TRANSFORM — source `game/startup.baf` is 8,585,216 B
+  (`HMF\x01` + 8-B offset/flag entries; trailer `baf\x04`), installed
+  image 27,762,688 B, 8,449,669 bytes differ. The stall offset sits
+  past all 66 header-entry offsets, in a `00 00 FF 00`-pattern region
+  whose neighbours are small-int record tables (`00 00 FF 02 | 00 00
+  FF 05 | ...`) — structured content, not slack.
+* frz101 `[PUMP]` census: 119 pump entries total, 3 manager objects;
+  every entry from BOTH call sites (001EDA75 main, 001EDB68 worker).
+  The read-back manager `018A2400` shows stage-field 7 -> 0xF ->
+  0xFFFF (0xFFFF = the pump's own "final inline" branch). Its LAST
+  pump ticks (x117 x118 x119, lines 16080/17602/19282) are the last
+  era of `startup.baf` reads; after line 19284 NOTHING pumps again
+  for the rest of the run. => the pump is not idling — the manager
+  TICK (`sub_001EDA20`) stops being entered (or its entry gates
+  close). Probe added: `[MTICK]` wrapper on `sub_001EDA20` logging
+  which gate fails (`+0x28 & 0x200` / `+0x04` null / head byte 0).
+* frz100 core: BAF manager 0x00FD9550 (global 0x397668) with ONE
+  active node (stride 0x24), node flags `81000000/00010000` pending;
+  a `PC_TOTALstartup`-named request object (tags 0x336734/0x3367AC —
+  allocator/request tags, present 164x heap-wide). Core-object field
+  mapping stays untrusted until [MTICK] lands.
+
 ### frz98-100 consumer anatomy: the job-pump chain is named end-to-end
 
 * `sub_00270FBD` (helper) call sites: `sub_0001E170` (stream read

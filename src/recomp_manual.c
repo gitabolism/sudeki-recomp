@@ -1335,19 +1335,20 @@ void sub_00270FBD(void)
 }
 
 /* ── BAF job-pump state census (note 0025 H31, RECOMP_RD_TRACE=1) ──
- * sub_0023B830 is the title's job-pump: it walks a list off this(eax),
- * per-node calls vtbl[2](open) / vtbl[1](read -> sub_0001E170 -> our
- * [RD]) / vtbl[0](close), under global cs 0x3156C0, guarded by
- * sub_001F96C0(type-16 <= 0x31) and a reentrancy slot this+0xC0E4.
- * Logs one line per pump entry: thisptr, node-list head (+0x10),
- * +0x0C tail, +0x04 link, queue slot, and the caller fingerprint from
- * its stack. Shows whether reads stop because the pump stops running,
- * runs with an empty list, or runs but the nodes stop reading. */
+ * sub_0023B830(0, mgr) is the title's job-pump, called from the BAF
+ * manager tick sub_001EDA20 (test obj+0x28 & 0x200 gates the whole
+ * path; obj+0x04 non-null with first byte != 0 must also hold). The
+ * pump walks the manager node list, per-node vtbl[2] open / vtbl[1]
+ * read (-> our [RD]) / vtbl[0] release, under global cs 0x3156C0,
+ * with reentrancy slot mgr+0xC0E4 and type gate sub_001F96C0.
+ * Per-entry line: manager, stage id +0x18, state +0x28, node head
+ * +0x04, queue slot, caller stack fingerprint. Separates:
+ * pump-stops-running vs runs-with-empty-list vs nodes-never-read. */
 extern void sub_0023B830_gen(void);
 
 void sub_0023B830(void)
 {
-    extern __thread uint32_t g_esp, g_eax;
+    extern __thread uint32_t g_esp;
     static int on = -1;
     static unsigned n = 0;
     if (on < 0) {
@@ -1355,12 +1356,12 @@ void sub_0023B830(void)
         on = (e && *e && *e != '0') ? 1 : 0;
     }
     if (on) {
-        uint32_t th = g_eax;
+        uint32_t mgr = MEM32(g_esp + 8);   /* call is (0, mgr) */
         if ((n++ & 0x3F) == 0 || n < 400) {
-            fprintf(stderr, "  [PUMP] x%u this=%08X head=%08X tail=%08X "
-                    "link=%08X q=%u st=%08X:", n, th,
-                    MEM32(th + 0x10), MEM32(th + 0x0C), MEM32(th + 4),
-                    MEM32(th + 0xC0E4), MEM32(th + 0x94));
+            fprintf(stderr, "  [PUMP] x%u mgr=%08X id=%04X st=%08X "
+                    "node=%08X q=%u:", n, mgr, MEM16(mgr + 0x18),
+                    MEM32(mgr + 0x28), MEM32(mgr + 4),
+                    MEM32(mgr + 0xC0E4));
             for (uint32_t k = 0; k < 0x60u; k += 4) {
                 uint32_t v = MEM32(g_esp + k);
                 if (v >= 0x11000u && v < 0x286000u)
@@ -1371,4 +1372,40 @@ void sub_0023B830(void)
         }
     }
     sub_0023B830_gen();
+}
+
+/* sub_001EDA20 is the manager tick that DECIDES to pump (test
+ * obj+0x28 & 0x200, obj+0x04 non-null, byte@obj[4] != 0). If it runs
+ * but skips, the skip reason is logged; if it never runs, the era
+ * loop above us stopped. Same env gate as [PUMP]. */
+extern void sub_001EDA20_gen(void);
+
+void sub_001EDA20(void)
+{
+    extern __thread uint32_t g_esi;
+    static int on = -1;
+    static unsigned n = 0, skips = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on) {
+        uint32_t o = g_esi;
+        int st = -1;
+        if (o >= 0x10000u && o < 0x80000000u) {
+            n++;
+            uint32_t s28 = MEM32(o + 0x28);
+            uint32_t p04 = MEM32(o + 4);
+            if (s28 & 0x200)                    st = 0; /* busy-skip */
+            else if (!p04)                      st = 1; /* null list */
+            else if (!MEM8(p04))                st = 2; /* head empty */
+            if (st >= 0 && (skips++ & 0xFF) == 0)
+                fprintf(stderr, "  [MTICK] x%u obj=%08X SKIP=%d st=%08X "
+                        "p04=%08X id=%04X\n", n, o, st, s28, p04,
+                        MEM16(o + 0x18));
+        } else if ((n++ & 0xFF) == 0) {
+            fprintf(stderr, "  [MTICK] x%u esi=%08X (bad)\n", n, o);
+        }
+    }
+    sub_001EDA20_gen();
 }
