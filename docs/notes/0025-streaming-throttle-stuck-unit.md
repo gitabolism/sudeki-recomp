@@ -192,6 +192,43 @@ exactly. Verified raw decode of the pump + siblings:
   probes) decides whether an unopenable file or a driver gate is
   the stop cause.
 
+### frz123: CQ pushes stop at x167 too; wait-wake mechanics decoded (slot 86 = RtlTryEnterCriticalSection)
+
+* `[CQ]` = `sub_0023AD50` (list-append to queue obj edi, NO event
+  Set inside): fired 512+ times during load era (queues
+  `0x3D76B0`-family, args `0x3D75FC/0x3D7668`), last x512 at line
+  55117 = 16 lines BEFORE pump x167 (55133); no x768 -> CQ total
+  <768, silent after. EE110 (mod-256 gated) last entry-log x59 at
+  12366 but calls 60..255 unlogged -> timing indeterminate;
+  frz124 logs it per-event.
+* Loader wait mechanics fully decoded (raw): `26D54D`=CreateEvent,
+  `26D5AE`=SetEvent, `26D5CE`=ResetEvent, `26D77A`=WaitForSingle,
+  `26D78C`=WaitForMultiple. `EABD0` holds CS `0x37A0F8` across its
+  INFINITE wait on {`[0x37A118]=48000007`, `[0x397920]`};
+  `EAAB0`'s "poll" = `[0x315818]` = **thunk slot 86 =
+  RtlTryEnterCriticalSection(0x37A0F8)** (slot 0=`[0x3156C0]`=
+  RtlEnterCS, slot 45=`[0x315774]`=NtWaitForSingleObjectEx — the
+  `0xFE000000+i*4` image placeholders in `[0x3156xx]` ARE the
+  kernel thunk VAs, not uninitialized slots).
+* Worker queue: `F0F80` moves pending-list `[0x3D7720]` -> queue
+  `[0x3D771C]` (F0DF0, sole writers) and processes obj vtable[+4]
+  + CQ-append; returns 1 while `[0x3D7740]|[0x3D771C]` non-null,
+  Sets `[0x37A118]` in its handshake (1F0FBF/1F103F) = the 5 event
+  Sets == the 5 loader pulses. After x167 both globals null ->
+  F0F80 idle -> no Sets -> EABD0 parks INFINITE.
+* `EF0C0` walk still fires 475x total, deep into stall era (line
+  103k), but walks the `018B79xx` container family (attract/video
+  streams), all mode=0 — NOT the load chain's `0x3D7620` list.
+* Model: servicing = 5 event-driven pulses; each pulse walks the
+  container arrays and pumps ready managers (all 167 MTICK via
+  EE110); queue producers (EF0C0 callers `EBF44/EC184/FD69E/
+  208F0D`) stopped feeding the LOAD list long before x167; the
+  17-position READSEQ cycling is the attract-movie stream, not
+  level data (frz124 confirms). Job `0A260002` (size one 5120-B
+  slot) waits for a next-leg registration that never happens:
+  next question = which API registers the next leg, and which
+  gate refused it (EBF44/EC184 callers of EF0C0).
+
 ### frz121-122: regime split REFUTED; loader wait anatomy decoded raw; ENQ(EE190) producer = 5 calls EVER
 
 * frz121 (fresh cache, R1): SAME terminal pump x167 (`018CF14C`
@@ -426,7 +463,7 @@ exactly. Verified raw decode of the pump + siblings:
   complete, the release path is the abort — why the ref dropped to 0
   is the open question the census will pair.**
 
-### frz105: H31.4 REFUTED — E0210/POOL ran ONCE at boot, both succeeded
+### frz105: H31.4 hypothesis — flag `0x397110` gating (REFUTED by the probe below at line ~99)
 
 * `[EF1D0]` (mask 0xFFF) printed `x1` only: `sub_001EF1D0` entered
   <4,096 times for the whole run — the load-pipeline chain is NOT
