@@ -1367,3 +1367,27 @@ Roles re-decoded (raw .text):
   full-record watch (LEN 0x40) will show which of a/b/c got which
   closer and whether any +0x28 state bit (0x20 flush / 0x40 in-flight)
   explains the missing dec.
+
+## frz140 design hypothesis — the two-counter race (word vs batch dword)
+
+Static ledger law (decoded `EC130/EC2C0/EC350/1EF430/1EEC40`):
+- inc: `[mgr+0x14]`(batch dword) != 0 -> inc `[[+0x14]]` dword; else
+  `inc word [mgr+0x2C]` (`1EC148`/`1EC2E1/2E5`).
+- dec: same switch (`1EC374/37B` = dword path with `[batch]==0` ->
+  `1EEE20`; else word `dec 1EC390`); at ZERO -> `1F92E0 + 1ED9B0 +
+  vtable[0](mgr,1)` (vptr 336794 -> `1EEC40`) = job-DONE.
+- `1EF430` (batch-complete loop): finalizes each child job (`1F92E0`
+  + `1EDA20(1)`) but NEVER touches the parent word `+0x2C`.
+
+**Race hypothesis:** if between the (a) orphan word-inc and the
+terminal completion the manager got a BATCH (`[+0x14] != 0` — batch
+ctor sites set `[batch+0xC]=mgr`), the terminal close routes to the
+batch dword and at batch-zero the batch path finalizes the job via
+`1EEE20` — which need not dec the word. Word stays 1 forever ->
+`dec+cmp0` never true -> job never DONE -> engine leg never advances.
+Queue heads are all 0 at kill, wrapper dec paths did run (x, y) —
+consistent with an accounting leak, not a lost task.
+
+frz140 watch (`0x18BF14C` LEN 0x40) settles it: watch for writes to
+`+0x14` (0x18BF160) and `+0x28` state word interleaved with the
+`+0x2C` transitions; every hit carries the guest stack.
