@@ -1819,3 +1819,37 @@ era only ever raised `00000004` x18 / `00000040` x2 — game sat in
     invoked (a METHOD on a stamped vtable whose dispatcher is the
     dead tier), i.e. the dead edge moves to "who dispatches
     0x324E24-family vtable slots".
+
+## Core-read correction + CRT static-init law (frz150 core, capstone full-image)
+
+- LAW (core forensics): guest VA == host VA only within the 64MB RAM
+  chunk whose SEGMENT-OFFSET equals the VA (identity chunk); the
+  image-copy base arithmetic (hit − 0x11000) reads the WRONG dword
+  (0x10000 off) — a first pass wrongly showed lists 3975E4/E8 EMPTY.
+  Correct read at kill (frz150 core): [3975E4]=0x37306C,
+  [3975E8]=0x373074 — BOTH handler lists populated; [39761C] = 10-node
+  chain; [396E50]=1 (scene-obj init guard set).
+- CRT static-init tier decoded: initterm driver 26CFF8 (called from
+  26C68F) walks tables [0x33D410..0x33D84C] (271 thunks) +
+  [33D850..33D864]; thunks 2815E0/281600/281680/2816A0/2819B0/2819D0
+  PUSH static nodes into 3975E4 (resolver list) / 3975E8 (handler
+  list) / 39761C (task-handler list) then call 2735E6 (atexit name
+  reg, strings at 283830+). Earlier "no inserters exist" was a scan
+  window bug (.text real size 0x27424C, not the brief's 2452204).
+- LIVE list B at kill = 0x373074(vtbl[0]=221000=ATT3) -> 0x372CF8
+  (20AB70=ATT2) -> 0x372C58 (200CB0=ATT1). List A = 221390/20A9B0/
+  200BF0 (resolver counterparts). ATT census = these dispatches.
+- DRV1 anatomy corrected: pops an entry off an ARRAY queue
+  ([[obj+4]+0]=base, +4=index, ++4 per pop), calls 1F5A10 (hash
+  bucket [0x37E6A8] + resolver list A), then offers to list B; first
+  handler returning nonzero takes the job. ATT2 (20AB70) ACCEPTS:
+  allocates a 0x40 object (vtable 336908->337ED0) and calls 1F2270
+  with (jobctx). So the job pipeline IS functioning end-to-end —
+  ATT2 x256 = accepted object creations.
+- Pose consequence: "object graph never built" needs re-posing —
+  job-tier objects ARE built; the x0 ctors (159710 cmd-class family)
+  may be CONSEQUENCE (scene classes only instantiate post-load).
+  Sharpest wall fact remains frz135/138: ONE request on the terminal
+  manager never CLOSES (pending stuck 1, unclosed open = EE2A0 relay
+  1EC148). Next probe generation must NAME that request (id/file),
+  not census more tiers.
