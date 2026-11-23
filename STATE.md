@@ -3,19 +3,21 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-23 15:3x (session 5d, ~13:0x–15:3x)
+**Last updated:** 2026-11-23 16:3x (session 5d/5e cont., ~13:0x–…)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
 (xemu same-moment capture still owed, see Queue);
-**navigation works; the game now reaches a fully rendered "Press START"
-title screen (frz172 FB dump #172, ~350 s into a no-early-kill 1750 s run)**;
-load-stall wall (H31, re-posed x28, home = note 0025) in ONE sentence:
+**navigation works; the game reaches a fully rendered "Press START"
+title and CYCLES it as an attract loop (frz172/174 FB dumps)**;
+load-stall wall (H31, re-posed x30, home = note 0025) in ONE sentence:
 the old "stuck Loading" picture was partly a HARNESS ARTIFACT (the
 PUMP-x167 early-kill truncated progression, frz171 law); un-killed, the
-load machinery CYCLES (WDEC finally decrements the orphan manager, the
-engine re-issues with desc installed) and the game reaches Press START —
-but **pad START is never answered** and the object-graph/message tier
-(MSG/SWEEP/MKLU/SCH) still never ticks (x25 pose stands from a second
-direction: task node-lists are issued EMPTY by 16F520 task-issue tier).
+load machinery CYCLES and the game renders the full Press START screen —
+but the SOL **scene/object-graph tier stays dead for the whole pill era
+(MSG/SWEEP/MKLU/SCH/CTOR census ALL x0, frz174)**, so pad START (arriving
+and ISR-claimed) has no handler and the title attract-loops forever;
+those tiers are started only from runtime-built tables (SWEEP 4E1F0 and
+friends have ZERO static xrefs) — core forensics at the stuck moment is
+the chosen next lever (frz175 running, SIGABRT-at-timeout = core).
 
 ## Where things are verified
 
@@ -68,6 +70,16 @@ arc; wall moved from "deadlock" to "Press START, input unanswered".**
   NO menu response.
 - Symbolization: base-diff law (SIGKILL runs have no core; map run-B
   host RAs into run-A space via a same-site census anchor).
+- frz173 (1150 s, dense presses): ended PRE-pill; FB cadence law: dumps
+  = 120 PRESENTED frames ~ 10 s wall (title era presents ~12 fps); the
+  pill appears at dump ~172 = ~28 min wall — earlier "pill at 350 s" was
+  a fps-assumption error.
+- frz174 (1900 s): pill + © at #176/180/182, black fades #172/186/187 =
+  ATTRACT LOOP; scene-tier census ALL x0 the whole window; SWEEP 4E1F0
+  ZERO static refs (runtime-table dispatch law for the SOL tier family).
+- Loader pump static decode complete (1EACC0 pump / 1EAD70 service loop
+  sleeps 16 ms / 1EAD50 evt6 status-probe = the x749M census site; the
+  loader thread itself healthy-parks W2MO x41923 with ret=1 wakes).
 - Prior art: upstream README port table checked 2026-11-23 — NO Sudeki
   row (16 ports); title still unclaimed.
 Full verdicts in note 0025 (sections through "frz172"); one-line each:
@@ -80,14 +92,18 @@ Full verdicts in note 0025 (sections through "frz172"); one-line each:
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x29: post-frz172 the load-stall is
-   NOT a hard deadlock — the game reaches Press START while the loader
-   pump livelocks on evt6 and the object-graph tier stays dead; pad START
-   presses (OHCI ISR claimed x25) never advance the UI. Candidate gates:
-   (a) menu input-handler = never-instantiated object tier; (b) spinner
-   livelock starves a thread tier; (c) input in-guest state never updates
-   (XAPI tier census NEVER BUILT — open).** frz173 (dense 5 s presses)
-   adjudicates (c) vs (a/b) empirically.
+1. **H31 (ACTIVE, note 0025, RE-POSED x30: post-frz172/174 the wall is a
+   DEAD SCENE TIER, not a load deadlock — the game renders and attract-
+   cycles the full Press START title for 30+ min while MSG/SWEEP/MKLU/
+   SCH/CTOR census stay x0; pad START arrives (OHCI claimed) but the
+   handler tier is behind the never-started object-graph, whose entry
+   points (SWEEP 4E1F0 et al.) have ZERO static xrefs (runtime-table
+   dispatch). Candidates: (a) the table that should list scene executors
+   is never fed (who feeds it?); (b) a scene thread exists but its
+   dispatch entry table slot is empty; (c) gate/global [0x3DC83C]-stub
+   blocks instantiation. frz175 core (pill-era, SIGABRT) = thread stacks
+   + globals + handler lists at the stuck moment).** Prior frz18-era
+   Buki-card runs prove input end-to-end works when the tier lives.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop (0005);
    async-IO return convention = the phantom charge (0011); ICALL-skip
@@ -100,10 +116,14 @@ Full verdicts in note 0025 (sections through "frz172"); one-line each:
 
 ## Queue (next concrete actions)
 
-* **1. frz173 verdict** (dense presses, same binary): if menu still
-  unresponsive -> input-acceptance census regen: find in-guest XAPI pad
-  getters (XAPILIB statically linked; func_id has no XInput names —
-  signature hunt needed) OR host-side URB-content log patch.
+* **1. frz175 core forensics (core arrives at pill era):** (i) per-thread
+  guest stack scan (26 host LWPs; find the scene-thread candidates parked
+  or spinning — `info threads` + stack dwords -> base-diff symbolize);
+  (ii) globals at stuck moment: gate [397110], scene [3DC83C], handler
+  lists 3975E4/E8 (identity-chunk law), [37A0F5], heads 3D7620/68C/71C/740;
+  (iii) search heap for runtime dispatch tables containing the 4E1F0
+  family VAs (dword-scan 0x37A000-region + heap 01xxxxxx for values
+  0x0004E1F0/0x00157B10/... = the table that should list scene executors).
 * **2. Loader-pump livelock anatomy**: 1EACC0+2767 ms=0 evt6 wait — why
   never signaled post-burst; compare vs healthy boot era (evt6 Set sites).
 * **3. Menu artefact completion (rule 6):** xemu shotseq unique-name pair
@@ -143,9 +163,11 @@ Full verdicts in note 0025 (sections through "frz172"); one-line each:
 - Harness current: `/tmp/opencode/nav_run51.sh` (**no early-kill — use
   this for endgame runs**; `WATCHVA/WATCHLEN/WATCHPOLL` env params;
   BIN pattern `/tmp/opencode/sudeki-frz$N.bin` — cp per N) +
-  `nav_run52.sh` (dense 5 s STARTs) + `nav_run49.sh` (legacy kill) +
-  `tools/hangwatch.sh` v2; core reads via `tools/corepeek.py` + anchor
-  pair `0037306C,00373074` @`0x3975E4` + gate `[0x397110]==1`.
+  `nav_run52.sh` (dense 5 s STARTs) + `nav_run53.sh` (timeout->SIGABRT
+  = CORE at window end; use when the core IS the artefact) +
+  `nav_run49.sh` (legacy kill) + `tools/hangwatch.sh` v2; core reads via
+  `tools/corepeek.py` + anchor pair `0037306C,00373074` @`0x3975E4` +
+  gate `[0x397110]==1`.
   `/tmp/opencode` is tmpfs: everything there vanishes on host reboot.
 - Cores kept (tmpfs ~5.8 GB): frz171 (frz171/172 host-base pair);
   prune at next pause.
