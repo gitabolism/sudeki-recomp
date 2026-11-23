@@ -192,6 +192,43 @@ exactly. Verified raw decode of the pump + siblings:
   probes) decides whether an unopenable file or a driver gate is
   the stop cause.
 
+### frz121-122: regime split REFUTED; loader wait anatomy decoded raw; ENQ(EE190) producer = 5 calls EVER
+
+* frz121 (fresh cache, R1): SAME terminal pump x167 (`018CF14C`
+  id 0A260002 node EA3D4B48, backtrace `001EDB68 <- 001EE160 <-
+  001EE221`), baf=1080 reads — identical to frz119. frz116's "x119
+  freeze" was kill-timing. One regime.
+* Loader stack decoded raw (`1EABD0` = game load-wait API, single
+  caller `21B1B`): creates two autoreset events via `26D54D` ->
+  handles `[0x37A118]=48000007`, `[0x37A114]=48000004`; waits
+  INFINITE `WaitForMultipleObjectsEx`; between wakes: `F0F80` spin
+  (returns while `[0x3D7740]|[0x3D771C]` work-queue non-null;
+  processes queue `[0x3D771C]` via obj vtable[+4] + `23AD50`
+  commit) then `EE190(list [0x3D7620], ctx 0x3975A8, [0x3D768C])`.
+* `EAACC0` per-frame helper: iterates `[0x397564]` callback list,
+  `F1170`, then `EAAB0()` + `EE190(list [0x3D7668], ctx 0x3975AC,
+  [0x3D7644])` gated on `[0x3D7668] != 0`.
+* **[ENQ] wrapper IS EE190** (frz106 vintage): EE190 fired exactly
+  FIVE times in the whole session (x0-x4; x4 immediately after pump
+  x167, ret 0). So during the stall era the heartbeat `EAACC0 ->
+  EE190` stops running entirely, while `EAAB0` (EACYC) still loops
+  from other sites (`1EF27C/1F153E/1F1938`) -> `F0F80` spin sees
+  empty queues (`[0x3D7740]==0`, `[0x3D771C]==0` -> ret 0).
+* NtSetEvent (ordinal 225, logged) fires on 48000007 (5x) and
+  48000004 (3x) from `26D5BA` (CRT signal helper reached from the
+  loaders' own exit paths) — the loader events DO get Set; the
+  loader wakes, finds nothing, re-parks. "Events never Set" corrected.
+* Installed-file content check at the 17 cycled READSEQ positions:
+  24602720/24608864/24617056/25131104/26138720/27594848/27621472 =
+  ALL ZERO (64-B probe); 24631392/25315424/27709440 have data
+  (delta-compressed + strings `Hide from quest log`/`Element4`).
+  Write-map proved 0..27,762,688 written once, no gaps — the guest
+  itself installed those zeros, then polls those slots for content
+  that never arrives. Job size `0x1400` = 5120 = exactly one slot.
+* frz123 probes: `[EE110]` (container+arr+cnt) + `[CQ]` (sub_0023AD50
+  completion-queue push, queues `0x3D75FC`/`0x3D76F8`) -> names the
+  heartbeat link that dies after x167.
+
 ### frz117: tick runs, pump gate refuses after x167; EED70 stream-swaps keep cycling
 
 * R2 replay #7 (deterministic): pump x167 = same final bypass pump
