@@ -1785,8 +1785,11 @@ void sub_0026D78C(void)
         on = (e && *e && *e != '0') ? 1 : 0;
     }
     int sp = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u);
-    uint32_t arr = sp ? MEM32(g_esp + 4)  : 0u;
-    uint32_t cnt = sp ? MEM32(g_esp + 8)  : 0u;
+    /* frz129 W2MO bug (frz130 fix): 26D78C entry args are
+     * (count, hArray, waitAll, ms) — 26D6A8 validates [ebp+8] as the
+     * count (cmp 0x40). Old probe read them swapped and printed nothing. */
+    uint32_t cnt = sp ? MEM32(g_esp + 4)  : 0u;
+    uint32_t arr = sp ? MEM32(g_esp + 8)  : 0u;
     uint32_t all = sp ? MEM32(g_esp + 0xC) : 0u;
     uint32_t ms  = sp ? MEM32(g_esp + 0x10) : 0u;
     int show = 0;

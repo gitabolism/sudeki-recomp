@@ -912,3 +912,46 @@ is era-general (frz95 control), so the census stands.
   to tokens {48000001,48000006,48000007} or INFINITE (bounded set;
   the census that the 300-cap bridge log cannot give). Settles:
   does EE190 ever Wait on evt7, and does evt7 re-signal host-side.
+
+## frz129 — wait census (W1SO) verdict + W2MO probe bug (my own)
+
+Run `logs/run-frz129-051623.out` (62,788 lines; nav WORKED this run —
+gate fixed to `[OHCI0] raised 00000002`, 8 STARTs fired; pump x167 at
+line 55449, mgr `018BF14C` id `0002` node `EA3D4B48` — same shape,
+heap addresses shifted by the nav era). Core
+`/tmp/opencode/sudeki.frz129.core`, bin `sudeki-frz129.bin`, base
+`0x56388dd3e000` (.text runtime `0x56388de4ce00`).
+
+* `[W1SO]` (exhaustive guest-WFSO census, tokens {1,2,4,6,7}):
+  evt6 ms=0: 2735 polls, 2719 timeouts, 16 successes;
+  **evt7 ms=0: 131 polls, 126 returned SIGNALED(0), 5 returned
+  0x102**; pollers (symbolized): `EE190_gen+0x43d` (=1EE1B4, the
+  FLAG=1 wake gate), `EE190_gen+0x1389` (=1EE260, a SECOND evt7
+  gate inside the per-entry servicing loop), `F0F80_gen+0x292`
+  (=1F0FA3) and `+0xf2d` (=1F1024, the worker-queue handshake).
+* Raw decode settles the wake-branch polarity (EE190 AND F0F80 carry
+  the same unit): `WFSO(evt7,0); if evt7 SET -> skip; else
+  Reset(evt6)+Set(evt7)+WFSO(evt6,INFINITE)` — the park path fires
+  ONLY when evt7 is cleared. evt7 = notification event (type 0)
+  **created SIGNALED** (bridge create line 186: init=1), guest
+  censuses show it is never Set and never Reset => stays signalled
+  => the wake/park rendezvous is permanently short-circuited, and
+  that is GUEST-COHERENT given the semantics — not a host loss.
+  frz126's "OPEN contradiction" was a branch-polarity misread.
+* 5 evt7 timeout polls (lines 13385,14029,54490,55156,**55456 = last
+  poll before terminal pump x167**) stay unexplained (no guest Reset
+  in exhaustive SRST) — edge effect, parked.
+* **W2MO=0 was MY probe bug**: `26D78C` entry args are
+  `(count, hArray, waitAll, ms)` (`26D6A8` validates `[ebp+8]` vs
+  0x40 = the count); the frz129 wrapper read them swapped, so the
+  token filter never matched. Fixed in `recomp_manual.c`. Census
+  law re-affirmed: decode the wrapper's raw arg order before
+  trusting any zero count.
+* EE190 second wake gate (per-entry: 1EE250 `test byte[esp+0x18]` =
+  same FLAG, then 1EE258 poll) — with evt7 signalled, EE190 never
+  yields mid-list; it services buckets directly — that is where
+  pumps x62..x167 ran from.
+
+frz130 = fixed `[W2MO]` (which tokens the loader loop really parks
+on and what those waits return) + W1SO control. One variable:
+multi-wait census.
