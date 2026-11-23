@@ -99,13 +99,32 @@ def uniformity(buf, off, w, h):
     n = sum(c.values())
     return max(c.values()) / n if n else 0.0
 
+def diffmap(d1, d2, vram1, vram2, size):
+    """Byte-difference map between two VRAM buffers (same guest, later t).
+    The front buffer animates on a title screen; most textures don't."""
+    a, b = vram1[:size], vram2[:size]
+    return bytes(x ^ y for x, y in zip(a, b))
+
+def diff_score(dm, off, w, h):
+    # fraction of CHANGED 4-byte pixels in a candidate window
+    n = 0; ch = 0
+    for y in range(h):
+        base = off + y * w * 4
+        for x in range(0, w * 4, 4):
+            n += 1
+            if dm[base + x:base + x + 4] != b"\x00\x00\x00\x00":
+                ch += 1
+    return ch / n if n else 0.0
+
 def main():
     args = sys.argv[1:]
     elf, outp = args[0], args[1]
     opts = {}
     it = iter(args[2:])
     for a in it:
-        if a.startswith("--") and a not in ("--top", "--zorder"):
+        if a == "--diff":
+            opts[a] = next(it)
+        elif a.startswith("--") and a not in ("--top", "--zorder"):
             opts[a] = int(next(it), 0)
         else:
             opts[a] = True
@@ -113,6 +132,29 @@ def main():
     vram = max((s for s in segs if s[0] >= 0xF0000000), key=lambda s: s[1])
     print("VRAM seg pa=0x%X size=0x%X" % (vram[0], vram[1]))
     buf = d[vram[2]:vram[2] + vram[1]]
+    if "--diff" in opts:
+        d2, segs2 = loads(opts["--diff"])
+        v2 = max((s for s in segs2 if s[0] >= 0xF0000000), key=lambda s: s[1])
+        buf2 = d2[v2[2]:v2[2] + min(v2[1], vram[1])]
+        dm = diffmap(None, None, buf, buf2, len(buf2))
+        step = 0x10000 if len(buf) > 0x2000000 else 0x1000
+        cands = []
+        for w, h in ((640, 480), (720, 480), (640, 576), (720, 576)):
+            for off in range(0, len(dm) - w * h * 4, step):
+                ch = 0
+                for y in range(0, h, 4):
+                    row = dm[off + y * w * 4: off + (y + 4) * w * 4]
+                    ch += sum(1 for i in range(0, len(row), 16)
+                              if row[i:i + 4] != b"\x00\x00\x00\x00")
+                frac = ch / ((h // 4) * (w // 4))
+                if 0.02 < frac <= 0.75:
+                    cands.append((frac, off, w, h))
+        cands.sort(reverse=True)
+        for frac, off, w, h in cands[:10]:
+            print("diff-cand changed=%.3f off=0x%X %dx%d" % (frac, off, w, h))
+        for i, (frac, off, w, h) in enumerate(cands[:3]):
+            bmp("%s-d%d.bmp" % (outp, i), buf, off, w, h)
+        return
     if "--off" in opts and "--w" in opts and "--h" in opts:
         if "--zorder" in opts:
             bmp_z(outp + ".bmp", buf, opts["--off"], opts["--w"], opts["--h"])
