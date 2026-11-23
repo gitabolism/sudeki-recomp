@@ -2557,3 +2557,21 @@ not file size; no input drift — doctor green).
   PUMP x167 caller = 1EDA20+5009 (BAF manager tick, frz103 law holds).
 - nav_run51 = no-early-kill variant (frz171 law: x167 marker not terminal);
   nav_run52 = dense START presses every 5 s (frz173 input-acceptance probe).
+
+## Loader pump/loop full decode (frz172-era static addendum)
+
+- 1EACC0 (pump, era-stable): walk callback list [0x397564] (call [esi] per
+  entry, next at +4) -> 1F1170; if [3D7668] != 0: EAAB0 + EE190(list=
+  3D7668, cs=3D7644, csobj ecx=3975AC); ELSE gate [37A0F5]==0 && any of
+  heads 3D7620/3D768C/3D7740/3D771C != 0 -> 1EAB90; then 1EE080 + 1F11E0.
+  rdtsc timing pairs = frz103 law.
+- 1EAD70 loader service loop: pump -> while al: process list [397668]
+  (FE8A0 open, FE690 per item, Sleep 0x10 ms per batch, every 0x12C
+  batches re-pump) — a HEALTHY design loop (16 ms sleep, no livelock).
+- 1EAD50 status check = Wait(evt6=[37A118], ms=0) at 1EAD62 -> neg/sbb/inc
+  bool: "evt6 signalled?" probe. The x749M W1SO evt6 ms=0 census hits =
+  THIS site (1EACC0-body unit per func_id extent) hammered by a computed
+  caller — the spin is in whoever polls this status fn, not in the loop
+  above (which sleeps). 26D77A census = W1SO; W2MO = 26D78C WaitMultiple:
+  frz172 era loader parks INFINITE on {evt6,evt1} x41923 and WAKES
+  (ret=1) — loader thread itself is healthy-parked, matching s5b law.
