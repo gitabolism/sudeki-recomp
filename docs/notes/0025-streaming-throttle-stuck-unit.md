@@ -2080,3 +2080,24 @@ era-invariant sibling 018A7B68 -> when does ITS +0x14 array appear?
   matching 1EEEE0 anywhere. KICK census x-count whole-run vs WINC x207
   settles the whole wall at census precision; if KICK total == WINC+
   lookups-1 excluding terminal, the missing decrement is the ONLY bug.
+
+## frz160 — healthy-manager control: VOID (boot-era lottery death)
+
+frz160 (WATCHVA=018A7B68): boot-era regime lottery death — PUMP census
+only n=64, WINC/ENQ/EE110 total 6, KERNEL summary ord-234/221 x9.9M
+spin at kill; manager 018A7B68 never allocated that era. Control re-run
+= frz162 (same binary as frz161). Loader line "XBE loaded: 3903488"
+verified identical across all runs (BRIEF 4,288,384 = image-size field,
+not file size; no input drift — doctor green).
+
+## Static addendum #2 — service getters + 1ECC40 desc-array law
+
+- Loader-drain service 1EBDE0 -> getters 1EBFE0/1EC050: if desc [mgr+8]
+  != 0 size/count from [desc+0x10] fields; ELSE resolve via 1ECC40(id):
+  [[0x37A3D0][id&0xFFFF] +0x20] + idx*(3*4), idx from +0x2C word map or
+  id>>16 direct = 12-byte desc entries. id word 0xFFFF -> 0.
+- Core law: type-slot table deterministic across 4 cores: [1]=018x0820
+  (healthy type-word 0001) but [2]=544E4601 ("FNT1"-tag-looking) for the
+  terminal type-word 0002 — resolution for type 2 would chase a
+  non-pointer UNLESS nothing ever calls the 1ECC40 path with type 2.
+  frz161 KICK/SVC/SVC2 census decides.
