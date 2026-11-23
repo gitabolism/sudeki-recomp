@@ -2869,7 +2869,7 @@ void sub_001EE2A0(void)
         const char *e = getenv("RECOMP_RD_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
     }
-    if (on && (n < 60 || (n % 100) == 0)) {
+    if (on && (n < 240 || (n % 100) == 0)) {
         void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
         uint32_t av[7] = {0};
         if (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
@@ -2880,7 +2880,16 @@ void sub_001EE2A0(void)
     }
     n++;
     sub_001EE2A0_gen();
-}
+    if (on && (n < 240 || (n % 100) == 0)) {
+        uint32_t m = g_eax;
+        if (m >= 0x10000u && m < 0x4000000u)
+            fprintf(stderr, "  [EENT] x%u -> m=%08X id=%08X arr=%08X w2C=%04X st=%02X desc=%08X\n",
+                    n - 1, m, MEM32(m + 0x18), MEM32(m + 0x14), MEM16(m + 0x2C),
+                    MEM8(m + 0x28), MEM32(m + 8));
+        else
+            fprintf(stderr, "  [EENT] x%u -> %08X\n", n - 1, m);
+        fflush(stderr);
+    }
 
 /* frz161: 1EEEE0 = THE completion/decrement path (static law, note 0025):
  * [mgr+0x14] array-ref dec (at 0 -> 1EEE20 sweep) ELSE dec word
@@ -2930,13 +2939,20 @@ void sub_001EBDE0(void)
 {
     static int on = -1;
     static unsigned n = 0;
+    extern __thread uint32_t g_ecx;
     if (on < 0) {
         const char *e = getenv("RECOMP_RD_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
     }
     if (on && (n < 300 || (n % 512) == 0)) {
         void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
-        fprintf(stderr, "  [SVC] x%u ra=%p\n", n, ra);
+        fprintf(stderr, "  [SVC] x%u ra=%p node=%08X mgr=%08X id=%08X desc=%08X\n",
+                n, ra, g_ecx,
+                (g_ecx >= 0x10000u && g_ecx < 0x4000000u) ? MEM32(g_ecx + 4) : 0,
+                (g_ecx >= 0x10000u && g_ecx < 0x4000000u && MEM32(g_ecx + 4) >= 0x10000u && MEM32(g_ecx + 4) < 0x4000000u)
+                    ? MEM32(MEM32(g_ecx + 4) + 0x18) : 0,
+                (g_ecx >= 0x10000u && g_ecx < 0x4000000u && MEM32(g_ecx + 4) >= 0x10000u && MEM32(g_ecx + 4) < 0x4000000u)
+                    ? MEM32(MEM32(g_ecx + 4) + 8) : 0);
         fflush(stderr);
     }
     n++;
