@@ -1423,6 +1423,38 @@ void sub_001EF1D0(void)
     sub_001EF1D0_gen();
 }
 
+/* sub_001EF0C0 is the relay dispatcher above EF1D0: it picks WHICH
+ * manager list gets serviced from the load-context mode (arg2 & 3):
+ * {0,1} -> list A, 2 -> list B, 3 -> NO servicing at all (skips the
+ * EF1D0 call). [EF0C0] prints (arg1, arg1+8, mode) on mode/arg
+ * transitions + first 20 + every 200. */
+extern void sub_001EF0C0_gen(void);
+
+void sub_001EF0C0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    static uint32_t pa = 0xDEAD, pm = 0xDEAD;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t a1 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                      ? MEM32(g_esp + 4) : 0u;
+    uint32_t a2 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                      ? MEM32(g_esp + 8) : 0u;
+    uint32_t f8 = (a1 >= 0x01000000u && a1 < 0x04000000u)
+                      ? MEM32(a1 + 8) : 0xDEADu;
+    if (on && (n < 20 || a1 != pa || (a2 & 3) != pm)) {
+        fprintf(stderr, "  [EF0C0] x%u a1=%08X a1+8=%08X a2=%08X mode=%u\n",
+                n, a1, f8, a2, a2 & 3u);
+        fflush(stderr);
+    }
+    if (on) { pa = a1; pm = a2 & 3u; n++; }
+    sub_001EF0C0_gen();
+}
+
 /* H31 master switch: sub_001EE7D0 (load-pipeline driver, 60+ call
  * sites) returns immediately when guest global byte 0x397110 == 0.
  * sub_001E0210 (engine frame driver) zeroes that flag on entry and
