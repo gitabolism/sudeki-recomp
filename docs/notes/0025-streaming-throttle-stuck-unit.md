@@ -1512,3 +1512,19 @@ enters through `1EE7D0`. frz143 adds SUBM census there: x-after-boot
 = 0 proves the GAME LOGIC never requests the next stage (engine-side
 dead edge confirmed end-to-end, next question = which script/object
 should call it); x>0 with NULL returns = host-side gate/flag gap.
+
+## Harness law — gen must report every manual extern as wrapped
+
+A census wrapper (`extern void sub_X_gen(void); CENSUS(...)`) links ONLY
+if the gen pass renames the lifted body, which happens iff X is in
+`wrap & func_db` (manual_scan WRAP_RE match AND a function-database
+entry). Two failure shapes seen, both link-time `undefined reference
+to sub_X_gen`:
+
+1. X is not a function-database entry (JPSS/1EE400 = mid-body label of
+   EE2A0 — dispatch-range proof). Fix: retire the probe.
+2. Same file/command that later wraps 94 correctly wrapped 93 in one
+   run (SUBM/1EE7D0, transient — clean rerun renames correctly).
+   Diagnostic law: compare gen's `N wrapped as sub_X_gen` against
+   `grep -c 'extern void sub_.*_gen(void);' src/recomp_manual.c`;
+   mismatch = regenerate before debugging the linker.
