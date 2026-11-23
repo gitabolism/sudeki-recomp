@@ -1380,7 +1380,7 @@ void sub_0023B830(void)
              * walk bucket table 0x37A120[0..31] chains (entry, cnt, mgr,
              * flags) + queue heads/counters 3D75FC..3D7718, 3975A8/AC. */
             static int dumped = 0;
-            if (!dumped && MEM16(mgr + 0x2C) != 0 && (MEM32(mgr + 0x28) & 0x20u)) {
+            if (!dumped && MEM32(mgr + 0x18) == 0x0A260002u) {
                 dumped = 1;
                 fprintf(stderr, "  [BUCK] mgr=%08X pend=%04X st=%08X +4=%08X +8=%08X +14=%08X\n",
                         mgr, MEM16(mgr + 0x2C), MEM32(mgr + 0x28),
@@ -2946,6 +2946,42 @@ void sub_001EE2A0(void)
                     MEM8(m + 0x28), MEM32(m + 8));
         else
             fprintf(stderr, "  [EENT] x%u -> %08X\n", n - 1, m);
+        fflush(stderr);
+    }
+}
+
+/* frz171: 16F520 = engine task ISSUE tier (note 0025 pose x28): frees the
+ * task node chain [edi+0x3C] (vtbl[0]) BEFORE submitting, calls
+ * 1EE7D0(&local{+0 name-hash, +4 name-ptr, +8 id}, 0x20, 0x80,
+ * [edi+0x3C], [edi+0x28], 0), then state [edi+0x2E]=2 (or 3 on fail) and
+ * frees the list again (vtbl[4]). [TISS] prints task obj, id, both list
+ * heads + counts-ish, state byte pre/post, caller ra (symbolize offline). */
+extern void sub_0016F520_gen(void);
+
+void sub_0016F520(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_edi, g_ebx;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t task = g_edi, id = g_ebx;
+    int show = on && (task >= 0x01000000u && task < 0x04000000u);
+    if (show) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [TISS] x%u ra=%p task=%08X id=%08X +28=%08X "
+                "+3C=%08X st=%02X +00=%08X\n",
+                n, ra, task, id, MEM32(task + 0x28), MEM32(task + 0x3C),
+                MEM8(task + 0x2E), MEM32(task));
+        fflush(stderr);
+    }
+    n++;
+    sub_0016F520_gen();
+    if (show) {
+        fprintf(stderr, "  [TISS] x%u -> st=%02X +3C=%08X\n",
+                n - 1, MEM8(task + 0x2E), MEM32(task + 0x3C));
         fflush(stderr);
     }
 }
