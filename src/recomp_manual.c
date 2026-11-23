@@ -1870,6 +1870,76 @@ void sub_001F8670(void)
     }
 }
 
+/* frz131: session-issue chain entry census (H31 re-pose x13).
+ * 157B10 = session method (sole caller 7D278); 5th arg bit0 picks
+ * drain (EF7C0) vs new-session (EF770).
+ * 1EF7C0 = drain/submit-session (12 call sites incl. sweep 4E1F0).
+ * 4E1F0  = slot sweep (6/9/7/3/5 arrays, sentinel 0x7FFFF). */
+extern void sub_00157B10_gen(void);
+
+void sub_00157B10(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 64) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t f5 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 0x14) : 0u;
+        fprintf(stderr, "  [ISSMTH] x%u ra=%p arg5=%08X\n", n, ra, f5);
+        fflush(stderr);
+    }
+    n++;
+    sub_00157B10_gen();
+}
+
+extern void sub_001EF7C0_gen(void);
+
+void sub_001EF7C0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    extern __thread uint32_t g_ecx;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 60 || (n % 256) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [EFSUB] x%u ra=%p ecx=%08X\n", n, ra, g_ecx);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EF7C0_gen();
+}
+
+extern void sub_0004E1F0_gen(void);
+
+void sub_0004E1F0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 64) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t o = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                         ? MEM32(g_esp + 4) : 0u;
+        fprintf(stderr, "  [SWEEP] x%u ra=%p obj=%08X\n", n, ra, o);
+        fflush(stderr);
+    }
+    n++;
+    sub_0004E1F0_gen();
+}
+
 extern void sub_00208C80_gen(void);
 
 void sub_00208C80(void)
