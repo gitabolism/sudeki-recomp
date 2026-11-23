@@ -2457,3 +2457,45 @@ not file size; no input drift — doctor green).
   TAIL 129463976..129517568 (new index+footer after expansion) — the
   font PAYLOAD pages were never read: record load = exactly the job that
   stalls. The wall is ONE job: "make font record 0A260002 resident".
+
+## frz169 OVERTURN ARC — the terminal submit is a no-name task issue, machinery EXONERATED
+
+- Era shift (new gen): terminal = **018CF14C** (BF14C->CF14C heap-drift law).
+- [ENQ] x3 `list=3D7620 queue=3975A8` fired POST-BURST (frz164 "boot-era only"
+  law OVERTURNED — print-cap artifact): the loader drain tier DID run at the
+  burst; CQ x520 (caller sub_001EC880) pushed the terminal bucket-entry
+  014BCA58 ([rec+0x10]=CF14C, vtbl-tag 3396CC) to pair-list 3D768C, and
+  CQ x521 (caller EE190 itself) moved it to the 3D75FC completion chain.
+  The entry lived its full lifecycle — yet WDEC never touched CF14C.
+- EF1D0 x66-72 (ra = EB0C0 tick) serviced the SEVEN sibling managers
+  CF188..CF2F0 (bkt 6-11) in the same window; never CF14C (bucket 4).
+- Bucket entries/queues class-tag law: 33677C/336788/3367A0/336734/3367AC
+  are RTTI name strings ("Angola1/2", "Skip1", "Selecte..."), not vtbls —
+  objects carry class-tag pointers (frz154 "tag not key" law generalized).
+- Manager graph at kill (frz169 core, base re-anchored 001362F000):
+  CF14C pend=1 st=0x10120 +4=EA3D4B48 garbage, +0x14=0, tmpl=018D5D88
+  (+0x08 arrayobj 014BA51C: +0x04 data-ptr=0/empty, iterators 02E72C60..);
+  CF110 (id 00970002, st=0x10184, pend=3, same empty-array+garbage-key
+  shape) = sibling VICTIM never serviced either; siblings CF1C4+ = id
+  FFFFFFFF anonymous batch, NAM-leg `id=FFFFFFFF + [+4]=02E62120` (real
+  data ptr) -> 0x200-less too but SERVICED (they need no array).
+- NAM x176/177 (1EED20, caller EE2A0+1924): terminal-era args = STACK
+  locals with [+0]=hash garbage, [+4]=0 -> ELSE leg (mgr+4=garbage).
+  Boot-era submitters passed named+arrayd descriptors (01890CD4:
+  0x200-bit + valid key).
+- JOB x536: id 0A260002 RESOLVES -> job=02977A9C st=0 (type-2 slot
+  018C0104; 0A260002 appears EXACTLY ONCE all-run, at the burst).
+- EENT x159 = the ONLY submit with that id: ra=1EE7D0+5810 (submit API),
+  args (name-local, id=0A260002, state=0x20, **flag=0x80**, tmpl, 0, tmpl2).
+- **16F520 decoded: task ISSUE/teardown tier**: frees [edi+0x3C] node chain
+  (vtbl[0]) FIRST when non-null, then 1EE7D0(&local{+0=UNINIT name-hash,
+  +4=0, +8=id}, state 0x20, flag 0x80, list=[edi+0x3C], list2=[edi+0x28],
+  0); writes [edi+0x2E]=2 (issued), 3=failed; on success frees list again
+  (vtbl[4]). The submit's record-array = the task's node list -> **EMPTY**.
+- Wall pose x28: engine task for object "ShadowSphere" (stack name string
+  "ow_ShadowSphere" seen post-hoc at the local slot) issued job 0A260002
+  with an EMPTY node list; EE2A0 flag-bit7 leg then pend++ (1EE645) with
+  NOTHING outstanding; nothing can ever decrement -> PUMP x167 rescans
+  forever. Loader/queue/EF1D0/EE190/completion tiers ALL proven healthy.
+  Next: why the task's +0x3C node list is empty = object-graph tier never
+  instantiates (frz142/143/146c pose re-confirmed from a second direction).
