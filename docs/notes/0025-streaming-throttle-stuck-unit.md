@@ -2541,3 +2541,19 @@ not file size; no input drift — doctor green).
   (a) does any pad-read tier see the presses (XAPI in-guest state);
   (b) what is blk=8006 in the PB census law; (c) era lottery sampling
   (frz173 = same binary, no-kill rerun).
+
+## Harness laws earned (frz171/172)
+
+- timeout-SIGKILL runs leave NO core (frz172 un-symbolizable). Symbolization
+  workaround = BASE-DIFF: anchor on a census line whose host call-site is the
+  same static code in both runs (e.g. PUMP x167 ra), base_diff = ra_A - ra_B
+  (constant per era pair), map run-B RAs into run-A space, gdb info symbol
+  against run-A core. Verified: diff 0x4259b7000 mapped frz172 spinner onto
+  frz171 W1SO ra exactly.
+- Symbolized identities (frz172 era, via frz171 core): evt6 ms=0 POLL-SPIN
+  site = **sub_001EACC0+2767 (loader pump body itself)** — loader never
+  parks post-burst, scans 749M iters (livelock shape, not parked);
+  WINC x207 caller = 1EE2A0+15313 (node-leg region, era-stable host offset);
+  PUMP x167 caller = 1EDA20+5009 (BAF manager tick, frz103 law holds).
+- nav_run51 = no-early-kill variant (frz171 law: x167 marker not terminal);
+  nav_run52 = dense START presses every 5 s (frz173 input-acceptance probe).
