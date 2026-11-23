@@ -3536,3 +3536,31 @@ void sub_001E1750(void){
         ph = h; pres = g_eax; n++;
     }
 }
+
+/* frz177: xemu healthy-trace tick tier (note 0025, 18:24 + off-by-0x1000
+ * correction law: toolkit/xemu mapping VA = file_off + 0x10000; xemu trace
+ * rads are ground truth). Healthy game: FRM(15B640) x290, all via
+ * call [edx+0xc] inside F9D40 (rad F9D79); MSG1 x402 (289 from inside FRM,
+ * 107 from 164790@1647C3...); CTOR x73 (164140/162FF0/15AB10/1681F0).
+ * 33170 = TickService(id 0xAB..0xB0) on scene obj (gate [this+0x454] byte,
+ * container [this+0x39c]); FACF0 = its tick callee. Census only. */
+extern void sub_000F9D40_gen(void);
+CENSUS(sub_000F9D40, "TICK1", 120)
+extern void sub_00164790_gen(void);
+CENSUS(sub_00164790, "M164A", 60)
+extern void sub_00164140_gen(void);
+CENSUS(sub_00164140, "M164B", 60)
+extern void sub_00160420_gen(void);
+CENSUS(sub_00160420, "M160", 60)
+extern void sub_0015AB10_gen(void);
+CENSUS(sub_0015AB10, "M15A", 60)
+extern void sub_00162FF0_gen(void);
+CENSUS(sub_00162FF0, "M163", 60)
+extern void sub_00164380_gen(void);
+CENSUS(sub_00164380, "M164C", 60)
+extern void sub_001681F0_gen(void);
+CENSUS(sub_001681F0, "M168", 60)
+extern void sub_00033170_gen(void);
+CENSUS(sub_00033170, "TSVC", 60)
+extern void sub_000FACF0_gen(void);
+CENSUS(sub_000FACF0, "TKL2", 60)
