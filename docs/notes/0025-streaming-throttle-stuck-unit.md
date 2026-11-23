@@ -2608,3 +2608,39 @@ not file size; no input drift — doctor green).
 - frz175 (running): nav_run53 = timeout --signal=ABRT -> CORE at pill
   era (frz174 had none); will read gates/scene globals/handler lists +
   per-thread stacks at the exact stuck moment.
+
+## frz171 core thread anatomy + wake-queue tier (static decode)
+
+- 25 host LWPs. GUEST threads at kill: MAIN (render chain, top host frame
+  D3D8LTCG sub_002D5C80 region; bt unwinds 14 frames into lift units),
+  LOADER thread (start 21AD0, parked W2MO {evt6,evt1} inside 1EABD0),
+  PUMP/NOTIFY thread (start ~21B1B/21B90, parked Wait(evt2=[397924])).
+  Rest = host infra (nv2a ack, 14 raster workers, timer, OHCI, APU,
+  pipewire x2, watch). => NO scene thread exists in this era: the SOL
+  boot tier 21C60 creates exactly TWO workers (21AD0, 21B90; sets
+  [396E91]=1, handles saved 33FE44/48).
+- Wake-queue tier decoded: TWO sorted (key +0xC) enqueue lists with
+  events: [396E8C]+evt1([397920]) -> consumed by LOADER; [396E98]+evt2
+  ([397924]) -> consumed by PUMP (21B90 walks list, vtable [+4] per item).
+  Enqueue fns: 21D18 (evt1 list), 220E0 (evt2 list, via 26D5AE SetEvent);
+  thin relay 21D8D -> 220E0. frz174 census: evt2 SET x45 ra=220E0+1467,
+  evt1 SET x52 -> these enqueues RUN (runtime-dispatched callers:
+  ZERO static xrefs to 21D18/21D8D anywhere in the image; only 21DA0
+  (evt1-list consumer) has static caller 89292).
+- Pump callback list [397564]: sole static writer 214A8F registers
+  callback 21ECF0 = device-slot tick (walks 15 slots 3800A4..3800E0,
+  per-slot 217000; tails 21EA50/21DC00). [397564]=NULL at frz171 kill =
+  that registration branch never ran; pump still ticks via other legs.
+- frz171 core globals at kill: pump queue heads ALL ZERO
+  (37A0F5,3D7620/644/668/68C/71C/740,3975A8/5AC/564) = pump IDLE, not
+  livelocked (contrast frz172 x749M evt6 probe census = probe 1EAD50
+  hammered inside container-walk legs, per-census base-diff law).
+- Base-diff cross-check: frz174->frz171 diff -0x2E5859C000 maps spinner
+  ra exactly onto 1EACC0+2767 (same site as frz172->frz171 diff) — law
+  holds across three eras.
+- frz174 pill-era census live/dead split: LIVE PUMP387/EENT334/EE110 334/
+  CQ1088/WINC284/WDEC250/EXEC300/ITER641/MCOR180/ISERV603/ENQ(EE190 tag);
+  DEAD TBLU(6AD00)/SWEEP(4E1F0)/REGT(49B10)/INIT/CTOR/UP/FAM/MSG/MKLU/SCH = 0.
+- frz18-era check: that run NEVER passed Press START (Buki_sfx = title-era
+  asset; end = ordinal-161/129 x49M spin) — no pre-regression "menu worked"
+  baseline exists; current attract-loop depth is the DEEPEST observed.
