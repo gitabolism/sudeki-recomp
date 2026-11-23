@@ -854,3 +854,57 @@ frz117/121/123/125/126/127 + raw capstone decode of the XBE):
   (does the engine issue-driver run, and which gate refuses);
   `[OPEN2]` (`208C80`) entry + descriptor-scan hit count;
   `[SESS]` (`F8670`) entry + found-bucket. Pick AT MOST two.
+
+## frz128 — ENQ/SRST verdict: the evt7 contradiction resolves to a WAIT census, not a Set census
+
+Run `logs/run-frz128-050223.out` (58,395 lines, watcher ABRT 30 s after
+pump x167 at line 52125, core `/tmp/opencode/sudeki.frz128.core`,
+matched bin `sudeki-frz128.bin`, host base 0x55c14e4c5000). Nav was
+VOIDED this run (harness gate matched the boot-era NV2A vblank "ISR
+claimed it" line, presses landed before enumeration) — terminal shape
+is era-general (frz95 control), so the census stands.
+
+* Terminal shape REPRODUCED bit-for-bit vs frz126/127: PUMP x167 last
+  (mgr `018CF14C` id `0002` eax-scratch `02611EA4` node `EA3D4B48`,
+  backtrace `1EDB68 1EE160 1EE221 1EAC88 21B1B` — the terminal pump
+  runs INSIDE EE190 called from the loader loop); ISSU1 x1 (ctx
+  `014B6300` out=2, via the vtable leaf — ra `5040d871`), ISSU2 0,
+  RESADD 0, RESREL 21, REQ 20 (late REQ = attract servicing), MTICK
+  167, CQ last at x512, EACYC last logged x72 -> 0x102.
+* `[SRST]` (guest `26D5CE` ResetEvent, gate n<400, exhaustive 41):
+  Reset(48000006=evt6) x5 ONLY, all `sub_001EABD0_gen+0xf1c` (the
+  loader loop's own pre-WFMO hygiene); Reset(evt7) zero; consumer
+  resets = `21B90` h=48000002, `21AD0+0x57e` h=48000001 (evt1 ack).
+* `[SMEVT]` (guest `26D5AE`, exhaustive 110): Set(evt6) x5 all
+  `sub_001EAB90_gen+0x44b`; **Set(evt7)=zero**, consistent with host
+  EVENT census (110 Sets, no `48000007`; that census IS complete —
+  2,941 kernel ordinal lines, no cap).
+* DECISIVE NEW FACT: `[BRIDGE] NtCreateEvent` line 186 — evt7
+  (host `0x5A000034` = guest token `48000007`) is created **init=1
+  (SIGNALED)**; evt6 (`0x5A000030`) init=0. So EE190's FLAG=1 wake
+  block CAN legitimately skip on a signalled evt7 (`WFSO(evt7,0)==0
+  -> je`) — the first call consumes the initial signal.
+* BUT raw decode (capstone, byte-exact) of `1EE190`: prologue is 5
+  pushes; the FLAG byte read at `1EE1A0` is `MOV AL,[ESP+0x1C]` =
+  entry `esp+8` = exactly the slot the ENQ wrapper proved = 1; the
+  block `1EE1AB..1EE1E2` is WFSO(evt7,0)/Reset(evt6)/Set(evt7)/
+  WFSO(evt6,INFINITE) and EVERY path except `WFSO(evt7,0)==0` must
+  log Reset(evt6) through `26D5CE` (exhaustively censused: zero from
+  the EE190 region). => either every EE190 call found evt7 Set
+  (needs an invisible re-Signal — host-side, since guest Set census
+  is complete), or the wait never reached the bridge.
+* TRAP FOUND (why prior "no wait on evt7 ever" claims were vacuous):
+  the bridge wait-token census in `kernel_bridge.c` prints only the
+  FIRST 300 calls (`static int logged` cap) — boot-era polling ate
+  the budget at line ~600; all later WFSO/WFMO token dumps are
+  suppressed. Absence of `token=0x48000007` lines after line 600
+  proves NOTHING. (Early census shows boot WFMO{48000006,48000001}
+  INFINITE from `26D705` — the array law needs re-verification too:
+  frz125 core said `{evt7,evt6}`, this census line shows
+  `{evt6,evt1}` — different wait sites.)
+* frz129 (ONE variable): manual wrappers on the guest wait wrappers
+  `[W1SO]` `26D77A` (h,ms -> ret) and `[W2MO]` `26D78C`
+  (array,count,all,ms -> ret), print ra+token(s)+timeout+ret gated
+  to tokens {48000001,48000006,48000007} or INFINITE (bounded set;
+  the census that the 300-cap bridge log cannot give). Settles:
+  does EE190 ever Wait on evt7, and does evt7 re-signal host-side.

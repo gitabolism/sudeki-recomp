@@ -1734,6 +1734,83 @@ void sub_0026D5CE(void)
     sub_0026D5CE_gen();
 }
 
+/* frz129: the bridge wait-token census (kernel_bridge.c) prints only the
+ * first 300 calls, so loader-era waits are invisible. Census the guest
+ * wait wrappers instead, gated to the loader-module tokens (bounded set):
+ * 26D77A = Wait(h,ms), 26D78C = WaitMultiple(hArr,count,all,ms).
+ * Settles whether EE190's FLAG=1 wake block ever waits on evt7 and what
+ * the waits return (evt7 was created SIGNALED, init=1). */
+extern void sub_0026D77A_gen(void);
+
+static int wtok(uint32_t t)
+{
+    return t == 0x48000001u || t == 0x48000002u || t == 0x48000004u
+        || t == 0x48000006u || t == 0x48000007u;
+}
+
+void sub_0026D77A(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    int sp = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u);
+    uint32_t h  = sp ? MEM32(g_esp + 4)  : 0u;
+    uint32_t ms = sp ? MEM32(g_esp + 8)  : 0u;
+    if (on && wtok(h)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [W1SO] x%u ra=%p h=%08X ms=%u\n", n, ra, h, ms);
+        fflush(stderr);
+        sub_0026D77A_gen();
+        fprintf(stderr, "  [W1SO] x%u -> %08X\n", n, g_eax);
+        fflush(stderr);
+    } else {
+        sub_0026D77A_gen();
+    }
+    n++;
+}
+
+extern void sub_0026D78C_gen(void);
+
+void sub_0026D78C(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    int sp = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u);
+    uint32_t arr = sp ? MEM32(g_esp + 4)  : 0u;
+    uint32_t cnt = sp ? MEM32(g_esp + 8)  : 0u;
+    uint32_t all = sp ? MEM32(g_esp + 0xC) : 0u;
+    uint32_t ms  = sp ? MEM32(g_esp + 0x10) : 0u;
+    int show = 0;
+    if (on && sp && cnt && cnt <= 64) {
+        for (uint32_t i = 0; i < cnt; i++)
+            if (wtok(MEM32(arr + i * 4))) { show = 1; break; }
+    }
+    if (on && show) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [W2MO] x%u ra=%p cnt=%u all=%u ms=%u toks:",
+                n, ra, cnt, all, ms);
+        for (uint32_t i = 0; i < cnt; i++)
+            fprintf(stderr, " %08X", MEM32(arr + i * 4));
+        fprintf(stderr, "\n");
+        fflush(stderr);
+        sub_0026D78C_gen();
+        fprintf(stderr, "  [W2MO] x%u -> %08X\n", n, g_eax);
+        fflush(stderr);
+    } else {
+        sub_0026D78C_gen();
+    }
+    n++;
+}
+
 /* frz127b: 1F1470 / 1F1870 = async issue-and-service loops (enqueue
  * under CS 37A4D0, issue via 1F06C0, wake attempt EAAB0, Sleep(5)
  * retry; queue selector ctx+8 in {3D7740,3D771C,3D76F8,3D7764}).
