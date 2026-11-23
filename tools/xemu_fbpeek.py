@@ -49,12 +49,11 @@ def score(buf, off, w, h):
 
 def bmp(path, buf, off, w, h):
     rows = []
+    pad = (4 - (w * 3) % 4) % 4
     for y in range(h - 1, -1, -1):
         row = buf[off + y * w * 4: off + (y + 1) * w * 4]
-        rows.append(b"".join(row[x:x + 3] for x in range(0, len(row), 4)))
+        rows.append(b"".join(row[x:x + 3] for x in range(0, len(row), 4)) + b"\x00" * pad)
     data = b"".join(rows)
-    pad = (4 - (w * 3) % 4) % 4
-    data = b"".join(r + b"\x00" * pad for r in rows)
     ds = 54 + len(data)
     open(path, "wb").write(
         b"BM" + struct.pack("<IHHI", ds, 0, 0, 54) +
