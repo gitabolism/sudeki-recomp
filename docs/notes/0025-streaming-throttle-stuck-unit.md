@@ -955,3 +955,46 @@ heap addresses shifted by the nav era). Core
 frz130 = fixed `[W2MO]` (which tokens the loader loop really parks
 on and what those waits return) + W1SO control. One variable:
 multi-wait census.
+
+## frz130 — fixed W2MO truth + issuer-edge census; issuer CHAIN static-complete
+
+Run `logs/run-frz130-052530.out` (62,807 lines; pump x167 at line
+55975, mgr `018CF14C`, node `EA3D4B48` — frz127 shape exactly). Bin
+`/tmp/opencode/sudeki-frz130.bin`, core `sudeki.frz130.core`, guest
+ram base `0x7f082d200000`.
+
+* `[W2MO]` (fixed args): loader thread parks in
+  `26D78C{48000006,48000001}` INFINITE at `EABD0_gen+0xbc9` (x14+3)
+  and `+0x1090` (x3): 17 wakeups return evt1 (the REQ event —
+  matches `[REQ]` x20), 4 return evt6; final wait x2227 AFTER pump
+  x167. Loader thread = healthy-and-parked, not lost, not spinning.
+* `[ISSDRV]` (1EF770 engine session-issue driver): **2 calls whole-
+  run, both boot-era**, flag `397110`=1, returned object `01CA0420`.
+  Sole call site (raw scan): `0x157C7F` inside session method
+  `sub_00157B10` (guest; single caller `0x7D278`).
+* Raw decode law (`1EF770`): flag397110 -> `1EF720` acquire ->
+  `F8670(0)` session lookup — **if session EXISTS (ret!=0), skip
+  new issue**; else `1F1280(ecx=0x40)` -> ISSU1. So ISSU1 x2 ==
+  ISSDRV x2; the session-exists gate is NOT the blocker — EF770
+  itself is never re-called.
+* `[SESS]` (1F8670): 32 calls, ALL return 0 (no active session) —
+  2 from EF770, 30 from `F1650_gen+0x19b0`. Corroborates: no
+  session exists at the wall; nobody creates one.
+* `[OPEN2]` (208C80, sole ISSU2 route): 0 calls — consistent.
+* Hot-cache integrity: `[WRITE236]` map = 452 segs, gap-free to
+  27,762,688 (`startup.baf`); `[READSEQ]` max-pos census across ALL
+  paths normal (`shared.baf` read to 129 MB; every xwb/sf/bik read
+  fine). Zero-sea at 25,137,248 is guest-written (<64K runs; may be
+  legit padding — NOT a host IO failure).
+* Static issuer chain (raw-scan, complete):
+  vtable slot (LE ref at file `0x3229E8`) -> `6AD00` -> `74F10` ->
+  `7D1E0` -> `157B10` -> branch on 5th-arg bit0: drain path ->
+  `EF7C0` (1EF7C0, 12 call sites incl. slot-sweep `4E1F0` with
+  6/9/7/3/5 slot arrays, offset sentinel `0x7FFFF`) or new-session
+  path -> `EF770` -> `F1280` -> ISSU1.
+
+**H31 re-pose x13: some link of the session-issue chain goes quiet
+after boot.** frz131 = ONE census run: `[ISSMTH]` (157B10 entry,
+ra + flag arg5), `[EFSUB]` (1EF7C0 entry, ra), `[SWEEP]` (4E1F0
+entry, ra + thiscall obj) — settles which link stops: sweep vs
+drain-submit vs session method.
