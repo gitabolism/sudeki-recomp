@@ -126,6 +126,32 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   the last baf `[READ]`. Also `[EF0C0]` mode/args and `[REG]`/`[DEREG]`
   relay membership.
 
+### frz114-115: seq-read positions revealed; installed-tail polling is the loop (H31.10)
+
+* patch 0048 (`[READSEQ] fd pos before->after`) + 0049
+  (`RECOMP_IO_WRITE_MAX`): frz114 = first run with fd positions.
+* Boot era reads the DISC `game/startup.baf` (8,585,216 B) with
+  positioned reads (install); the load era streams the INSTALLED
+  cache copy (27,762,688 B) via offset-less seq reads — and
+  positioned reads on the SAME host fd leave the fd seeked (bridge
+  lseeks for positioned reads, never restores), so "seq" positions
+  JUMP around (24608864 -> 24668256 -> 24674400 -> 27621472 ...):
+  guest-visible file pointer semantics vs host fd = open bug class
+  (NT: positioned IO must not move the handle FPO).
+* The final-leg loop polls 5120-byte records at the installed-file
+  TAIL (~24.6M-27.6M of 27.76M); those blocks contain real mixed
+  data (427-1332 nonzero bytes per 5120) but the record headers
+  start with zeros; trailer dword (buf+6140) = `3EF04C91`, bit4
+  clear -> F9720 sync branch every time.
+* No level `.baf` is EVER opened (read census: only startup.baf,
+  movies, soundbanks, shared/SOLWORLDM) -> relay dies before level
+  archives.
+* frz115: full `[WRITE]` census (MAX=0) maps whether the guest
+  WROTE the polled tail regions during install (holes = lost/mis-
+  placed writes on our side vs genuine content on the chain).
+* Installed file vs disc copy: 0/2096 identical 4K blocks (install
+  expands+relocates; byte-compare against disc is not a valid check).
+
 ### frz113: the real manager, the trailer dword, and the zero buffer (H31.9)
 
 * PUMP probe arg-slot bug fixed (bypass site `1EDB5E` pushes ONE arg;
