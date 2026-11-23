@@ -998,3 +998,48 @@ after boot.** frz131 = ONE census run: `[ISSMTH]` (157B10 entry,
 ra + flag arg5), `[EFSUB]` (1EF7C0 entry, ra), `[SWEEP]` (4E1F0
 entry, ra + thiscall obj) — settles which link stops: sweep vs
 drain-submit vs session method.
+
+## frz131 — issuer-chain census: the submit path DOES run; model corrected
+
+Run `logs/run-frz131-053806.out` (62,544 lines; pump x167 line 55697,
+mgr `018BF14C` id `0002` node `EA3D4B48` — same terminal shape).
+
+* `[ISSMTH]` (157B10): **17 calls** whole-run, all `arg5=1` (bit0 SET)
+  — so every call takes the DRAIN branch (`EF7C0` at 157BFA/157C2E),
+  never the new-session branch.
+* `[EFSUB]` (1EF7C0): ~16 calls — one per session method; the
+  engine's submit path runs, then EE190 services.
+* `[SWEEP]` (4E1F0): **0 calls** — the 5-array slot sweep never runs.
+* `[ISSDRV]` (1EF770): 2 (boot-era only), object returned `01C90420`.
+* Core (frz130): session table `[0x397620]=0x01CA04A0` allocated with
+  **11 sessions, all healthy** (state 1/2, vtable 338B64, hash keys);
+  flag `[0x397110]=1`. All 32 `F8670` lookups returned 0 on KEY
+  MISS, not table emptiness. No host-side data failure: every
+  `game/startup.baf` source read returned `got=want`, zero zero-head
+  source reads; cache install write-map gap-free.
+* Terminal read plan (`Cache//startup.baf`, fd=33, from=271057):
+  24.69M..24.72M steps, jump to 27.56M, 27.61-27.64M, back to
+  24.72M, then 24.60M x2 (DESCENDING), then 25,137,248 (5120 B, head
+  zeros) = LAST READ EVER; then loader parks (W2MO x2227 INFINITE).
+  Non-monotonic plan = container navigation, not linear install.
+
+**Model correction: legs ARE submitted and serviced (17 drains, 167
+pumps); the session cursor simply stops advancing after the read at
+installed offset 25,137,248.** The standing question is now WHAT the
+session was navigating and what it waits for after that read — the
+job `id=0002` on manager `018BF14C` and its pump inputs.
+
+## xemu reference capture — pipeline live (Menu artefact unblocked)
+
+`scripts/xemu_titlecap.sh` -> QMP `dump-guest-memory` ->
+`tools/xemu_fbpeek.py`: FB auto-scan hit at **VRAM pa 0xF0000000 +
+off 0x1A3B000, 640x576 BGRA, score 0.996** (re-measures note 0009's
+old-ROM law 0x3C00000/pitch720 — the v1.1.0 layout law). Artefact:
+`reference/xemu/title90.png` (xemu at t=90 s; capture pipeline proven;
+same-moment pairing with `reference/fb/frz35*` still owed).
+
+Side quests settled en route: xemu RAM image is paged+encrypted —
+VA-anchored global reads from RAM dumps are NOT viable (dead end,
+don't retry); xemu HDD is qcow2 (header parse pending) and its guest
+cache drive is `Z:` — HDD byte-diff parked until the qcow2 L1/L2
+walk works.

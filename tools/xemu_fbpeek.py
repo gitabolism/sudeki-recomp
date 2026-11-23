@@ -57,7 +57,7 @@ def bmp(path, buf, off, w, h):
     ds = 54 + len(data)
     open(path, "wb").write(
         b"BM" + struct.pack("<IHHI", ds, 0, 0, 54) +
-        struct.pack("<IiiHHIIiiII", 40, w, h, 1, 24, 0, len(data), 2835, 2835, 0, 0))
+        struct.pack("<IiiHHIIiiII", 40, w, h, 1, 24, 0, len(data), 2835, 2835, 0, 0) + data)
 
 def main():
     args = sys.argv[1:]
