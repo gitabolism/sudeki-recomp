@@ -1083,3 +1083,41 @@ frz133 = chain lifecycle: uncapped `[CQ]` (23AD50 push census with
 queue-head before/after) + `[QHEAD]` static-queue timeline
 (3D75FC/3D7620/3D7644/3D7668/3D768C/3D76B0/3D76F8) — settles WHO
 de-chains the manager and whether any push re-chains it at the wall.
+
+## frz133 — chain census: completions RUN to the end; harness START-SPAM confounder exposed
+
+Run `logs/run-frz133-060756.out` (pump x167 at line 56780 — same
+terminal shape). Full uncapped censuses:
+
+* `[CQ]` (23AD50 pushes): **522 total** — the frz128 "last x512" was
+  effectively the real total. Per-queue: `3D76B0 x226, 3D768C x95,
+  3D75FC x95, 3D76D4 x46, 3D7764 x31, 3D76F8 x29` — **ZERO pushes
+  ever target the pump chain `3D7620` or busy chain `3D7668`**;
+  those are fed only by the splice path inside the completion
+  engine (1EF112/1EC590/1EC6B0) off REQUEST arrivals.
+* `[EF0C0]` (1EF0C0 relay): 398 calls, **ALL mode=0** (queue 5FC);
+  mode 1/68C and 2/620 NEVER requested whole-run.
+* Terminal burst (lines 56803+): CQ x520-522 = completion ladder of
+  one object (`014ACA58`: `620 -> 68C -> 5FC -> 6B0`), then
+  `EF0C0 x465..x469` dispatches completions over the manager array
+  (`018A7A78..B2C`, stride 0x3C) **including terminal manager
+  `018BF14C`** — the machinery COMPLETES and goes quiet; a
+  post-hoc `W1SO(evt6)` poll times out and the loader parks.
+* So in the terminal era the job set FINISHES; what never happens
+  is a NEW issue from the engine side. Consistent with frz42's
+  "load ABORTED back to attract" reading.
+
+**Harness confounder (my own, law-worthy):** nav_run2x/3x feeds
+`start` every 10 s (8x). frz42 convicted exactly this: **START =
+cancel/abort in load & dialog contexts** — our terminal shape may be
+START-spam-induced load abort, not (only) an engine gap. frz18's
+proven law: 5 FMV-skip starts t=15-40, then New Game starts
+t=60/75/90, then TOTAL SILENCE.
+
+frz134 (A/B, one variable = press script, binary identical to
+frz133): frz18-exact sequence (5 starts 8 s apart anchored at pad
+enumeration, 12 s gap, 3 starts 15 s apart, then ZERO presses),
+NO early-kill watcher, full 1150 s window. If the level then
+streams (level .baf OPEN, new EF770/EF0C0 activity, level FB dumps)
+the "stall" was self-inflicted; if the terminal shape persists
+press-free, H31 stands and the issuer hunt resumes.
