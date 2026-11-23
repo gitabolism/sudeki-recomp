@@ -1929,3 +1929,23 @@ mgr 018CF14C = same heap era as frz150):
   object, POLL=150ms, BF and CF armed): first transition log of the manager
   block; the change lands between census markers -> writer localized by
   interleaved WINC/EF0C0/SUBM lines.
+
+## Wake-chain tier decoded (frz155 probes staged: ITER/EXEC)
+
+- EAAB0 = load-session wait cycle (EACYC census): WFSO [37A118] /
+  iteration over UNIT [0x397668] via 1FE8A0 + 1FE690 / tail (1EAB64)
+  sets F4=1 + ReleaseSemaphore([0x37A114]) = the ONLY loader wake.
+  1EAB90 (EACK census) is a MID-BODY label on the ack leg, not an entry.
+- 1FE8A0(unit edi) gate: proceed iff [unit+0xC0DC] != 0 (pending work)
+  AND [unit+0xC0C8] == 0 (not busy); takes CS [0x315818], locks
+  unit+0xC148 / +0xC110.
+- frz152b counts: EACYC (entry) x73, EACK (ack leg) x5 — wait cycle runs
+  all run, ack/wake leg only 5x; terminal EACYC exits all 0x102
+  (WAIT_TIMEOUT) with f4=0 f5=0.
+- frz152b core: UNIT [0x397668]=00FD9550 has +C0DC=0 (+C0C8=0) at kill:
+  no pending work at the iteration gate while the terminal manager desc
+  still holds pending=1 -> the pending is NOT at the unit tier; the
+  orphaned waiter record (010E2FF8, vtbl 3367E8) sits INSIDE the
+  manager PUMP retry (st=25120, job key 06610B29) which resolves via
+  2D3A40-class key handlers and never converges. frz155 [ITER]/[EXEC]
+  name per-tick gate verdicts live; frz154 poll-diff the manager block.
