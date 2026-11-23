@@ -2416,3 +2416,44 @@ not file size; no input drift — doctor green).
 - 1EC2C8 node-init (EC130 tail): bucket pick = `(state>>6)&0x1F` from
   `[mgr+0x28]`... same 0x20->bucket-0 law through a second path
   (1EC2FC-F: node state dword +0 of the node, not the manager).
+
+## frz170-static: EF0C0/1EC590/1EC540/1EC6B0 full decode — push anatomy exact law
+
+- EF0C0(mgr=a1, a2, mode=a3|0x20000000-from-EC130, a4, a5) (ret 0x18):
+  1. call 1EEF80 (flush mgr [mgr+0x14] array via 1EEF20 per record;
+     array==0 -> single 1EEF20(mgr) leg);
+  2. desc=[mgr+8]: !=0 -> queue=3D75FC but ONLY if a5!=0, else RETURN no-op
+     (frz164 law); ==0 -> mode&3: 2->3D7620, 1/0->3D7668;
+  3. 1EC590(...,queue): DEDUPE first via 1EC540 = bucket-registry walk of
+     0x37A120[(ptr>>6)&0x1F] for entry [entry+0x10]==ptr (bump entry+0xC
+     count on hit) — if hit, NO new entry (1EC677 return existing);
+     else alloc 0x1C + 1EC2C0 node-ctor: vtbl 33677c, [node+0x10]=mgr,
+     if [mgr+0x14]==0 -> **inc word [mgr+0x2C] AGAIN** (pending++ #2,
+     paired with EC130's), mgr state |=0x4000, insert into
+     37A120[([mgr+0x28]>>6)&0x1F] chain under cs 37a394;
+  4. entry count [entry+0xC]++; 1EC610=23AD10; id-word FFFF skips the
+     3975A8/AC size tally (3D7620 leg: state|=0x400, += [mgr+0x1C]-[mgr+0x24];
+     3D7668 leg: state|=0x800, 3975AC same);
+  5. 1EC6B0 = actual queue-record alloc+link (0x1C, [rec+8]=queue,
+     [rec+0xC]=mode... this is what moves 3D7620/624 head pair);
+  6. mode&3==1 -> inline drain loop w/ 0x1000 state-bit wait (1EF145-1EF19B);
+  7. mode==0 only -> inline EF1D0 (tail law confirmed 1EF1B1 jne).
+- frz168 WATCH timeline for terminal BF14C (window BF14C..BF18B):
+  +0=00336794 (static vtbl), +4=EA3D4B48 (garbage name = EBD30-less raw
+  key), +8=00F95738 (desc INSTALLED post-attach), +C=F9B5C0, +10=FBB330,
+  **+0x14 NEVER WRITTEN (record-array ptr stays 0)**, +18=0A260002 (id),
+  +1C=1400, +20=1000, +28=00010120 initial (bit 0x20 from birth; later
+  0x25120 = +0x4000 push-bit + 0x10000), +2C=1 at construction, +30=00010080.
+- Law: at EF0C0 x435 (attach) desc==0 (fresh) -> mode-2 -> 3D7620 push;
+  head pair never moved (frz166) -> either 1EC540 dedupe-hit (entry for
+  3D7620 existed and was just count-bumped) or 1EC6B0 leg skipped —
+  frz170 probe = 1EC590 census (queue, dedupe-hit?, entry) + 1EC6B0
+  census (queue, record, post-head) to name the exact skip.
+- Container census (frz168 core, type table): FNT1 tags all three;
+  type0 total 11 loaded 1; type1 321/96; type2 **2842 total / 41 loaded**
+  (+0x10 = total-from-index, +0x38 = resident count) -> font record
+  0A260002 NOT resident; guest READSEQ of cache shared.baf = only 3
+  windows whole-run: 14032..29796 (index region), 51216..70044, and the
+  TAIL 129463976..129517568 (new index+footer after expansion) — the
+  font PAYLOAD pages were never read: record load = exactly the job that
+  stalls. The wall is ONE job: "make font record 0A260002 resident".
