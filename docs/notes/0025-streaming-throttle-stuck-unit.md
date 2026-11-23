@@ -2499,3 +2499,22 @@ not file size; no input drift — doctor green).
   forever. Loader/queue/EF1D0/EE190/completion tiers ALL proven healthy.
   Next: why the task's +0x3C node list is empty = object-graph tier never
   instantiates (frz142/143/146c pose re-confirmed from a second direction).
+
+## frz171 OVERTURN — "PUMP x167 terminal" was a HARNESS ARTIFACT; endgame cycles
+
+- TISS census (16F520 task-issue tier): 28 issues whole-run; terminal-era
+  x22-27 all ra=single caller, task objects 018D5B20..018D5F20 (class tag
+  00330E88 "elements"), id-arg = heap name-ptr 02E2AEB0, +3C list EMPTY at
+  entry, ONE node installed by submit (post +3C=014BC8E0..), state 0->2.
+- [BUCK] at id-gate: mgr=CF14C pend=2 st=0x25120, bucket entry 014BCA58
+  cnt=2 (1EC540 dedupe law live), pair-list 3D768C/690 = that entry.
+- **PUMP printed x334 (>167)** — the x167-terminal law held only in frz162-169
+  eras because the watcher SIGABRTed at x167+30s. Post-x167 window shows:
+  EE190 drain -> CQ x521/x522 move entry 014BCA58 3D768C->3D75FC->3D76B0,
+  **WDEC x228 self=014BCA58 desc=CF14C cnt=2->1** (the orphan IS finally
+  decremented), WINC x241 re-open cnt=1 state=20 (engine re-issues), EF0C0
+  x469 a1+8=00F95738 (desc now installed) mode=2 a4=0 — completion/resubmit
+  CYCLE, GPU draws to #94800+. Wall state = slow cycle or re-arming wait,
+  NOT a hard deadlock at x167.
+- frz172 (running): frz171 binary, NO early-kill (nav_run51), 1750 s, FB
+  dumps every 120 s -> adjudicate visually whether the load ever advances.
