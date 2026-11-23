@@ -34,26 +34,46 @@ for _ in range(30):
         time.sleep(0.5)
 if s is None:
     sys.exit("qmp never came up")
-s.settimeout(30)
-try:
-    s.recv(4096)
-except Exception:
-    pass
-def qmp(o, wait=12):
+s.settimeout(120)
+buf = ""
+mid = 0
+def qmp(o, timeout=120):
+    # read line-delimited JSON until the reply for OUR id (events skipped;
+    # the 152 MB dump-guest-memory replies minutes late on big heaps)
+    global buf, mid
+    mid += 1
+    o["id"] = "c%d" % mid
     s.sendall((json.dumps(o) + "\n").encode())
-    time.sleep(wait)
-    try:
-        return s.recv(65536).decode(errors="replace")
-    except socket.timeout:
-        return "TIMEOUT"
-print("caps:", qmp({"execute": "qmp_capabilities"}, 0.5)[:80])
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        while "\n" in buf:
+            line, buf = buf.split("\n", 1)
+            if not line.strip():
+                continue
+            try:
+                j = json.loads(line)
+            except ValueError:
+                continue
+            if "event" in j:
+                continue
+            if j.get("id") == o["id"]:
+                return line
+        try:
+            chunk = s.recv(65536)
+        except socket.timeout:
+            return "TIMEOUT"
+        if not chunk:
+            return "CLOSED"
+        buf += chunk.decode(errors="replace")
+    return "TIMEOUT"
+print("caps:", qmp({"execute": "qmp_capabilities"}, 10)[:80])
 prev = 0
 for t in times:
     time.sleep(t - prev)
     prev = t
     r = qmp({"execute": "dump-guest-memory",
              "arguments": {"protocol": f"file:///tmp/opencode/ram-{tag}-{t}.elf",
-                           "paging": False, "format": "elf"}}, 15)
+                           "paging": False, "format": "elf"}}, 180)
     print(f"t={t}:", r.strip()[-100:])
 PYEOF
 

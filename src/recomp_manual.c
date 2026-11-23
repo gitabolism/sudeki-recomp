@@ -2172,6 +2172,43 @@ void sub_002027B0(void)
     }
 }
 
+/* frz138: scheduler tier above the walker. WALK wrappers 201FB0/20BBA0
+ * gate through task-iterator 1F8420 before 2027B0; census the four
+ * static wrapper-callers + the iterator: which of these drives the
+ * 31 batches, and does ANY of them still run after the terminal? */
+extern void sub_001F8420_gen(void);
+extern void sub_002019B0_gen(void);
+extern void sub_0020F1A0_gen(void);
+extern void sub_0021F1F0_gen(void);
+extern void sub_0020B710_gen(void);
+
+#define CENSUS(NAME, TAG, LIM)                                             \
+void NAME(void)                                                            \
+{                                                                          \
+    static int on = -1;                                                    \
+    static unsigned n = 0;                                                 \
+    extern __thread uint32_t g_eax, g_ecx;                                 \
+    if (on < 0) {                                                          \
+        const char *e = getenv("RECOMP_RD_TRACE");                         \
+        on = (e && *e && *e != '0') ? 1 : 0;                               \
+    }                                                                      \
+    if (on && n < (LIM)) {                                                 \
+        void *ra = __builtin_extract_return_addr(                          \
+            __builtin_return_address(0));                                  \
+        fprintf(stderr, "  [" TAG "] x%u ra=%p eax=%08X ecx=%08X\n",       \
+                n, ra, g_eax, g_ecx);                                      \
+        fflush(stderr);                                                    \
+    }                                                                      \
+    n++;                                                                   \
+    NAME##_gen();                                                          \
+}
+
+CENSUS(sub_001F8420, "TITER", 150)
+CENSUS(sub_002019B0, "SCH1", 60)
+CENSUS(sub_0020F1A0, "SCH2", 60)
+CENSUS(sub_0021F1F0, "SCH3", 60)
+CENSUS(sub_0020B710, "SCH4", 60)
+
 void sub_001FD950(void)
 {
     static int on = -1;
