@@ -2348,3 +2348,28 @@ not file size; no input drift — doctor green).
   (no EF1D0); the only legs calling EF1D0-with-37A120-bucket0 or EE190
   with the 668 pair are the loader pump (1EAC69 head!=0 branch +
   1EACE4 gate) — loader thread parked INFINITE at W2MO x8815.
+
+## Loader-object anatomy (static, frz165 era): queues = counter+cs pairs; pump-key law
+
+- 3975A8 / 3975AC = PENDING-BYTES counters, each followed by its critical
+  section (EE190 at 1EE1E2 enters cs at counter+8 = 3975B0/3975B4). 1EC590
+  push tallies += size into the counter for queue 3D7620/3D7668 (state
+  bits 0x400/0x800) ONLY when node id-word != FFFF -> terminal (FFFF node)
+  charged NOTHING -> loader pump 1EAC69 gate ([3D7620] head != 0) never
+  sees it (frz165: heads 3D7620..3D7668 NEVER change whole-run).
+- Engine pump 23B830 KEY law: if [mgr+0x28] & 0x200 -> key=EBD30(mgr);
+  else key=[mgr+4] (raw). EBD30: if bit 0x200 -> [mgr+4]; elif id!=FFFF ->
+  handle = [[[type-table[id&0xFFFF]+0x1C]+0xC] + (id>>16)*4] (the
+  container's +0x1C handle-ID map!); else 0. Key feeds E1750 async-handle
+  lookup ([39752C] table obj, vtbl[4]/[8]); key==0 -> pump returns 1
+  (pending) and never services. Terminal: st has NO 0x200 -> raw [mgr+4] =
+  EA3D4B48 garbage -> lookup 0 -> dead leg. BF-siblings have 0x200 set +
+  valid [mgr+4] -> served.
+- 1EED20 (mgr name/hash at EE2A0 1EE32D): if [arg+4] != 0 -> mgr+0x28 |=
+  0x200 + string copy; else [mgr+4] = [arg+0] dword. Terminal ended with
+  +4 = EA3D4B48 and NO 0x200 -> took ELSE leg (arg+4 == 0 at that moment);
+  healthy siblings got 0x200. Exact arg identity at 1EE32D = open (eax
+  chain; frz167 BUCK dump prints +4/st/pend for the orphan).
+- frz167 (built, queued after frz166): one-shot [BUCK] dump at first PUMP
+  manager with pending word != 0: mgr fields, full bucket-table 37A120
+  chains (entry/cnt/obj/next), nonzero queue heads, tallies.
