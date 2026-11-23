@@ -2268,6 +2268,17 @@ CENSUS(sub_0020E9B0, "MKLU", 60)
 extern void sub_001EE400_gen(void);
 CENSUS(sub_001EE400, "JPSS", 200)
 
+/* frz143: task-lookup ENTRY 6AD00 (vtable method, this=ecx task-type
+ * table object; only static callers are its own internals; ISSMTH's
+ * ancestry runs exclusively through it -> census decides whether the
+ * task-lookup tier is even reached post-wall. Also 7D1E0
+ * (task-descriptor ctor + ISSMTH feeder, sole call site 74F7F). */
+extern void sub_0006AD00_gen(void);
+CENSUS(sub_0006AD00, "TBLU", 60)
+
+extern void sub_0007D1E0_gen(void);
+CENSUS(sub_0007D1E0, "TCTO", 120)
+
 extern void sub_001F8A00_gen(void);
 
 void sub_001F8A00(void)
