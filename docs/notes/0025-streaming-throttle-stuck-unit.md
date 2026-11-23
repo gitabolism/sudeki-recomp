@@ -1471,3 +1471,27 @@ posted; `[0x3DC83C]` at frz138 kill = `0281BE50`, a near-EMPTY stub
 record (vptr 322C50, 40 bytes zeros) — the LEVEL scene object is not
 even constructed. The scene-command issuer (and scene construction)
 is the dead edge above the streaming machinery.
+
+## frz141 — 115000 seed clean; FRM census inert (15B640 wrapper never entered); heap-VA drift law
+
+Run `logs/run-frz141-092831.out` (frz140 env + seed set 19 incl.
+`0x115000` + FRM wrapper on 15B640).
+
+- `[ICALL] Failed to resolve` = **0 whole-run** — the never-lifted
+  pause-setter law is CLOSED (seed fixed it; no behaviour change at
+  the wall: same deterministic terminal).
+- Terminal PUMP x167 identical shape BUT manager moved
+  `018BF14C -> 018CF14C` (descs `00F95738 -> 00F96738`-era): **heap
+  VAs drift when the seed set changes the lift** — data-global
+  watches (`0x3DC83C`) stay valid across builds, heap-record watches
+  must be re-derived per era. (frz142 watch moved to the scene
+  global for exactly this reason.)
+- `[FRM] x0`: the 15B640 engine-frame fanout wrapper is NEVER
+  entered -> 15B640 is not reached via the runtime-lookup tier in a
+  probed way (no guarded ICALL site lists it; the vtable+0x10 slot
+  fires through sites whose target-list lacks it -> SAFE_AT path
+  bypasses the manual wrapper). Frame-tier census by method-wrappers
+  instead: MKLU(20E9B0)/JPSS(1EE400) in frz142, TBLU(6AD00)/
+  TCTO(7D1E0) next.
+- Tier census unchanged (HUB0 x61/SESSB x30/DISP x30/WALK x30;
+  ISSMTH x33 this era): the 31/34-batch session arc is era-stable.
