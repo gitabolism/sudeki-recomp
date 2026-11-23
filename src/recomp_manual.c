@@ -2345,7 +2345,7 @@ CENSUS(sub_0007E4C0, "H7E4", 60)
  * resource-chain upper rungs 5D740/5D880/64990/64AD0 (vtable-only)
  * and the SUBM attach-path callers 1F21D0/200CB0/20AB70/221000. */
 extern void sub_00049B10_gen(void);
-CENSUS(sub_00049B10, "REG", 40)
+CENSUS(sub_00049B10, "REGT", 40)   /* REG tag taken by EC2C0 relay census */
 
 extern void sub_000491C0_gen(void);
 CENSUS(sub_000491C0, "RGCX", 40)
