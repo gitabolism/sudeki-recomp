@@ -2337,6 +2337,46 @@ CENSUS(sub_0007A4C0, "HND2", 60)
 extern void sub_0007E4C0_gen(void);
 CENSUS(sub_0007E4C0, "H7E4", 60)
 
+/* frz147 (frz146c healthy-era verdict: RQ/HND/CTOR/MSG ALL x0 to the
+ * wall -> dead edge sits at/above the resource chain): task-type
+ * REGISTRY tier — 49B10 stamps the type strings (exploration/unique/
+ * singleplay/ability/spiritstrike/skill...), sole caller 491C0 <-
+ * 8A790 (no static callers = vtable/init-table target); plus the
+ * resource-chain upper rungs 5D740/5D880/64990/64AD0 (vtable-only)
+ * and the SUBM attach-path callers 1F21D0/200CB0/20AB70/221000. */
+extern void sub_00049B10_gen(void);
+CENSUS(sub_00049B10, "REG", 40)
+
+extern void sub_000491C0_gen(void);
+CENSUS(sub_000491C0, "RGCX", 40)
+
+extern void sub_0008A790_gen(void);
+CENSUS(sub_0008A790, "RGT", 40)
+
+extern void sub_0005D740_gen(void);
+CENSUS(sub_0005D740, "RSRC1", 40)
+
+extern void sub_0005D880_gen(void);
+CENSUS(sub_0005D880, "RSRC2", 40)
+
+extern void sub_00064990_gen(void);
+CENSUS(sub_00064990, "RSRC3", 40)
+
+extern void sub_00064AD0_gen(void);
+CENSUS(sub_00064AD0, "RSRC4", 40)
+
+extern void sub_001F21D0_gen(void);
+CENSUS(sub_001F21D0, "ATT4", 40)
+
+extern void sub_00200CB0_gen(void);
+CENSUS(sub_00200CB0, "ATT1", 40)
+
+extern void sub_0020AB70_gen(void);
+CENSUS(sub_0020AB70, "ATT2", 40)
+
+extern void sub_00221000_gen(void);
+CENSUS(sub_00221000, "ATT3", 40)
+
 extern void sub_001F8A00_gen(void);
 
 void sub_001F8A00(void)
