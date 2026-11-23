@@ -1705,8 +1705,17 @@ void sub_001F99D0(void)
     }
     if (on && n < 300) {
         void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
-        fprintf(stderr, "  [S99D0] x%u ra=%p ebx=%08X ecx=%08X\n",
-                n, ra, g_ebx, g_ecx);
+        extern __thread uint32_t g_esp;
+        uint32_t a0 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 4) : 0u;
+        uint32_t a1 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 8) : 0u;
+        uint32_t a2 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 0xC) : 0u;
+        uint32_t a3 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 0x10) : 0u;
+        fprintf(stderr, "  [S99D0] x%u ra=%p eax=%08X a0=%08X a1=%08X "
+                "a2=%08X a3=%08X\n", n, ra, g_eax, a0, a1, a2, a3);
         fflush(stderr);
     }
     n++;

@@ -1,0 +1,25 @@
+diff --git a/src/kernel/kernel_file.c b/src/kernel/kernel_file.c
+index e9d974c..c893f4b 100644
+--- a/src/kernel/kernel_file.c
++++ b/src/kernel/kernel_file.c
+@@ -1405,10 +1405,20 @@ NTSTATUS __stdcall xbox_NtReadFile(
+     }
+ 
+     overwrite_settle(fd);
++    static int seqlog = -1;
++    if (seqlog < 0) {
++        const char *e = getenv("RECOMP_IO_READ_LOG");
++        seqlog = (e && *e && *e != '0') ? 1 : 0;
++    }
++    long long pos0 = (seqlog && !ByteOffset)
++                         ? (long long)lseek(fd, 0, SEEK_CUR) : -1;
+     if (ByteOffset && ByteOffset->QuadPart >= 0)
+         lseek(fd, (off_t)ByteOffset->QuadPart, SEEK_SET);
+ 
+     ssize_t n = read(fd, Buffer, Length);
++    if (seqlog && !ByteOffset && n >= 0)
++        fprintf(stderr, "  [READSEQ] fd=%d pos %lld -> %lld n=%zd\n",
++                fd, pos0, (long long)lseek(fd, 0, SEEK_CUR), n);
+     if (n < 0) {
+         XBOX_TRACE(XBOX_LOG_FILE, "NtReadFile(handle=%p) errno=%d", FileHandle, errno);
+         IoStatusBlock->Status = STATUS_UNSUCCESSFUL;
