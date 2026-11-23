@@ -2132,6 +2132,46 @@ void sub_001FC8E0(void)
 
 extern void sub_001FD950_gen(void);
 
+/* frz137: the live requester DRIVER. sub_002027B0 (3668 B, game_vtable)
+ * (1) inits a task descriptor at arg2 with static vptrs 337D64..44,
+ * (2) boot-inits 8 objects of 128 KB into the cyclic table [0x397698]
+ * (edi<8 loop), (3) issue loop: for edi in [0, u16[rec+0x24]) call
+ * 208E60(rec, ...) — 31 entries -> 228 mode-2 pushes in frz136.
+ * Census entries + args + ra (which wrapper: 201FB0 or 20BBA0). */
+extern void sub_002027B0_gen(void);
+
+void sub_002027B0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp, g_eax;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 120) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t sp = g_esp;
+        uint32_t a1 = (sp >= 0x10000u && sp < 0x7FFF0000u)
+                          ? MEM32(sp + 4) : 0u;
+        uint32_t a2 = (sp >= 0x10000u && sp < 0x7FFF0000u)
+                          ? MEM32(sp + 8) : 0u;
+        uint32_t cnt1 = (a1 >= 0x01000000u && a1 < 0x04000000u)
+                            ? MEM16(a1 + 0x24) : 0xFFFFu;
+        uint32_t cnt2 = (a2 >= 0x01000000u && a2 < 0x04000000u)
+                            ? MEM16(a2 + 0x24) : 0xFFFFu;
+        fprintf(stderr, "  [WALK] x%u ra=%p a1=%08X c1=%u a2=%08X c2=%u\n",
+                n, ra, a1, cnt1, a2, cnt2);
+        fflush(stderr);
+    }
+    n++;
+    sub_002027B0_gen();
+    if (on && n < 120) {
+        fprintf(stderr, "  [WALK] x%u -> eax=%08X\n", n - 1, g_eax);
+        fflush(stderr);
+    }
+}
+
 void sub_001FD950(void)
 {
     static int on = -1;
