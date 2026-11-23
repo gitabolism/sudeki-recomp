@@ -1202,3 +1202,40 @@ frz136: (1) fix EF0C0 mode read to esp+0xC; (2) SUB2B full arg +
 edx census; (3) MODA/MODB/MODC entry census for the module entries
 `1FC680/1FC8E0/1FD950` (1FD660's callers); (4) early-kill watcher
 re-armed -> core for ra symbolization (nav_run37).
+
+## frz136 — corrected EF0C0 census FLIPS the pose: pump-chain feed is healthy; the WALKER stops
+
+Run `logs/run-frz136-070319.out` (clean presses, early-kill core pid
+232033, `runtime .text = 0x561fb9dafe00`; PUMP x167 terminal at line
+56977, same shape).
+
+Corrected EF0C0 probe (mode = arg3): **399 calls = mode 0 x120 +
+mode 2 x279** — the frz133/134 "all mode-0" was my probe artifact.
+ra symbolization:
+* EF0C0 <- `sub_001EC130+0x56a` x171 (the EC130 relay; mode-2 subset
+  x51 — completions relaying back into the busy/pump chains);
+* EF0C0 <- `sub_00208E60_gen+0xcb3` x228 ALL mode-2 — the requester
+  DOES push into pending-chain `3D7620` (splice engine inside
+  EF0C0; explains EE110 x167 services with zero 23AD50 pushes);
+* SUB2B (208E60, 31 calls) driven ONLY from `sub_002027B0` (guest
+  site 2035D8; the other two static callers 208C80/20F1A0 never ran).
+
+Core dump gotcha: `coredumpctl list | tail -1` returned a stale entry
+(02:54 frz-era) — frz136's core is pid 232033; ALWAYS match by
+time+binary name.
+
+Module law confirmed: MODA/MODB/MODC (1FC680/1FC8E0/1FD950) and
+SUB2A (1FD660) = **x0 whole-run** — the 1FC/1FD bulk-submit module is
+DEAD CODE in this scene; the live requester path is
+`sub_002027B0 walker -> sub_0020260..(2035D8 site) -> 208E60 ->
+EF0C0 mode2 -> chain 3D7620`.
+
+Reservation law stands under clean input: RESADD x0 vs RESREL x21,
+S99D0 x1 (refusal path), REFILL x0.
+
+H31 pose x16: **whoever feeds `sub_002027B0`'s record set stops
+after the first job set** — the walker->requester->chain machinery
+is healthy end-to-end (228 mode-2 pushes, 167 services, all
+completions). Next: wrap `sub_002027B0` (entries + args) and census
+what list it walks (`ebx`/`esi` records, u16 @+0x24 keys) + who
+populates that list (link to RESADD/REFILL refusal era).
