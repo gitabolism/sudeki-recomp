@@ -1639,6 +1639,64 @@ void sub_001EAAB0(void)
     }
 }
 
+/* frz122 heartbeat probes (H31): EAAB0 -> EE190 -> EE110 -> EDA20 ->
+ * pump. MTICK dies at x167 while EACYC keeps looping: name the link
+ * that stops carrying the pulse. EE110(container): array at +0x14,
+ * items at array+0xC[count=array+4]. */
+extern void sub_001EE190_gen(void);
+
+void sub_001EE190(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 60 || (n % 256) == 0)) {
+        uint32_t a0 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 4) : 0u;
+        fprintf(stderr, "  [EE190] x%u a0=%08X\n", n, a0);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EE190_gen();
+    if (on && (n < 60 || (n % 256) == 0)) {
+        fprintf(stderr, "  [EE190] x%u -> %02X\n", n, g_eax & 0xFFu);
+        fflush(stderr);
+    }
+}
+
+extern void sub_001EE110_gen(void);
+
+void sub_001EE110(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 60 || (n % 256) == 0)) {
+        uint32_t a0 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 4) : 0u;
+        uint32_t arr = (a0 >= 0x10000u && a0 < 0x0FFFFFFFu)
+                           ? MEM32(a0 + 0x14) : 0u;
+        uint32_t cnt = (arr >= 0x10000u && arr < 0x0FFFFFFFu)
+                           ? MEM32(arr + 4) : 0u;
+        fprintf(stderr, "  [EE110] x%u a0=%08X arr=%08X cnt=%u\n", n, a0, arr, cnt);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EE110_gen();
+    if (on && (n < 60 || (n % 256) == 0)) {
+        fprintf(stderr, "  [EE110] x%u -> %02X\n", n, g_eax & 0xFFu);
+        fflush(stderr);
+    }
+}
+
 /* frz117 gate census (H31 re-pose x7). EED70 = completion handler
  * called by F9720 (1F92C9/1F99A9) and F99D0 (1F9B3E). D550/AE30 =
  * tick pump-gate helpers whose eax decides the bypass path. */
