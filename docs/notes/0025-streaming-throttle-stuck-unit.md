@@ -1949,3 +1949,38 @@ mgr 018CF14C = same heap era as frz150):
   manager PUMP retry (st=25120, job key 06610B29) which resolves via
   2D3A40-class key handlers and never converges. frz155 [ITER]/[EXEC]
   name per-tick gate verdicts live; frz154 poll-diff the manager block.
+
+## frz154/155 — poll-diff + MCOR: constructor timing law, pump-path anatomy, EACYC=relay handshake
+
+- frz154/155 (patch 0053 poll-diff LEN 0x40 + MCOR): the terminal manager
+  block (018BF14C-era) is CONSTRUCTED at the terminal burst (all fields
+  0->value one poll tick); MCOR (1EEBE0 ctor) NEVER constructs BF14C itself
+  — its init is inline inside EE2A0 (batch call site EE2A0+0x3517 constructs
+  BF188..BF2F0 stride-0x38; flag eax!=0 -> 1EED20 = name strdup, else name
+  field = fallback [arg] slot = STACK GARBAGE (EA3D4B48 in every era/core =
+  deterministic stack residue, not a pointer)).
+- WINC x207 (EE2A0+15313, guest 1EE682) opens on the slot memory BEFORE the
+  inline init (poll-diff net: +0x2C word goes 0->1 and the ctor path does
+  NOT re-zero it in this inline variant). Core final word[+2C]=1 = orphan.
+- 06610B29 is NOT a cache key: it is a FMH-class DESC tag stamped in 24 desc
+  objects (00F94D00..00F958xx block) whose +4 fields are RAM data pointers —
+  in-memory object-graph descs, no disc fetch implied. 06610B21 = FMH
+  container magic (427 in shared.baf) — unrelated.
+- 1EAB90/EACK = mid-body label of the ack leg (real function EAAB0=EACYC);
+  1EC190 = waiter-node operator new (open always pairs WINC@1EC1AE); it sits
+  in a CRT new/vector table at 0x3450AC (EC330=close twin in same table).
+- EACYC caller = 1EF277 inside EF1D0 (relay-bucket processor: walks
+  37A120[epoch>>6&0x1f] for node+0x10==epoch; queue in {3D7620,3D7668} and
+  desc state bit 0x1000 CLEAR -> 1EC3E0(node) + 1EAAB0 handshake + retry;
+  bit 0x1000 SET -> in-service branch (EF2A6: 1EACC0 loader-kick path +
+  3970E5/6 flags)).
+- frz155: EACYC ran 73x, ALL exits 0x102 (e7-permit [37A114] 5ms timeout),
+  stops at line 58557 while PUMP rescans continue (EF1D0 takes the bit-0x1000
+  in-service branch afterwards — completion for the in-service node never
+  lands). Loader last ACK (SRST sem 48000006) at 58653 then W2MO park.
+- PUMP x167 at the wall -> ret=1 (dispatch not failing; frz152b "no ATT at
+  terminal window" = the node sits in-service, not un-dispatched).
+- NEXT (frz157): census 1EC3E0 (in-service transition writer), EF258-branch
+  flag + desc state bit 0x1000 per node, and the loader-kick 1EACC0 census
+  tail; the last unknown = WHO completes the in-service node (its WDEC +
+  bit-clear) and why it never runs for the terminal burst node.
