@@ -1391,3 +1391,37 @@ consistent with an accounting leak, not a lost task.
 frz140 watch (`0x18BF14C` LEN 0x40) settles it: watch for writes to
 `+0x14` (0x18BF160) and `+0x28` state word interleaved with the
 `+0x2C` transitions; every hit carries the guest stack.
+
+## frz138 addendum 2 — the issue tier is drain-ONLY; table object NULL at kill
+
+Re-read of the frz138 census with wrappers decoded:
+- `[ISSU1]` = census on `1F1470` (async service loop, NOT a table
+  lookup): x1 whole-run, ctx=queue-head arg `014A6338` (a node of
+  chain `3D76D4`), out=cursor `[ctx+0x34]`. `[ISSU2]` (1F1870) x0.
+  -> the async service-loop tier runs ONCE; the second such loop
+  never runs at all.
+- `[ISSMTH]` (157B10) x33, every logged `arg5 bit0=1` -> every call
+  took the `157BBB` DRAIN branch (`EF7C0` submit); the bit0=0 branch
+  at `157C38` (new-session via `EF770`) was NEVER taken. `EF770`
+  itself gates first on `MEM8(0x397110)!=0` then bails iff
+  `1F8670(0)!=0`.
+- Job-slot table `[0x37A1A0]` (32 slots): 27 jobs resident at kill,
+  counts 1..7 — resident jobs are NORMALLY pending>0; pending=1 is
+  not per-se pathological. Session table `[0x37A528]` = EMPTY at
+  kill (the 31 frz132 sessions completed and unlinked).
+- Task-table global (sole ref to string pool `0x3229E8` at
+  `[0x3762EC]`) = **NULL at kill** — the string-keyed task-type
+  registry ("export","instrument","playability","skins","ability")
+  is gone; issue chain `6AD00 -> 72A40(lookup) -> 74F10 -> 7D1E0 ->
+  157B10` stands on it.
+- `72A40` = hash lookup on task-type table object (`[edi+0x84]`
+  bucket array, 0x14-byte entries); returns 0 = key-not-found.
+
+Net pose x19: at the wall EVERYTHING is drained/unlinked (queues 0,
+sessions 0, task-table NULL, service loops x1/x0). The engine never
+requests the NEXT task set: ISSMTH is called 33x but always in
+drain-mode (arg5 bit0=1). The discriminator for frz141: does the
+caller tier still reach ISSMTH with the NEW-SESSION bit clearable —
+and what data decides that bit. frz140 (running) first answers
+whether the hub/dispatch tier (HUB0/DISP/SESSB census) still ticks
+post-wall.
