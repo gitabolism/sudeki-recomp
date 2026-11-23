@@ -1653,7 +1653,7 @@ void sub_001EE110(void)
         const char *e = getenv("RECOMP_RD_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
     }
-    if (on && (n < 60 || (n % 256) == 0)) {
+    if (on && n < 400) {
         uint32_t a0 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
                           ? MEM32(g_esp + 4) : 0u;
         uint32_t arr = (a0 >= 0x10000u && a0 < 0x0FFFFFFFu)
@@ -1665,7 +1665,7 @@ void sub_001EE110(void)
     }
     n++;
     sub_001EE110_gen();
-    if (on && (n < 60 || (n % 256) == 0)) {
+    if (on && n < 400) {
         fprintf(stderr, "  [EE110] x%u -> %02X\n", n, g_eax & 0xFFu);
         fflush(stderr);
     }
