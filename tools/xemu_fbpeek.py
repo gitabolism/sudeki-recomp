@@ -59,6 +59,34 @@ def bmp(path, buf, off, w, h):
         b"BM" + struct.pack("<IHHI", ds, 0, 0, 54) +
         struct.pack("<IiiHHIIiiII", 40, w, h, 1, 24, 0, len(data), 2835, 2835, 0, 0) + data)
 
+def _split16(x):
+    x &= 0xFFFF
+    x = (x | (x << 8)) & 0x00FF00FF
+    x = (x | (x << 4)) & 0x0F0F0F0F
+    x = (x | (x << 2)) & 0x33333333
+    x = (x | (x << 1)) & 0x55555555
+    return x
+
+def bmp_z(path, buf, off, w, h):
+    """NV2A CROLL Z-order (Morton) decode: pixel (x,y) lives at
+    interleave(x,y)*4 — the layout the Xbox display engine uses when the
+    front buffer is swizzled (linear attempts read as horizontal garbage)."""
+    lo = [_split16(v) for v in range(0x10000)]
+    rows = []
+    pad = (4 - (w * 3) % 4) % 4
+    for y in range(h - 1, -1, -1):
+        out = bytearray()
+        for x in range(w):
+            m = lo[x] | (lo[y] << 1)
+            p = buf[off + m * 4: off + m * 4 + 3]
+            out += p
+        rows.append(bytes(out) + b"\x00" * pad)
+    data = b"".join(rows)
+    ds = 54 + len(data)
+    open(path, "wb").write(
+        b"BM" + struct.pack("<IHHI", ds, 0, 0, 54) +
+        struct.pack("<IiiHHIIiiII", 40, w, h, 1, 24, 0, len(data), 2835, 2835, 0, 0) + data)
+
 def uniformity(buf, off, w, h):
     """fraction of sampled pixels equal to the modal color (menus/titles
     have large flat fields; video/torn frames do not)"""
@@ -77,7 +105,7 @@ def main():
     opts = {}
     it = iter(args[2:])
     for a in it:
-        if a.startswith("--") and a not in ("--top",):
+        if a.startswith("--") and a not in ("--top", "--zorder"):
             opts[a] = int(next(it), 0)
         else:
             opts[a] = True
@@ -86,8 +114,12 @@ def main():
     print("VRAM seg pa=0x%X size=0x%X" % (vram[0], vram[1]))
     buf = d[vram[2]:vram[2] + vram[1]]
     if "--off" in opts and "--w" in opts and "--h" in opts:
-        bmp(outp + ".bmp", buf, opts["--off"], opts["--w"], opts["--h"])
-        print("wrote %s.bmp off=0x%X %dx%d" % (outp, opts["--off"], opts["--w"], opts["--h"]))
+        if "--zorder" in opts:
+            bmp_z(outp + ".bmp", buf, opts["--off"], opts["--w"], opts["--h"])
+            print("wrote %s.bmp off=0x%X %dx%d Z-ORDER" % (outp, opts["--off"], opts["--w"], opts["--h"]))
+        else:
+            bmp(outp + ".bmp", buf, opts["--off"], opts["--w"], opts["--h"])
+            print("wrote %s.bmp off=0x%X %dx%d" % (outp, opts["--off"], opts["--w"], opts["--h"]))
         return
     if "--top" in opts:
         # uniformity-first scan (menus/titles beat video/torn frames);
