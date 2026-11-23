@@ -1298,3 +1298,36 @@ its completion**; everything else closes cleanly. frz138 =
 `RECOMP_WATCH=0x18BF178` (count word, len 4) + SCH1..4/TITER census:
 per-write guest stacks show WHO opened the 11th-era extra request
 and who stopped closing it.
+
+## frz138 — pending-count ledger: the terminal era nets +1; the loader-pass open is the unclosed one
+
+Run `logs/run-frz138-073425.out` (RECOMP_WATCH word at `0x018BF178`
+= mgr `018BF14C`+0x2C; PUMP x167 at line 57073; same terminal).
+
+ALL writes to the count whole-run: boot construction (4 byte-writes,
+0) — then NOTHING during the entire 31-batch streaming era (all
+balanced) — then a 5-transition burst around the terminal:
+
+| # | line | val | writer (guest site + stack signature) |
+|---|---|---|---|
+| a | 56866 | 0->1 | `EC130` relay (inc `1EC2E5`), from `1EE682` inside **sub_001EE2A0** (loader servicing driver; also did two value-preserving writes 56838/56852 just before) — thread chain `4ADBC/108000/22BB00/206917/1F36A7/373100` (loader thread root) |
+| b | 56882 | 1->2 | `EC2C0` splice/register ctor (vptr 33677C, inc `[mgr+0x2C]`), inside EF0C0 **x435** (a1=terminal mgr, **a1+8=0**, mode=2, arr 010D3078) |
+| x | 57096 | 2->1 | `EC350` dec `1EC390` (completion; CQ x522 ladder era, engine-frame stack `1EAD4F/2D3652/1E0C1E`) |
+| c | 57112 | 1->2 | `EC130` again (engine-frame stack `EC98B/EE0F4/EAD4F/2D3652`), immediately before EF0C0 **x469** (a1+8=00F95738 = THE terminal desc, mode=2) |
+| y | 57128 | 2->1 | `EEEE0` dec `1EEEFF` (same engine-frame pattern as c) |
+
+Pairings: (b)<->(x) splice-complete, (c)<->(y) engine pair.
+**Unmatched: (a)** — the open created by `sub_001EE2A0`'s own relay
+call (`call 1EC130` at `1EE682`) during the terminal servicing pass
+(the pass that returned `PUMP x167 -> ret=1`). It never receives
+its dec; final count = 1 forever, EE110 count stays 167, loader
+parks.
+
+Semantics still open: EE2A0's pre-writes at 56838/56852 (dword
+[+0x2C] write preserving 0, then a +2 write) suggest a per-pass
+reset/init — the relay-open (a) is likely a re-entrancy guard for
+the pass whose COMPLETION branch (1EC390 `ja` path vs zero path, or
+1EEEFF) never ran for pass 167. frz139 = watch the FULL record
+(`RECOMP_WATCH=0x18BF14C` LEN 0x40): complete mutation ledger incl.
+state-word `[+0x28]` ORs (0x2000 open-flush bit at 1EF022, ah&0x20
+test at 1EEF23) with stacks.
