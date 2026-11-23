@@ -1702,6 +1702,56 @@ void sub_0023AD50(void)
     }
 }
 
+/* 26D5AE = guest SetEvent wrapper (all loader-event signals route
+ * through it; EVENT_LOG can't name the CALL SITE). ra + handle per
+ * call: which handshake stopped producing wakes after pulse #4. */
+extern void sub_0026D5AE_gen(void);
+
+void sub_0026D5AE(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 400) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t h = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                         ? MEM32(g_esp + 4) : 0u;
+        fprintf(stderr, "  [SMEVT] x%u ra=%p h=%08X\n", n, ra, h);
+        fflush(stderr);
+    }
+    n++;
+    sub_0026D5AE_gen();
+}
+
+/* F0F80 = loader-queue processor: log the three list globals so the
+ * stall-era emptiness is directly visible, plus its return. */
+extern void sub_001F0F80_gen(void);
+
+void sub_001F0F80(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 300) {
+        fprintf(stderr, "  [F0F80] x%u q740=%08X q71C=%08X q720=%08X\n",
+                n, MEM32(0x3D7740), MEM32(0x3D771C), MEM32(0x3D7720));
+        fflush(stderr);
+    }
+    n++;
+    sub_001F0F80_gen();
+    if (on && n < 300) {
+        fprintf(stderr, "  [F0F80] x%u -> %02X\n", n, g_eax & 0xFFu);
+        fflush(stderr);
+    }
+}
+
 /* frz117 gate census (H31 re-pose x7). EED70 = completion handler
  * called by F9720 (1F92C9/1F99A9) and F99D0 (1F9B3E). D550/AE30 =
  * tick pump-gate helpers whose eax decides the bypass path. */
