@@ -2734,6 +2734,41 @@ void sub_001EAB90(void)
     sub_001EAB90_gen();
 }
 
+/* frz155/overturn: the terminal manager block (018BF14C-era) was CONSTRUCTED
+ * at the terminal burst (frz154 poll-diff: every field 0->value between the
+ * WDEC x228 and WINC x241 lines). 1EEBE0 = ctor (thiscall ecx=obj): stamps
+ * vtbl 336794, zeroes +8/+C/+10/+14 and WORDS +2C..+32 (the waiter count!),
+ * words +18/+1A=FFFF, then 1EED20 register if eax!=0. If WINC (x207, EE2A0
+ * relay) opens a waiter on the slot memory BEFORE the ctor runs, the ctor
+ * RESETS that pending and orphans the record — submit-before-init.
+ * [MCOR] ecx/eax/ra + waiter word before/after names the order. */
+extern void sub_001EEBE0_gen(void);
+
+void sub_001EEBE0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 200 || (n % 128) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [MCOR] x%u ra=%p obj=%08X eax=%08X w2C=%04X\n",
+                n, ra, g_ecx, g_eax,
+                (g_ecx >= 0x10000u && g_ecx < 0x4000000u) ? MEM16(g_ecx + 0x2C) : 0);
+        fflush(stderr);
+    }
+    n++;
+    uint32_t obj = g_ecx;
+    sub_001EEBE0_gen();
+    if (on && (n < 200 || (n % 128) == 0)) {
+        fprintf(stderr, "  [MCOR] x%u -> w2C=%04X\n", n - 1,
+                (obj >= 0x10000u && obj < 0x4000000u) ? MEM16(obj + 0x2C) : 0);
+        fflush(stderr);
+    }
+}
+
 /* frz155 wake-iterator tier. EAAB0 (= EACYC census, already above) is THE
  * loader-side wake path: it iterates the request queue [0x397668] via
  * 1FE8A0 (esi cursor, eax=next) running each item through 1FE690, and its
