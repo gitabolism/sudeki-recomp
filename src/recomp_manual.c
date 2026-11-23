@@ -2258,15 +2258,11 @@ extern void sub_00227E60_gen(void);
 CENSUS(sub_00227E60, "SESSB", 80)
 
 /* frz142: menu-tier task method 20E9B0 (SOLE caller of the scene-task
- * executor 20F1A0, call site 20EA2E; vtable class) + job-pass tier
- * 1EE400 (the `new 0x3C` job-record creator of the EE2A0-era passes).
- * frz141's FRM census is expected x0 — 15B640 has no guarded ICALL
- * site, so the vtable tier must be probed by method instead. */
+ * executor 20F1A0, call site 20EA2E; vtable class 346D88 = same tick
+ * family as the 15B640 fanout). (JPSS/1EE400 retired: mid-body label
+ * of EE2A0, not a function.) */
 extern void sub_0020E9B0_gen(void);
 CENSUS(sub_0020E9B0, "MKLU", 60)
-
-extern void sub_001EE400_gen(void);
-CENSUS(sub_001EE400, "JPSS", 200)
 
 /* frz143: task-lookup ENTRY 6AD00 (vtable method, this=ecx task-type
  * table object; only static callers are its own internals; ISSMTH's
