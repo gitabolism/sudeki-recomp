@@ -1939,6 +1939,7 @@ void sub_001EF7C0(void)
  * scene-command issuer is the dead edge; if FRM stops, the frame
  * tier died. vtable refs at file 0x32E424/490/DA4 (3 slots). */
 extern __thread uint32_t g_edi;
+
 extern void sub_0015B640_gen(void);
 
 void sub_0015B640(void)
@@ -2255,6 +2256,17 @@ CENSUS(sub_001F8960, "HUB0", 80)
  * module — one per mode-2 splice = expected 228). */
 extern void sub_00227E60_gen(void);
 CENSUS(sub_00227E60, "SESSB", 80)
+
+/* frz142: menu-tier task method 20E9B0 (SOLE caller of the scene-task
+ * executor 20F1A0, call site 20EA2E; vtable class) + job-pass tier
+ * 1EE400 (the `new 0x3C` job-record creator of the EE2A0-era passes).
+ * frz141's FRM census is expected x0 — 15B640 has no guarded ICALL
+ * site, so the vtable tier must be probed by method instead. */
+extern void sub_0020E9B0_gen(void);
+CENSUS(sub_0020E9B0, "MKLU", 60)
+
+extern void sub_001EE400_gen(void);
+CENSUS(sub_001EE400, "JPSS", 200)
 
 extern void sub_001F8A00_gen(void);
 
