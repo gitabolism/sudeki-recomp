@@ -139,6 +139,31 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   `+0x8` desc `00F95738`; handle `02611EA4` -> obj `010E3178`
   (`+0` `0x31C8`, `+4` `0x248`, `+8` data `010E3198`).
 
+### frz117: tick runs, pump gate refuses after x167; EED70 stream-swaps keep cycling
+
+* R2 replay #7 (deterministic): pump x167 = same final bypass pump
+  (`018CF14C` id=0002 eax=scratch `02611EA4`).
+* `[MTICK]` per-event: tick ran 167 times total — after x167 the
+  tick still ENTERS (its `23A4F0`->`F9620` leg fires 256+ times) but
+  never reaches a pump: at `1EDB17` the tick's own `ECC40(mgr+0x18)`
+  now returns NONZERO -> pump skipped (pump fires only when the job
+  lookup is NULL); the follow-on branch requires `D550(mgr)==0` —
+  `D550` fired only 2x ever (boot era, both -> 1).
+* `[EED70]` (>=257x incl. stall era; sites 1F92C9/1F99A9/1F95C3-tail):
+  it is NOT job completion — it is the double-buffer STREAM SWAP
+  (swap `obj+0x10 <-> obj+0x34`, ring helpers `23BAF0/BB30/BBC0`,
+  tail-call thunk `[0x3156C4]` with free-buffer `0x37A3B0`). The
+  stream ring keeps cycling under the stall.
+* Model refinement: after x167 the final job `0A260002` sits with
+  state&3 != 0 (in flight). Only the service processor can advance
+  it; the processor consumes RECORDS from the stream; the record
+  chain cycles 17 positions with zero-padded headers. Deadlock is
+  data-shaped, not gate-shaped — hence frz118: fresh-install write
+  map (`RECOMP_IO_WRITE_MAX=0`) to test whether the installed tail
+  regions were ever WRITTEN with the real data (bridge write bug)
+  or installed as zeros by the guest itself (installer output wrong
+  -> decoder/stream-assembly bug, note 0010 machinery).
+
 ### frz114-115: seq-read positions revealed; installed-tail polling is the loop (H31.10)
 
 * patch 0048 (`[READSEQ] fd pos before->after`) + 0049
