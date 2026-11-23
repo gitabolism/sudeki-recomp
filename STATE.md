@@ -3,7 +3,7 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-22 (session 4u)
+**Last updated:** 2026-11-22 (session 4v)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached** —
 `reference/fb/frz1600027.bmp` is the fully textured title screen
 (SUDEKI logo + character art + "Press START" + rain, 37,025 distinct
@@ -68,7 +68,45 @@ Ghidra secondary lens ONLINE (project `/tmp/opencode/ghidra/sudeki`).
 
 ## Last run
 
-Session 4u (latest): **frz87 deep-marathon verdict + pump-chain
+Session 4v (latest): **H30 root-caused (note 0024) + TITLE_KEVENTS
+probe verdict (frz91) + history scrub (user-approved).**
+- frz90 (era-guarded watcher + `.bik+120s` nav gate): plateau 3,966
+  flips, first MATCHED-SYMBOL plateau core. Killed the `+0x400700`
+  spin theory (no host/guest writer of that word; cores read 0).
+  Shadow-table scan of all 4096 `g_ke_shadow` slots: NO entries for
+  0x2E2F4C/0x2E2F5C — D3D8LTCG hand-builds these events in guest RAM
+  (static XBOXKRNL), bridge never registered them → every
+  Wait/Set/Reset fell to `XBOX_TO_NATIVE` garbage (kernel_sync.c:286
+  documents the instant STATUS_UNSUCCESSFUL); credit gate survives via
+  `KeResetEvent`'s unconditional 0, ring-free wait `loc_002D5920`
+  polls `eax==0` with no escape = terminal spin; luck band 189..17435
+  = when host GET lag first crosses ring-free<0x2000.
+- frz91 (`RECOMP_TITLE_KEVENTS=1`, env-only): mirrors created for
+  0x2E2F4C+0x00F7FC7C (core scan: both in `g_ke_shadow` now), OHCI
+  fine (enumeration t=209.5 s — the `.bik+120s` gate pressed BEFORE
+  pad enumeration, nav void again; harness gate fixed to the
+  `ISR claimed it` line). Plateau UNCHANGED (1,593 flips) but
+  MORPHOLOGY FLIPPED: engine `sub_001DE5C0` now genuinely blocks
+  (ICALL `0x3157E4` on `ctx+0x1DBC`=0x2E2F4C) while completion
+  `KeSetEvent(4C)` from 0x2DB0BE keeps firing to kill → paradox =
+  notification-event wake theft (credit-gate competitor, frz79 saw it
+  INFINITE on the same token) or lost-pulse race. Next probe frz93:
+  manual-wrapper counters gate vs engine vs completion.
+- frz92 IN FLIGHT (`/tmp/opencode/nav_run2.sh 92 1500`, pad-driven
+  gate, TITLE_KEVENTS regime; log `logs/run-frz92-*.out`, dumps
+  `reference/fb/92*`, watcher era-guarded).
+- Git (user-approved one-time rewrite, rule-7 exception): a
+  non-mission housekeeping sentence was scrubbed from ALL history
+  (STATE.md was its only home; introduced 573c486, which scrubbed
+  byte-identically to `35cb8a4` — the id docs already cited); every
+  later id remapped and doc citations reseeded in-pass (map
+  `/tmp/opencode/scrub_map.txt`, backup `/tmp/opencode/pre-scrub-
+  backup.bundle`); local noise commit dropped; `origin/main` ref
+  reseated to `f00a8bf`; signed root untouched; **user must run the
+  force-push** (harness denies agent push). AGENTS rule 12 added
+  (mission-only content — never write such noise).
+
+Session 4u (earlier): **frz87 deep-marathon verdict + pump-chain
 anatomy + Ghidra lens online.**
 - frz87: 17,435 flips, content frames to t+23:45 — but fbpeek + visual
   check of late dumps = TITLE screen (rain = the 98 % inter-delta).
@@ -505,39 +543,39 @@ arr=0).
     (submit 24,493, iGET following the write cursor). New wall H30:
     the engine device-message layer — `sub_0011ED20` stops invoking
     the swap pump; frz41 plateau-core in flight.
-12. **H30 (4u reframe, ACTIVE):** ONE wall, stated in one sentence:
-    the run is healthy until swap-mark dispatch halts (luck-deep,
-    189..17435 flips), and navigation (menu -> Buki -> load) has
-    never completed in the census regime, so no level frame is ever
-    PRESENTED. Static anatomy done (note 0023 4u sections; Ghidra
-    cross-checked). The `+0x400700` spin theory is UNCONFIRMED (no
-    gen-tree write sites) and needs a matched-symbol plateau core —
-    owed by frz90's fixed watcher before any patch 0047.
+12. **H30 (4v, ROOT-CAUSED, ACTIVE):** root cause = unresolved shadow
+    handles for D3D hand-built RAM events (note 0024); `TITLE_KEVENTS`
+    fixes the resolution but the plateau SURVIVES with a new terminal
+    shape: engine INFINITE on mirrored 0x2E2F4C while completion
+    SetEvents keep firing (note 0024 Outcome: wake-theft vs lost-pulse
+    race, unresolved). Nav (menu -> Buki -> load) still never
+    completed in census regimes, so no presented level frame yet.
+    frz92 (pad-gated nav + TITLE_KEVENTS) in flight; frz93 = gate/
+    engine/completion counter wrappers if frz92 plateaus.
 
 ## Queue (next concrete actions)
 
-* **1 (frz90 nav run, fixed harness):** edit `/tmp/opencode/nav_run.sh`
-  press gate to first `.bik` + **120 s** (45 s fired mid-FMV), then
-  `bash /tmp/opencode/nav_run.sh 90 1500`; arm the plateau watcher ONLY
-  with era guard (elapsed >= 420 s AND flips >= 1000 before the
-  0.00-fps criterion — frz89 false-fired mid-FMV). Verdict:
-  `bash tools/census_snap.sh logs/run-frz90-*.out` +
-  `python3 tools/fbpeek.py reference/fb/90 --diff` + visual confirm of
-  late dumps (prefix is `90`, not `frz90`). Buki/level card frames =
-  nav works; animated textured level scene = GAMEPLAY artefact
-  (CHANGELOG row; README wording is user-owned).
-* **2 (plateau-core forensics, if watcher ABRTs frz90):**
-  `coredumpctl dump <pid> -o /tmp/opencode/sudeki.frz90.core` (find pid
-  via `coredumpctl list sudeki | tail -1`), then `gdb -batch -x
-  /tmp/opencode/core_forensics.bt build/sudeki <core>` (validated) +
-  `thread apply all bt` — compare vs frz88/frz89 HEALTHY baselines;
-  CONFIRM or KILL the `+0x400700` spin theory before any patch 0047.
-* **3 (if nav fails again):** `[PAD]` state census — manual wrappers on
-  XAPILIB state fetch `0x31052E`/`0x31053A` (note 0020 map) to prove
-  whether scripted presses reach the game post-movie at all.
+* **1 (frz92 verdict when the run lands):** `bash tools/census_snap.sh
+  logs/run-frz92-*.out` + `python3 tools/fbpeek.py reference/fb/92
+  --diff` + visual confirm of late dumps; check `[nav]` lines in
+  `/tmp/opencode/frz92.nav.out` (gate = `ISR claimed it` + 30 s).
+  Buki/level card presented = nav works; animated textured level
+  scene = GAMEPLAY artefact (CHANGELOG row; README wording is
+  user-owned).
+* **2 (frz93, if frz92 plateaus):** wake-theft vs lost-pulse census —
+  manual wrappers counting entries/waits on `sub_002D3420` (credit
+  gate), `sub_001DE5C0` (engine wait) and sets at `sub_002DAFF0`
+  (completion) with thread ids; `RECOMP_EVENT_LOG=1` already traces
+  create/wait/set callers. Decides the fix shape (event type at the
+  mirror, or per-waiter semantics).
+* **3 (frz92 core forensics if watcher ABRTs):** dump core to
+  `/tmp/opencode/sudeki.frz92.core`, run `/tmp/opencode/core_
+  forensics.bt`, compare vs frz91/frz89 baselines (does a second
+  waiter sit on the 4C host event?).
 * Carry-over: RECOMP_SWMARK_INTR12/PF/IRQPOST/PB_PARK stay opt-in
   probes; `RECOMP_ARM_UNTIL_SEEN=0` (v4) stays the working regime;
-  queue depth 2048 + 0046 idle-clear default-on. Then: texture-coverage
+  queue depth 2048 + 0046 idle-clear default-on; `RECOMP_TITLE_
+  KEVENTS=1` stays (honest pacing; insurance). Then: texture-coverage
   confirmation on the first presented level frame; xemu title/menu
   side-by-side (note 0019 recipe; needs idle GPU).
 
@@ -676,5 +714,6 @@ arr=0).
 | 2026-11-22 s4q | H19 CLOSED (patch 0029 ranked `[UNH]` table + `tools/unh_names.py`: all 40 top unhandled methods benign; executor already rasterises level scene; frz16 dump 27 = fully textured title, 37k colors); frz18 nav recipe PROVED the Buki loading card presents + animates; frz19 proved the tail is a real hang (IO quiescent 150 s pre-plateau); `tools/fbpeek.py` frame forensics; README agent-contract + OpenCode sections drafted (user landed `a89c05a`); AGENTS rule 11 (user) | `8e7c8ed` |
 | 2026-11-22 s4r | **H29 anatomy COMPLETE**: frz20 core = ring writer parked in `KeWaitForSingleObject(0x2E2F5C)`; class-5 NOP arm fires once per run; patch 0030 (drain-edge re-latch) iterated v1 (ack-poll, blind) -> v2/v3 (walk-tail, FIRES: work==drained, latched=1) yet no second wake; frz26 `[PRES]` ring census: plateau BIMODAL (parked writer vs pump-freeze with ring alive, `iGET==cursor`); BEW chain convicted (`0x1D6C` offset 0, releases rejected `off!=0`, channel-block semaphors never written, `sh8700=51747D8B` constant); fix candidate 0031; pre-push audit green (tree+history+secrets+pins) | `af91f07` (push pending user approval) |
 | 2026-11-21 s4j | **audio wall CLOSED (patch 0022)**: DDS9 master open `sub_0028F8C3` needs AC97 bus-master trap; upstream armed it only on aarch64 (x86-64 Linux fell to NULL-VEH stub) → DSERR_NODRIVER → 'SdaD' create skipped → null-voice 24 KB copy = the whole note-0017 chain. Patch widens POSIX arm to x86-64; with `RECOMP_AC97_READY=1` MCPX APU (SDL2) + AC97 trap up, all 5 sub-inits 0, DS-VOICE!/DS-COPY! 0, wavebanks stream, ~1250 flips. New wall H23: deterministic allocator crash — free-list link `0xFE087E8D` (NV2A aperture value) spliced at real `0x1A9C1D` (`sub_001A9B60` family, misattributed `sub_001A9A50+0x1CD`); census wrappers `sub_0028F8C3/sub_002885AE/sub_0028AF42`, patch 0021 `RECOMP_LOG_ORDS` | (this commit) |
+| 2026-11-22 s4v | **H30 ROOT-CAUSED (note 0024)**: frz90 matched-symbol plateau core + `g_ke_shadow` scan (0 hits for 0x2E2F4C/0x2E2F5C) — D3D hand-built RAM events never shadow-registered, waits fail STATUS_UNSUCCESSFUL, ring-free wait `loc_002D5920` = terminal spin, luck band = GET-lag crossing; +0x400700 theory killed; frz91 `RECOMP_TITLE_KEVENTS=1` probe: mirrors land (core-verified) but plateau survives, morphology flips to quiet deadlock — engine INFINITE on mirrored 4C while completion SetEvents fire to kill (wake-theft vs lost-pulse open, frz93 counters queued); nav_run2 harness (pad-enumeration-driven gate; frz91 pressed 40 s before OHCI enumerated); frz92 in flight; **user-approved one-time history rewrite**: non-mission housekeeping sentence scrubbed from all blobs (STATE.md sole home; 573c486 scrubbed byte-identically to its own cited id 35cb8a4), all later ids remapped + doc citations reseeded in-pass, origin/main ref reseated to f00a8bf, signed root untouched, force-push left to user (harness denies agent push); AGENTS rule 12 (mission-only content) | (this commit) |
 | 2026-11-22 s4u | frz87 deepest run (17,435 flips) = luck, content era is the rain-animated TITLE (fbpeek+visual); nav gate reframed state-driven (`.bik`-log gate, frz89 in flight); pump/completion chain anatomy from lifted C + **new Ghidra 12.2 second-lens project** (flat-image import recipe landed; javap-before-script lesson; frz83-core frames retracted as stale-symbol artifacts); frz88 mistake -> HEALTHY-era core baseline captured (+0x704=0x100 armed, PMC/PGRAPH 0); plateau-watcher for auto matched-symbol core; **close-out:** frz89 inconclusive (watcher false-fired mid-FMV — era-blind detector; both 4u cores are HEALTHY baselines), H30 stated in one sentence, queue = frz90 fixed-harness nav run, BRIEF fci-recomp claim re-measured + Black-2006-Recomp added to prior art (user) | (this commit) |
 | 2026-11-22 s4t | **mark-machinery regime matrix (frz62-83)**: queue-depth 0039 kills drop-overflow but not the plateau; strict one-owner (0040) weaker than v4 churn; walk-suspension (0042) and irq-post (0043) froze boot → opt-in probes; PMC-PF bit (0044) + regime-scoped pop-gate (0045, the 0040 gate had leaked: frz77 187-flip freeze); **frz82 bisect proved the frz66 7113-climb was run luck** (same binary froze at 231) — one stable wall: the guest's swap-mark DISPATCH stops (SWM 135 vs 231 flip-writes vs 150 slot-event sets) while the ring writer stays alive; frz79 core: events healthy, mark machinery idle, engine+credit-gate INFINITE on the next completion; next read = pump/dispatcher chain (sub_002DB250/4A0 + the 0x400700 busy flag + the 0x2DB0BE set condition) | (this commit) |

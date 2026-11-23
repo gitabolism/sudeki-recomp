@@ -73,5 +73,42 @@ PAD lines): that regression predates patches 0023/0037 and is
 re-testable. If OHCI dies, fallback = patch 0047 scoping the
 classifier (host-side, toolkit).
 
-## Outcome
-(fill in AFTER the experiment: what was true)
+## Outcome (frz91, `logs/run-frz91-185035.out`, core `/tmp/opencode/sudeki.frz91.core`, forensics `/tmp/opencode/forensics-frz91.txt`)
+
+* Half-true: the mirror gap was real and `RECOMP_TITLE_KEVENTS=1`
+  fixed the resolution — "built by the title" for `0x002E2F4C`
+  (notification) + `0x00F7FC7C` (sync); frz91 core `g_ke_shadow` scan
+  finds entries for both (never for `0x2E2F5C` — no wait/set on it
+  occurred in that run). The XAPILIB/OHCI regression did NOT recur
+  (`[OHCI0] raised 00000002 -> ISR claimed it` works, but
+  enumeration landed at t=209.5 s — the `.bik+120 s` nav gate pressed
+  at 170-200 s, so that run's nav attempt was void; harness fixed to
+  gate on the ISR-claimed line).
+* Falsified as THE fix: plateau unchanged — 1,593 flips, watcher ABRT
+  t=420 s, late dumps 9100035-42 static (d=0.00 %).
+* Morphology flipped from livelock to quiet deadlock: thread 1 now
+  genuinely blocks (`wait_single`/`pthread_cond_wait`), chain
+  `sub_00252AF0..sub_0011B020->sub_001DE310->sub_001DE5C0->
+  bridge_KeWaitForSingleObject`. Lifted C (recomp_0034.c:9027+):
+  `sub_001DE5C0` waits via ICALL slot `0x3157E4` on `ctx+0x1DBC` =
+  **0x2E2F4C** — the mirrored swap-slot event. No thread anywhere in
+  `sub_002D57D0` (writer) or the `sub_0011ED20` device-message chain;
+  `[SWAP] issue=3960` climbing, `pump=eng=1593` frozen, `wait=5`;
+  `[SWM]` latches still fire from `002DB2E9`; PGRAPH_INTR=1;
+  BEW channel-block sem `+0=0x260b` (patch 0031 chain healthy);
+  guest RAM `0x2E2F4C` SignalState=0, `0x2E2F5C` SignalState=1.
+* The paradox (frz91, unconfirmed which side): completion
+  `KeSetEvent(0x2E2F4C)` from `0x2DB0BE` keeps firing to kill, the
+  shadow resolves both sides (host event mirrored), yet the engine's
+  INFINITE wait never returns. Leading hypotheses: (a) notification
+  event with a competing waiter — the credit gate `sub_002D3420` was
+  seen INFINITE on the same token in frz79 — each pulse wakes the
+  gate, engine starved; (b) a wake-ordering race where the pulse
+  lands while the engine is outside the wait and the notification
+  auto-reset eats it before re-entry.
+* Kept as insurance: `TITLE_KEVENTS` stays in the regime (honest
+  pacing beats fire-and-forget). Next probe (frz93, wrappers only,
+  no toolkit patch): entry/wait counters on `sub_002D3420` (gate) vs
+  `sub_001DE5C0` (engine) vs `sub_002DAFF0` (completion set) — catches
+  the stealer or the lost pulse directly.
+
