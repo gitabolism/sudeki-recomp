@@ -2062,3 +2062,21 @@ era-invariant sibling 018A7B68 -> when does ITS +0x14 array appear?
   ra) + WINC probe add flag byte bl (arg dword at [esp+0x328] region =
   EENT a-list) -> settles (a) whether any completion ever targeted the
   terminal manager, (b) whether the 0x60 flag skipped the desc guard.
+
+## Static addendum — the full attach/detach ledger map (capstone)
+
+- Ref INCREMENT sites for mgr [+0x14]-or-word[+2C] (exactly three):
+  (a) 1EDC20 lookup-attach @1EDCB8/1EDCD3 — the HASH-KEYED lookup walks
+  chain table 0x37A1A0[hash&0x1F] (lock 0x37A258) comparing [+4] KEY
+  (confirms [+4] = hash key, and state bit 0x200 => key compare via
+  STRING fn 0x27289D instead — the "name" path); LOOKUP ITSELF ATTACHES
+  (increments the count!) — so a PUMP-scan lookup ticks the same word.
+  (b) EE2A0 attach @1EE635/1EE645; (c) submit-hit attach @1EE70C/1EE724.
+- Ref DECREMENT site = 1EEEE0 ONLY (frz161 KICK census). At 0: array
+  variant -> 1EEE20 record-sweep (for each of [arr+4] items in
+  [arr+0xC]: 1F92E0 + 1ED9B0 + vtbl[0](1) = per-record CLOSE, then
+  free-array via 114E0 region code); word variant -> direct CLOSE.
+- => the terminal orphan (word 1 forever) = exactly ONE attach with no
+  matching 1EEEE0 anywhere. KICK census x-count whole-run vs WINC x207
+  settles the whole wall at census precision; if KICK total == WINC+
+  lookups-1 excluding terminal, the missing decrement is the ONLY bug.
