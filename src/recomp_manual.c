@@ -2217,26 +2217,35 @@ CENSUS(sub_0020B710, "SCH4", 60)
 extern void sub_001F8960_gen(void);
 CENSUS(sub_001F8960, "HUB0", 80)
 
-extern void sub_001F8A00_gen(void);
-extern void sub_001F8A06_gen(void);
+/* frz140b: session builder (vtable 338B64 writer, reached via
+ * 227570 tail from hub dispatch; 31 sessions in frz130/132) and the
+ * splice-side dispatcher 1F8A00 (sole caller 1F0D23 inside the EF0C0
+ * module — one per mode-2 splice = expected 228). */
 extern void sub_00227E60_gen(void);
+CENSUS(sub_00227E60, "SESSB", 80)
+
+extern void sub_001F8A00_gen(void);
 
 void sub_001F8A00(void)
 {
     static int on = -1;
     static unsigned n = 0;
+    extern __thread uint32_t g_eax;
     if (on < 0) {
         const char *e = getenv("RECOMP_RD_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
     }
-    if (on && (n < 40 || (n % 256) == 0)) {
+    if (on && (n < 60 || (n % 512) == 0)) {
         void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
-        fprintf(stderr, "  [" "THKA" "] x%u ra=%p\n", n, ra);
+        fprintf(stderr, "  [" "DISP" "] x%u ra=%p eax=%08X\n", n, ra, g_eax);
         fflush(stderr);
     }
     n++;
     sub_001F8A00_gen();
 }
+
+extern void sub_001F8A06_gen(void);
+extern void sub_00227E60_gen(void);
 
 void sub_001F8A06(void)
 {
@@ -2254,8 +2263,6 @@ void sub_001F8A06(void)
     n++;
     sub_001F8A06_gen();
 }
-
-CENSUS(sub_00227E60, "HUB1", 80)
 
 void sub_001FD950(void)
 {
