@@ -1639,35 +1639,9 @@ void sub_001EAAB0(void)
     }
 }
 
-/* frz122 heartbeat probes (H31): EAAB0 -> EE190 -> EE110 -> EDA20 ->
- * pump. MTICK dies at x167 while EACYC keeps looping: name the link
- * that stops carrying the pulse. EE110(container): array at +0x14,
- * items at array+0xC[count=array+4]. */
-extern void sub_001EE190_gen(void);
-
-void sub_001EE190(void)
-{
-    static int on = -1;
-    static unsigned n = 0;
-    extern __thread uint32_t g_esp;
-    if (on < 0) {
-        const char *e = getenv("RECOMP_RD_TRACE");
-        on = (e && *e && *e != '0') ? 1 : 0;
-    }
-    if (on && (n < 60 || (n % 256) == 0)) {
-        uint32_t a0 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
-                          ? MEM32(g_esp + 4) : 0u;
-        fprintf(stderr, "  [EE190] x%u a0=%08X\n", n, a0);
-        fflush(stderr);
-    }
-    n++;
-    sub_001EE190_gen();
-    if (on && (n < 60 || (n % 256) == 0)) {
-        fprintf(stderr, "  [EE190] x%u -> %02X\n", n, g_eax & 0xFFu);
-        fflush(stderr);
-    }
-}
-
+/* frz122 heartbeat probes (H31): EAAB0 -> EE190 ([ENQ] wrapper above
+ * already covers it) -> EE110 -> EDA20 -> pump. EE110(container):
+ * array at +0x14, items at array+0xC[count=array+4]. */
 extern void sub_001EE110_gen(void);
 
 void sub_001EE110(void)
@@ -1693,6 +1667,37 @@ void sub_001EE110(void)
     sub_001EE110_gen();
     if (on && (n < 60 || (n % 256) == 0)) {
         fprintf(stderr, "  [EE110] x%u -> %02X\n", n, g_eax & 0xFFu);
+        fflush(stderr);
+    }
+}
+
+/* 23AD50 = completion-queue push: EE190 tail (queue 0x3D75FC) and
+ * F0F80 (queue 0x3D76F8) call it with eax=obj, edi=queue, arg=[obj+8].
+ * If it never fires in the stall era, no leg result reaches the
+ * queues the loader consumes. */
+extern void sub_0023AD50_gen(void);
+
+void sub_0023AD50(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp, g_eax, g_edi;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+    uint32_t a0 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                      ? MEM32(g_esp + 4) : 0u;
+    if (on && (n < 60 || (n % 256) == 0)) {
+        fprintf(stderr, "  [CQ] x%u ra=%p eax=%08X edi=%08X a0=%08X\n",
+                n, ra, g_eax, g_edi, a0);
+        fflush(stderr);
+    }
+    n++;
+    sub_0023AD50_gen();
+    if (on && n < 60) {
+        fprintf(stderr, "  [CQ] x%u -> %08X\n", n, g_eax);
         fflush(stderr);
     }
 }
