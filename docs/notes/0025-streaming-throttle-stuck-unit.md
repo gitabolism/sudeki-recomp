@@ -743,3 +743,27 @@ phase is the decisive dataset: does non-movie IO persist?)
   through `1F1470/1F1870` never happens; frz127 censuses EBUSY/
   EDRV/ISSU1/ISSU2 to name whether those loops exited or spin with
   ctx==0, and whether EAD70 wait-sessions ever return nonzero.
+
+### frz126 addendum — the loader's own worker loop `1EAC20` + EE190 arg law
+
+* `EE190(container-ctx ecx, list eax; a1, FLAG stack args)`: the wake
+  branch is gated by the caller's FLAG byte (`[esp+0x1c]` = 2nd stack
+  arg), not by `EC880`. Only TWO call sites exist, both in the loader
+  module: `1EAC83` — FLAG=1, (ctx `3975A8`, list `3D7620`, a1
+  `3D768C`) — and `1EAD08` — FLAG=0 (EACC0 busy branch, ctx `3975AC`,
+  container `3D7668`). frz126 `[ENQ]` census shows all 8 calls carry
+  list=3D7620/a1=3D768C = the `1EAC83` site, FLAG=1.
+* With FLAG=1 the branch is: `WFSO(evt7,0)`; if evt7 NOT Set ->
+  `ResetEvent(evt6) + SetEvent(evt7)`; then `WFSO(evt6,INFINITE)` —
+  the request/ack rendezvous. But SMEVT saw ZERO `h=48000007` Sets,
+  which means every one of the 8 calls found evt7 ALREADY Set
+  (`je 0x1ee1e2` skip to the CS-walk tail) — yet no Set of evt7 was
+  ever logged either. One of those two readings is wrong; frz128
+  must log at `[ENQ]` entry: flag + pre-state evt7/evt6.
+* `sub_001EAC20` decoded (loader-side loop): local WFMO over event
+  array (esp+8, INFINITE), then `call F0F80` spin-until-0 (worker
+  queues), then `if [0x3D7620]: EE190(FLAG=1)` and repeat. So
+  `3D7620` pending-list non-empty == the pulse-request trigger, and
+  `F0F80` (only 11 calls whole-run!) sits IN the loader loop between
+  waits. The 21AD0-vs-1EAC20 role split is still fuzzy: both are
+  loader-thread bodies; EABD0 (REQ x20) is the wait helper.
