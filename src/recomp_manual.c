@@ -2918,6 +2918,62 @@ void sub_001EEEE0(void)
     }
 }
 
+/* frz161b: waiter-node service leg (static law, note 0025): loader drain
+ * 1EE1FA calls node vtbl[+4] = 1EBDE0 -> calls getters 1EBFE0/1EC050;
+ * node vtbl[+C] = 1EBE20 = THE method resolver: id WORD [mgr+0x18] ->
+ * table [0x37A3D0][word] -> [[e+0x1C]+0xC][id>>16]; state bit 0x20 path
+ * returns [[mgr+4]] (string-keyed); id word 0xFFFF -> 0. [SVC] counts
+ * node services; [SVC2] prints id/result (0 = resolution FAIL witness). */
+extern void sub_001EBDE0_gen(void);
+
+void sub_001EBDE0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 300 || (n % 512) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [SVC] x%u ra=%p\n", n, ra);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EBDE0_gen();
+}
+
+extern void sub_001EBE20_gen(void);
+
+void sub_001EBE20(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_ecx;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t node = g_ecx;
+    uint32_t mgr = (node >= 0x10000u && node < 0x4000000u) ? MEM32(node + 4) : 0;
+    int show = on && (n < 300 || (n % 512) == 0);
+    if (show) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [SVC2] x%u ra=%p node=%08X mgr=%08X idw=%04X id=%08X st=%02X\n",
+                n, ra, node, mgr,
+                (mgr >= 0x10000u && mgr < 0x4000000u) ? (MEM32(mgr + 0x18) & 0xFFFFu) : 0,
+                (mgr >= 0x10000u && mgr < 0x4000000u) ? MEM32(mgr + 0x18) : 0,
+                (mgr >= 0x10000u && mgr < 0x4000000u) ? MEM8(mgr + 0x28) : 0);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EBE20_gen();
+    if (show) {
+        fprintf(stderr, "  [SVC2] x%u -> %08X\n", n - 1, g_eax);
+        fflush(stderr);
+    }
+}
+
 /* 26D5AE = guest SetEvent wrapper (all loader-event signals route
  * through it; EVENT_LOG can't name the CALL SITE). ra + handle per
  * call: which handshake stopped producing wakes after pulse #4. */
