@@ -1141,3 +1141,32 @@ after the first job set completes.
 
 Note: this run also confirms the press script (nav_run36a) still
 reaches the Buki load era — navigation itself is healthy.
+
+## Static law: only TWO code paths ever feed the pump chain (EF0C0 mode=2)
+
+Raw+lift census of every `call 0x1EF0C0` site (5 total):
+
+| site | enclosing fn | mode arg | runtime (frz133/134 EF0C0 census) |
+|---|---|---|---|
+| `1EBF3F` | `1EBF20` (EBF20 relay) | computed (all ran as mode 0) | x-part of 398 |
+| `1EC17F` | `1EC130` relay | computed (mode 0) | x-part of 398 |
+| `1FD699` | **`sub_001FD660`** | **2 (literal)** | never ran |
+| `208F08` | **`sub_00208E60`** | **2 (literal)** | never ran |
+| `208F1D` | `sub_00208E60` alt branch | (mode not literal) | never ran |
+
+`sub_001FD660(edi=obj, arg1=[esp+8])` = BULK SUBMIT: calls `1FD3A0`,
+then loops the request array `[[edi+0x3C]+4]` x `[edi+0x3C][0]` and
+calls EF0C0(element, array, **2**, &edi+0x18, index, ...) — i.e. THE
+feeder of pending-chain `3D7620` the loader services. Its 3 static
+callers: `1FC782` (in `sub_001FC760`, dispatch-entry only — pointer
+reachable), `1FCD88` (in `sub_001FC8E0`), `1FDAD2` (in `sub_001FD950`
+region). `sub_00208E60(ecx,edx,eax)` mode-2 branch needs
+`[esp+0x20]!=0` (an out-param supplied by caller) and a non-null
+`[[edi+0x54]+4][esi]` slot; callers `2035D8`, `208E49`, `20FE7D`.
+
+So "EF0C0 mode 1/2 never requested" is structural: the two feeder
+FUNCTIONS were never exercised past their gates. frz135 = `[SUB2A]`
+(1FD660) + `[SUB2B]` (208E60) entry census settles whether they run
+AT ALL (boot-era bulk submits may use them — if x0 whole-run, the
+engine's request module never issues follow-up chunks and the cursor
+law at 25,137,248 is explained from the requester side).
