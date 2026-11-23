@@ -26,8 +26,9 @@ never edit). Order:
 6. Update `README.md` to match verified reality: the stage table
    (Status + Proof cells, citing the same artefacts this audit
    verified), the `Progress to playable` bar and percentage (state
-   the evidence for the number), and the `ETA to a playable release`
-   section (windows and walls, never vibes). Only those two sections
-   are agent-committable (AGENTS rules 9/11): stage exactly their
-   hunks (partial add) and commit them alone; any other README
+   the evidence for the number), and the `### ETA to a playable
+   release` / `### Feature roadmap` subsections of `## Status`
+   (windows and walls, never vibes). Only that section's hunks are
+   agent-committable (AGENTS rules 9/11): stage exactly them
+   (partial add) and commit them alone; any other README
    change stays an uncommitted draft for the user.

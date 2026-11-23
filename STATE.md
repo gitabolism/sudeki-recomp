@@ -121,7 +121,14 @@ Earlier sessions live in the notes (0005–0025) + the session log; the
   PB_PARK; regime v4 + TITLE_KEVENTS + queue-2048 + 0046 + write
   knobs now proven safe one-run-at-a-time); JP disc regression
   sample later; roadmap staging (vanilla -> Vulkan -> features) per
-  the user directive, untouched.
+  the user directive, untouched. Post-playable feature order named
+  by the user (2026-11-22): HDR -> Raytracing -> Multiplayer
+  (LAN/VPN co-op + split-screen). Prior art for that stage:
+  `github.com/sudeki-together/sudeki-mp` (SudekiMP — hooks the GOG
+  Windows `SUDEKI.exe`, same SOL engine; AGPL-3.0; deep engine RE
+  docs: structures/engine-functions/combat-graph/lan-arena protocol;
+  reference value only — any code reuse is a license call for the
+  user; never vendored without it).
 
 ## Blockers / open questions
 

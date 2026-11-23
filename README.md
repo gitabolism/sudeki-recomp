@@ -24,38 +24,63 @@ bytes, no captures, no analysis artefacts.
 | **Entry** | ✅ done | guest runs its own CRT + startup; 119 kernel ordinals exercised |
 | **Threads** | ✅ done | every thread start dispatched; no silent exit |
 | **Menu** | ✅ reached | title-screen frame dumps ("SUDEKI / Press START"), movies play, audio up |
-| **Gameplay** | 🔶 in progress | level + wavebank streaming ✔, AC'97/MCPX audio ✔, real Xbox pad via OHCI ✔, **navigation works — New Game reaches a real level load** (speech banks stream, job queue ~90 %) ✔ · remaining: **first presented level frame** (one wall left: H31 — the level load never completes: the streaming throttle wedges on one unit, note 0025), saves, crash-free soak |
+| **Gameplay** | 🔶 in progress | level + wavebank streaming ✔, AC'97/MCPX audio ✔, real Xbox pad via OHCI ✔, **navigation works — New Game streams level assets end-to-end** ✔ · remaining: **first presented level frame** (one wall left: H31 — the level load is a serial relay over ~40 archive load-tables and its last one never drains, note 0025), saves, crash-free soak |
 
 ```
 Progress to playable:  ██████████████░░░░░░  ~70 %
 ```
 
-Walls toppled so far (each with a written note *before* the fix — 23
-notes, 29 toolkit patches, all reproducible from the disc alone):
+Walls toppled so far (each with a written note *before* the fix — 21
+notes, 47 toolkit patches, all reproducible from the disc alone):
 async-IO return convention ✔ · boot-archive decoder starvation ✔ ·
 unresolved-ICALL stack drift ✔ · GPU→CPU software-method wake chain ✔ ·
 host ke-shadow lock race freezing the attract demo ✔ · AC'97
 bus-master trap on x86-64 (audio) ✔ · OHCI pad enumeration ✔ ·
 flip-settle chain ✔ · post-attract "freeze" = the game's own
-level-loading state, not a hang ✔.
+level-loading state, not a hang ✔ · "load stuck at 90 %" = mislabeled
+movie statistics, real load stream named instead ✔.
 
-## ETA to a playable release
+### ETA to a playable release
 
 Sessions here are autonomous engineering sprints, not calendar days —
 each has cleared 1–3 walls. At the current pace:
 
 * **first playable level, on a pad**: gated on one wall (H31 — the
-  level load stalls at ~90 %: one streaming unit re-read as zeros
-  thousands of times while the frame throttle skips rendering; the
-  stuck archive is being named now — cores + `[READ]` path trace —
-  then checked against the disc's own extent table): ≈ 1–3 more
-  sessions
+  archive-load relay stalls at its final table; the stuck consumer
+  chain is named end-to-end, the closing gate is being pinpointed
+  now, note 0025): ≈ 1–3 more sessions
 * **"playable release" grade** (saves, audio rock-solid, early game
   end-to-end, long soak clean): ≈ +3–5 sessions after the first frame
 * **Vulkan back-end parity** (staged end-state renderer): ≈ +2–3, gated
   on pixel-identical frame dumps vs the GL path
-* **next-gen features** (texture packs → HDR → RT — opt-in only, after
-  vanilla parity): parked roadmap
+
+### Feature roadmap (after vanilla parity)
+
+User-named order: texture packs → HDR → ray-tracing → multiplayer.
+All opt-in; none of it touches vanilla parity.
+
+Multiplayer + split-screen feasibility (surveyed 2026-11-22 against
+[SudekiMP](https://github.com/sudeki-together/sudeki-mp) — a
+same-SOL-engine mod for the GOG Windows build, AGPL-3.0):
+
+* **The title ships zero multiplayer code.** Climax deliberately made
+  Sudeki single-player: no split screen, no System Link, no Live
+  (their own 2004 interviews). So every MP layer is a mod-side
+  addition — there is no hidden game feature to unlock.
+* **Co-op-lite — medium.** One camera; player 2 takes over another
+  party hero through the game's own instant character-switch. Needs
+  a second OHCI pad device + input multiplexing — recomp-side only.
+* **Split screen — hard, but tractable here.** Player 2 with its own
+  camera requires duplicated camera/viewport/HUD paths; owning the
+  renderer and host overrides is exactly what makes that
+  addressable. SudekiMP's experimental local co-op proves the
+  concept on this engine (and shows the remaining gaps: P2 world
+  interaction, shared menus).
+* **LAN/VPN story co-op — the largest one.** Custom host-authoritative
+  netcode (nothing in-game to enable). SudekiMP's documented UDP
+  protocol, replica and combat graph are the best reference; any
+  code reuse from it is an AGPL licensing decision for the user,
+  not an engineering one.
 
 Artefacts back every claim: `CHANGELOG.md` and the note series in
 `docs/notes/`.
