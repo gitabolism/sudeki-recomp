@@ -767,3 +767,58 @@ phase is the decisive dataset: does non-movie IO persist?)
   `F0F80` (only 11 calls whole-run!) sits IN the loader loop between
   waits. The 21AD0-vs-1EAC20 role split is still fuzzy: both are
   loader-thread bodies; EABD0 (REQ x20) is the wait helper.
+
+## Outcome — session 5a close (2026-11-23 02:5x)
+
+What was TRUE at session end (evidence = frz121–127 logs + cores
+frz117/121/123/125/126/127 + raw capstone decode of the XBE):
+
+* The servicing model IS event-pulsed, and the pulse supply is tiny:
+  loader WFMO{evt7=[0x37A114]48000007, evt6=[0x37A118]48000006};
+  **evt6 was Set exactly 5x whole-run, all inside `1EAB90`, all
+  called from `1EACC0`'s ack branch**; evt7 was NEVER Set (SMEVT
+  census on the only guest Set wrapper `26D5AE`; every host-side
+  `NtSetEvent` in the EVENT_LOG is `from=0x0026D5BA`, the wrapper).
+* The engine-side async-load module goes IDLE at the wall: all
+  module globals (`3D7620/3D768C/3D7740/3D771C/3D7668/3D7644`,
+  CB list `397564`, ctx `3975AC`) are NULL at kill, while manager
+  `018CF14C` still carries job `0A260002` (size `0x1400`) with the
+  tick pump gate OPEN (`MEM8(job)==0`, frz117/123/126 cores).
+* The async issue-and-service loops are the dead edge: `1F1470`
+  called **once** in a whole run (boot era, ctx `014B6300`,
+  `ctx+0x34`=2), `1F1870` **zero**. `EAD70` load-wait sessions: 4,
+  all instant non-busy returns. `EACC0` heartbeat runs all run
+  (x4096+ calls, engine-frame driven) and always sees idle after
+  the ~x1555 window (one transient `q20=014BCA58 al=01`).
+* Loader thread is NOT dead and host-side loss is unevidenced: it
+  re-enters `EABD0` in the attract era (REQ line 106936 frz126) and
+  services attract IO; the CS `37A0F8` is free at kill; 17/17 guest
+  threads dispatched (14x `2C5AC0` async workers alive).
+* Decoded law (raw, this session): `21CD0` task routing (flag bits
+  {15,9,10,11,12} -> `220E0` q2 route, else sorted q1 insert by
+  `task[+0xC]`; q2 tasks flag 0x8001 = boot-era only); consumer
+  `21AD0` drain body; `EE190(ctx,list;a1,FLAG)` wake gated by the
+  caller FLAG arg (only sites `1EAC83` FLAG=1 and `1EAD08` FLAG=0);
+  loader worker loop `1EAC20` (`F0F80` spin -> `[0x3D7620]` ->
+  EE190 FLAG=1); `EAAB0` only proceeds while evt6 is Set (all 73
+  census calls early-exit `0x102`); `1F1470/1F1870` issue loops
+  (CS `37A4D0`, selector `ctx+8` in {3D7740,3D771C,3D76F8,3D7764},
+  issue `1F06C0`, wake `EAAB0`, Sleep(5)); the lone `1F1470` call
+  came from the `1F3310` (display-mode setter) region.
+* REFUTED this session: R1/R2 regime split (frz121); trailer-dword
+  bit4 branch story (raw pump decode `test dl,4` on `job[+8]`);
+  "loader events never Set" (evt6: 5 Sets); "task poster died at
+  x167" (q1 posts alive to 52291; the gap is the NEVER-re-issued
+  leg, upstream of tasks).
+* STILL OPEN (single contradiction): 8 `EE190` calls from `1EAC83`
+  carry FLAG=1, whose branch must `SetEvent(evt7)` unless evt7 was
+  already Set — yet zero `48000007` Sets are logged anywhere.
+  Either the FLAG slot read is off (stack-frame math) or evt7 was
+  Set via a path invisible to both censuses. frz128 probes are in
+  the tree (committed): `[ENQ]` logs flag+evt state, `[SRST]`
+  census on `26D5CE` ResetEvent (the wake branch Resets evt6 as a
+  unit with the Set).
+* Host-side exoneration NOT yet proven either way — every producer
+  that should have fired is guest code whose entry census shows it
+  was never called; no host path swallowed a Set/queue entry found
+  so far.
