@@ -3,16 +3,13 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-22 20:4x (session 4w)
+**Last updated:** 2026-11-22 21:0x (session 4x)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**;
-**navigation works** (New Game -> level assets stream: speech
-wavebanks open+read). **CORRECTION (note 0025):** the earlier "load
-stuck at 90 %" census was Bink MOVIE pacing, not load progress —
-the wall (H31) is re-posed as: game sits in the load state (loading
-card + looping attract movie) and the awaited completion event is
-unknown. frz96 (patch-0047 `[READ]` path trace, 1200 s, nav) IN
-FLIGHT (`logs/run-frz96-*.out`) — per-phase IO census is the
-decisive datum.
+**navigation works**; load-stall wall (H31) **anatomy complete**:
+install writes complete byte-exact, read-back of `Cache//startup.baf`
+is the dying stream; its consumer = the BAF job-pump chain
+`sub_001EDA20 -> sub_0023B830 -> vtbl[1] read -> sub_0001E170 ->
+sub_00270FBD`. `[PUMP]` census (frz101) decides WHERE it stops.
 
 ## Where things are verified
 
@@ -106,19 +103,16 @@ Earlier sessions live in the notes (0005–0025) + the session log; the
 
 ## Queue (next concrete actions)
 
-* **1. Build + frz98 (RD attribution)**: link lands the
-  `sub_00270FBD` wrapper (gen regen done; build blocked until frz97
-  exits); run `nav_run5.sh 98 1200` + `RECOMP_RD_TRACE=1` -> who
-  reads `Cache//startup.baf` (EBP caller chains) and which caller
-  stops at the ~11.36 MB mark; pair with frz98 core at plateau.
-* **2. DONE** frz95/96/97 trio: control passed; movie-vs-load census
-  correction landed (note 0025); write-path byte-exact (WRDUMP
-  replay). Serving layer exonerated read+write.
-* **3. frz98 follow-up (branch naming)**: once the consumer VA is
-  known, census-wrap it (same manual pattern) to log its state
-  transitions / the gate it stops passing; only then consider any
-  toolkit patch.
-* **4. Then the Gameplay gate:** first presented level frame =
+* **1. frz102 (MTICK probe)**: build after gen+idle; `nav_run10.sh
+  102 1200` with `RECOMP_RD_TRACE=1` -> `[MTICK]` names which gate
+  of `sub_001EDA20` closes when the stall begins (or shows the tick
+  itself stops being entered -> then wrap ITS caller). Pair with
+  frz101 core facts (backlog queue at `0xFD9550` unserviced).
+* **2. Node semantics decode** (frz102 core, matched bin): the
+  stride-0x24 node class at `0xFD9550+04` queue — find its vtable
+  from code cross-refs, not heap guesses; then read the in-flight
+  node's file-object/handle/offset fields directly.
+* **3. Then the Gameplay gate:** first presented level frame =
   fbpeek + visual + texture-coverage carry-over; xemu side-by-side
   of the SAME load as corroborator (needs the QMP/HMP script fix;
   note 0019 recipe) — corroborator only, not the shortest path.
