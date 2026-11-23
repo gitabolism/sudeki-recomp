@@ -1401,11 +1401,12 @@ void sub_001EDA20(void)
         const char *e = getenv("RECOMP_RD_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
     }
-    if (on && (n++ & 0x3F) == 0) {
+    if (on && n < 400) {
+        n++;
         void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
         fprintf(stderr, "  [MTICK] x%u ra=%p\n", n, ra);
         fflush(stderr);
-    }
+    } else if (on) n++;
     sub_001EDA20_gen();
 }
 
@@ -1634,6 +1635,87 @@ void sub_001EAAB0(void)
     sub_001EAAB0_gen();
     if (on && n < 20) {
         fprintf(stderr, "  [EACYC] x%u -> %08X\n", n, g_eax);
+        fflush(stderr);
+    }
+}
+
+/* frz117 gate census (H31 re-pose x7). EED70 = completion handler
+ * called by F9720 (1F92C9/1F99A9) and F99D0 (1F9B3E). D550/AE30 =
+ * tick pump-gate helpers whose eax decides the bypass path. */
+extern void sub_001EED70_gen(void);
+
+void sub_001EED70(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 60 || (n % 128) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t a0 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 4) : 0u;
+        uint32_t a1 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 8) : 0u;
+        fprintf(stderr, "  [EED70] x%u ra=%p a0=%08X a1=%08X\n",
+                n, ra, a0, a1);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EED70_gen();
+    if (on && n < 60) {
+        fprintf(stderr, "  [EED70] x%u -> %08X\n", n, g_eax);
+        fflush(stderr);
+    }
+}
+
+extern void sub_0023D550_gen(void);
+
+void sub_0023D550(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 60 || (n % 256) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t a0 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                          ? MEM32(g_esp + 4) : 0u;
+        fprintf(stderr, "  [D550] x%u ra=%p a0=%08X\n", n, ra, a0);
+        fflush(stderr);
+    }
+    n++;
+    sub_0023D550_gen();
+    if (on && (n < 60 || (n % 256) == 0)) {
+        fprintf(stderr, "  [D550] x%u -> %08X\n", n, g_eax);
+        fflush(stderr);
+    }
+}
+
+extern void sub_0023AE30_gen(void);
+
+void sub_0023AE30(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 256) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [AE30] x%u ra=%p\n", n, ra);
+        fflush(stderr);
+    }
+    n++;
+    sub_0023AE30_gen();
+    if (on && (n < 40 || (n % 256) == 0)) {
+        fprintf(stderr, "  [AE30] x%u -> %08X\n", n, g_eax);
         fflush(stderr);
     }
 }
