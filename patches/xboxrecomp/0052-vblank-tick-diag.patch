@@ -1,0 +1,19 @@
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -3393,6 +3393,16 @@
+         return;
+ 
+     now = (long long)GetTickCount64();
++    /* frz145 diagnostic (RECOMP_VBLANK_DIAG=1): the tick froze in the
++     * frz145 regime (0 printed ticks over 1150 s) while the timer thread
++     * was alive in its Sleep(10) loop. Report entries, mode, gate - one
++     * line per 2000 entries so a dead GATE vs dead LOOP is visible. */
++    {
++        static unsigned dbn;
++        if (getenv("RECOMP_VBLANK_DIAG") && (++dbn % 2000) == 0)
++            fprintf(stderr, "  [VBLDIAG] entry %u mode=%d now=%lld next=%lld\n",
++                    dbn, (int)kernel_vblank_mode(), now, next_ms);
++    }
+     if (now < next_ms)
+         return;
+     next_ms = now + 16;                       /* ~60 Hz */
