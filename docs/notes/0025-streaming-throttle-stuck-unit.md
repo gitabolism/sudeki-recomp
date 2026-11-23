@@ -1495,3 +1495,20 @@ Run `logs/run-frz141-092831.out` (frz140 env + seed set 19 incl.
   TCTO(7D1E0) next.
 - Tier census unchanged (HUB0 x61/SESSB x30/DISP x30/WALK x30;
   ISSMTH x33 this era): the 31/34-batch session arc is era-stable.
+
+## Static law — the job-submit API and its single gate (`sub_001EE7D0`)
+
+Decoded `1EE7D0` (sole static caller of `EE2A0` at `1EE945`):
+- gate: `MEM8(0x397110)==0 -> return NULL` (**the same master flag
+  that gates EF770/ISSDRV** — one byte governs the whole submit
+  tier; frz136 measured it =1 in the live process);
+- fresh-desc path (`[edi]==-1 && [edi+4]==0`): recursive self-call
+  with a stack ctx (vtable `336828`) + 5 args -> inside, `EE2A0`
+  creates the job record;
+- existing-desc path: `1EF660`/`1ECC90` handle lookup -> `1EE6D0`
+  attach -> `EE2A0`.
+So EVERY job in the game (boot 31 batches and any future stage)
+enters through `1EE7D0`. frz143 adds SUBM census there: x-after-boot
+= 0 proves the GAME LOGIC never requests the next stage (engine-side
+dead edge confirmed end-to-end, next question = which script/object
+should call it); x>0 with NULL returns = host-side gate/flag gap.
