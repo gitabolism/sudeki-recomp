@@ -76,6 +76,14 @@ never progress.
     user-owned prose are always on that side. When in doubt, ask first,
     every time. The user reviews agent changes through the staging
     area; do not flatten it.
+12. **Mission-only content (user directive, 2026-11-22).** Nothing outside
+    this mission's context ever enters the repo — not in docs, notes,
+    commit messages, or config. Tool-surface chatter, unrelated systems
+    or services, environment commentary: if it does not change the
+    bring-up work, it does not get written down, even as "noticed and
+    ignored". This is noise pollution; the user has zero tolerance for
+    it, and history scrubbing to remove it is expensive — do not create
+    it in the first place.
 
 ## Autonomy and the approval gate
 
