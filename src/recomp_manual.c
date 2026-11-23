@@ -2395,22 +2395,6 @@ CENSUS(sub_0007A4C0, "HND2", 60)
 extern void sub_0007E4C0_gen(void);
 CENSUS(sub_0007E4C0, "H7E4", 60)
 
-/* frz176 (xref-scan-bug overturn batch): corrected E8 scan shows
- * 49B10(REGT) callers 491F4/4978C live INSIDE sub_000491C0 (1984-byte
- * task-type registrar) whose sole caller is 8A799; and CTOR(159710) is
- * called from ~12 sites inside the MSG1-caller method cluster itself.
- * These three rungs were never censused: REGI/REGX decide whether the
- * registrar chain dies ABOVE its vtable entry, CMD1 whether any command
- * method of the dispatcher family runs at all. */
-extern void sub_000491C0_gen(void);
-CENSUS(sub_000491C0, "REGI", 60)
-
-extern void sub_0008A790_gen(void);
-CENSUS(sub_0008A790, "REGX", 60)
-
-extern void sub_0015B640_gen(void);
-CENSUS(sub_0015B640, "CMD1", 60)
-
 /* frz147 (frz146c healthy-era verdict: RQ/HND/CTOR/MSG ALL x0 to the
  * wall -> dead edge sits at/above the resource chain): task-type
  * REGISTRY tier — 49B10 stamps the type strings (exploration/unique/
