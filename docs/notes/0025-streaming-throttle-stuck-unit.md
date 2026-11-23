@@ -2133,3 +2133,37 @@ not file size; no input drift — doctor green).
   cap 240) + SVC node/mgr/id/desc print -> expect: terminal-burst
   submit call returns m=BF14C with arr=0 copied from a zero template,
   healthy submits return arr!=0.
+
+## frz162 — full submit census (167 calls): terminal = x159 with TEMPLATE arg
+
+- EENT cap raised to 240 -> WHOLE run = 167 EE2A0 calls (no hidden band).
+  Terminal submit = x159 (line 61414): arg2=0A260002, arg1=00F7FC64,
+  arg4=00000080, arg5=018C5D88, arg7=018C5D9C; ONLY call whole-run with
+  ENTRY eax != 0: **eax = 018C5D88 = a template object handed IN by the
+  submit API** (template appears nowhere else in the log; vtable 00330E80
+  class in core).
+- x160-x166 = the seven sibling submits: arg2=FFFFFFFF -> EE2A0 anonymous
+  leg (1EE2B0 je 1EE5E6), and MCOR x43-x49 (ctor BF188..BF2F0) run INSIDE
+  these windows (ctor per call) + post desc=their new manager. So the
+  batch is seven SEPARATE submit calls, each self-contained.
+- WINC x207 + JOB x536 id=0A260002 -> job=0296790C st=0 + EF0C0 x435 all
+  INSIDE the x159 window (before its post line) — the "ordering" is
+  intra-call, not cross-call: within x159, the waiter opens on BF14C
+  while BF14C's desc slot is still zero; BF14C full init lands later in
+  the same window (poll-diff can't resolve intra-window order).
+- EE2A0 static (head, 1EE2A0..1EE37A): when arg2 != -1: 1ECC40(arg2) =
+  desc-entry lookup, new(0x3C) FRESH manager (all-zero, +4=-1), +0x18=
+  arg2 id, 1EED20 hash, 1ED8C0, then new(0x10) desc-slot -> [mgr+0x14]
+  @1EE37A. Terminal manager BF14C = that fresh object; MCOR never named
+  it because its init is this inline leg (matches frz154 law).
+- CORE frz162 (base re-anchored 001365B000): job record at 0296790C reads
+  (00000000, FFFFFFFF, 06610B21) = an EMPTY FMH index slot (key
+  FFFFFFFF + FMH magic neighbor); type-table slot[2] = 544E4601 ("FNT1")
+  at kill in 4 cores but resolution x536 did NOT fault -> slot[2] must
+  have held a valid FMH-container ptr at the burst and was OVERWRITTEN
+  by kill time (or table base shifted). Timing unknown.
+- x26 candidate: terminal id 0A260002's FMH index slot was EMPTY/absent
+  when x159 ran -> fresh manager built around an empty record -> EF0C0
+  no-owner -> orphan waiter. frz163 = double witness: [JOB] prints slot
+  raw per resolution + poll-watch WATCHVA=0x0037A3D0 LEN 0x40 (prints
+  the moment slot[2] changes value).
