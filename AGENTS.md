@@ -54,8 +54,11 @@ never progress.
    wall closed), update `README.md`'s stage table and progress bar with
    the same artefacts cited in `CHANGELOG.md` — it rides in the stage
    commit, never as its own eager commit. The README is co-authored:
-   the user owns wording; draft, they review. Rule 7 (NO_PUSH) is harness
-   law and lives here — the README never mentions the remote.
+   the two progress sections — `## Status` (stage table + progress
+   bar) and `## ETA to a playable release` — are agent-maintained and
+   agent-committed (user directive, 2026-11-22); all other README
+   wording is user-owned: draft, they review. Rule 7 (NO_PUSH) is
+   harness law and lives here — the README never mentions the remote.
 10. **Docs stay lean; every fact has one home.** Rules/harness →
     `AGENTS.md`, live state → `STATE.md`, stage history → `CHANGELOG.md`,
     per-anomaly detail → `docs/notes/`. When something changes, update
@@ -72,10 +75,13 @@ never progress.
     The hard boundary is human edits: if a file's pending change
     contains anything a human modified, stay out of git for it — no
     `git add`, commit, `git checkout <rev> -- path`, `git restore`,
-    `git reset`; the user stages and commits it. `README.md` and other
-    user-owned prose are always on that side. When in doubt, ask first,
-    every time. The user reviews agent changes through the staging
-    area; do not flatten it.
+    `git reset`; the user stages and commits it. The one named
+    exception (user directive, 2026-11-22): `README.md`'s
+    `## Status` and `## ETA to a playable release` sections are
+    agent-committable — stage ONLY those hunks (partial add) and commit
+    them alone; every other README section stays user-owned. When in
+    doubt, ask first, every time. The user reviews agent changes
+    through the staging area; do not flatten it.
 12. **Mission-only content (user directive, 2026-11-22).** Nothing outside
     this mission's context ever enters the repo — not in docs, notes,
     commit messages, or config. Tool-surface chatter, unrelated systems

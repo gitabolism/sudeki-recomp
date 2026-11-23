@@ -27,7 +27,7 @@ never edit). Order:
    (Status + Proof cells, citing the same artefacts this audit
    verified), the `Progress to playable` bar and percentage (state
    the evidence for the number), and the `ETA to a playable release`
-   section (windows and walls, never vibes). This is a DRAFT in the
-   working tree only — README wording is user-owned (AGENTS rules
-   9/11): never stage or commit it; list the changed sections in the
-   report so the user can review the diff.
+   section (windows and walls, never vibes). Only those two sections
+   are agent-committable (AGENTS rules 9/11): stage exactly their
+   hunks (partial add) and commit them alone; any other README
+   change stays an uncommitted draft for the user.
