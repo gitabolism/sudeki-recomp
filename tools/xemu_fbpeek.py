@@ -47,11 +47,15 @@ def score(buf, off, w, h):
                 good += 1
     return good / n if n else -1.0
 
-def bmp(path, buf, off, w, h):
+def bmp(path, buf, off, w, h, pitch=None):
+    """linear BGRA decode; pitch = row stride in BYTES (default w*4).
+    A render target narrower than its row stride (e.g. 640 wide at 4096
+    pitch) reads as diagonal stripes when decoded stride==width."""
+    pitch = pitch or w * 4
     rows = []
     pad = (4 - (w * 3) % 4) % 4
     for y in range(h - 1, -1, -1):
-        row = buf[off + y * w * 4: off + (y + 1) * w * 4]
+        row = buf[off + y * pitch: off + y * pitch + w * 4]
         rows.append(b"".join(row[x:x + 3] for x in range(0, len(row), 4)) + b"\x00" * pad)
     data = b"".join(rows)
     ds = 54 + len(data)
@@ -87,13 +91,14 @@ def bmp_z(path, buf, off, w, h):
         b"BM" + struct.pack("<IHHI", ds, 0, 0, 54) +
         struct.pack("<IiiHHIIiiII", 40, w, h, 1, 24, 0, len(data), 2835, 2835, 0, 0) + data)
 
-def uniformity(buf, off, w, h):
+def uniformity(buf, off, w, h, pitch=None):
     """fraction of sampled pixels equal to the modal color (menus/titles
     have large flat fields; video/torn frames do not)"""
     from collections import Counter
+    pitch = pitch or w * 4
     c = Counter()
     for y in range(0, h, max(1, h // 64)):
-        base = off + y * w * 4
+        base = off + y * pitch
         for x in range(0, w, max(1, w // 64)):
             c[buf[base + x * 4: base + x * 4 + 4]] += 1
     n = sum(c.values())
@@ -159,9 +164,21 @@ def main():
         if "--zorder" in opts:
             bmp_z(outp + ".bmp", buf, opts["--off"], opts["--w"], opts["--h"])
             print("wrote %s.bmp off=0x%X %dx%d Z-ORDER" % (outp, opts["--off"], opts["--w"], opts["--h"]))
+        elif "--pitch" in opts:
+            bmp(outp + ".bmp", buf, opts["--off"], opts["--w"], opts["--h"], opts["--pitch"])
+            print("wrote %s.bmp off=0x%X %dx%d pitch=0x%X" % (outp, opts["--off"], opts["--w"], opts["--h"], opts["--pitch"]))
         else:
-            bmp(outp + ".bmp", buf, opts["--off"], opts["--w"], opts["--h"])
-            print("wrote %s.bmp off=0x%X %dx%d" % (outp, opts["--off"], opts["--w"], opts["--h"]))
+            # auto-pitch: score row-continuity candidates by uniformity;
+            # a correct pitch shows wide flat runs across rows (titles/menus)
+            w, h, off = opts["--w"], opts["--h"], opts["--off"]
+            cands = sorted({w * 4, 0x1000, 0x1200, 0x1680, 0x1900, 2 * w * 4,
+                            ((w + 63) & ~63) * 4})
+            scored = sorted(((uniformity(buf, off, w, h, p), p) for p in cands),
+                            reverse=True)
+            for u, p in scored:
+                print("pitch 0x%X uniformity=%.3f" % (p, u))
+            bmp(outp + ".bmp", buf, off, w, h, scored[0][1])
+            print("wrote %s.bmp off=0x%X %dx%d pitch=0x%X (auto)" % (outp, off, w, h, scored[0][1]))
         return
     if "--top" in opts:
         # uniformity-first scan (menus/titles beat video/torn frames);
