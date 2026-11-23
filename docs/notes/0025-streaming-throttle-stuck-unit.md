@@ -1425,3 +1425,49 @@ caller tier still reach ISSMTH with the NEW-SESSION bit clearable —
 and what data decides that bit. frz140 (running) first answers
 whether the hub/dispatch tier (HUB0/DISP/SESSB census) still ticks
 post-wall.
+
+## frz140 — dispatch tier dies exactly with session 31; loader outlives it; ledger stays orphan+1
+
+Run `logs/run-frz140-082714.out` (full-record watch `0x18BF14C`
+LEN 0x40 + HUB0/SESSB/DISP/THKB census; PUMP x167 at line 56362,
+terminal manager `018BF14C`, deterministic as ever).
+
+Tier census (whole-run totals): HUB0(1F8960) x61, DISP(1F8A00) x30,
+SESSB(227E60) x30, TITER x61, SCH4 x30, WALK x30, THKB x0. The LAST
+DISP/SESSB pair (lines 54481/54483, session 31) precedes the last
+EF0C0 splices (x411-418, the 3 tail jobs) and the whole loader drain
+era (PUMP x120..x167 servicing resident jobs one by one, each
+`ret=1`); **after session 31 the dispatch tier NEVER runs again.**
+-> pose x19 branch resolved: the engine frame does not "stop
+routing to the hub" per-call — the hub's ONLY driver is session
+creation, and session creation ended with the task list.
+
+Full-record ledger (all 39 value-transitions, boot creation absent —
+record born at 55662): creation writes (`+0`=336794, id `0A260002`,
+`+0x14/0x18=FFFF` sentinels, sizes, state-bit 0x20) -> orphan
+`(+0x2C) 0->1` at 55982 (`1EC148`, EC130 relay from `EE2A0`) ->
+splice `1->2` 56013 -> state-bit churn 0x20/0x100/0x400/0x1000/
+0x2000/0x10000 pairs (in-flight/flush flags, all balanced) ->
+loader pass sets 0x100 at 56361 (`st=00025120` matches PUMP line) ->
+descs written at 56378/56393 (`+8=00F95738` = THE terminal desc) ->
+last two count decs/pair 56511-56573 -> FINAL `count=1, +0x14=0`
+forever.
+- **Batch dword `[mgr+0x14]` NEVER set** -> two-counter race
+  hypothesis DEAD; the ledger is a plain leak of the one (a) open.
+- Sibling manager `018BD3A4` created 56068 in the same pass.
+
+Side census law found in frz134/135 logs (NOT wall-relevant:
+frz137/138/140 = 0 hits): ICALL target `0x115000` (pause-setter,
+`[0x396E5C]` counter + `[0x350A9C]` flag) is NEVER LIFTED — not in
+dispatch, not in seeds; where the era calls it, resolution fails.
+Seed candidate recorded; globals at kill are 0/0/1 (no pause-block).
+
+Next (frz141): binary now carries FRM census on `15B640`
+(engine-frame dispatcher, vtables 32FAE4/FB50/04 64 +0x10) — decides
+whether the engine frame tier ticks at all post-wall. Static law
+found: `F1CA0` (message leaf) routes command **0x37=55** ->
+SWEEP(4E1F0) on `[0x3DC83C]`; SWEEP x0 whole-run = command 55 never
+posted; `[0x3DC83C]` at frz138 kill = `0281BE50`, a near-EMPTY stub
+record (vptr 322C50, 40 bytes zeros) — the LEVEL scene object is not
+even constructed. The scene-command issuer (and scene construction)
+is the dead edge above the streaming machinery.
