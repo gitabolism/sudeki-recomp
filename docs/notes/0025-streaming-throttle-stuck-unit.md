@@ -2775,3 +2775,44 @@ not file size; no input drift — doctor green).
   gdbtrace.cmds -> /tmp/opencode/gdbtrace.out. This answers "who
   invokes the dead tier" from the reference side (rule 6) instead of
   static guessing.
+
+## xemu gdb-trace rounds (session 5f) — the reference side speaks
+
+- Trace round 2 (warm shader cache law: NEVER wipe `~/.local/share/xemu/
+  xemu/shaders` — cold boot makes the QEMU gdbstub deaf for minutes;
+  gdb attach fails with `vMustReplyEmpty timeout` and the whole window
+  is lost): 8 soft breakpoints (dead chain + pad-attach 22C80) + CTL
+  control bp on main-loop VA 1DE310. **CTL fired x20001 in 250 s ->
+  soft int3 breaks DO work in xemu** (and cost: ~80 bp-hits/s cap,
+  hot-site bps slow the guest to a crawl — keep CTL off real runs).
+- **FRM/CTOR/MSG1/RGT/RGCX/SWEEP: ZERO hits on the healthy game at
+  attract/title era** (300 s window, fresh boot t+90s..t+390s). Pad
+  attach handler 22C80 also x0. First honest reading: the dead tier
+  is NOT running at healthy-title either — it is (likely) START-gated.
+  v3 run adds scripted pad (tools/uinput_pad.py, uinput virtual 360
+  pad, kernel 7.3.5 rejects ABS bits >= 16 so no HAT axes; SDL sees
+  it as js0) pressing START every 6 s, with twin paging:true dumps
+  around the presses (VRAM rides the F0000000+04000000 segment of the
+  paged ELF -> FB decode via tools/xemu_fbpeek.py --diff pair).
+- Healthy-xemu globals vs frz176 core (tools/ramdiff.py, paging:true):
+  boot-tier flags identical (397110=1, 3DC7F8=1, 3DD84C=1, 3DD8CC=1,
+  3D7xxx all 0); heap-base offsets differ by design (xemu heap ~004x
+  vs our pill era ~010x/028x) — compare STRUCTURES not values.
+  Hub [3DD7E8]: xemu 00473C6C vs core 00FD3C6C — both built; core
+  hub vector f+20==f+24 (empty service list), xemu hub f+14..f+28
+  = 0 in a dump taken while gdb had the machine at ~1/50 speed
+  (early/cold state — not a valid healthy-title snapshot; redo from
+  v3 dumpB).
+- 22C80 re-decode correction: 22C80 is the REAL function start (the
+  "pad getter at 22D30" disassembly was an off-boundary misread —
+  22C80 flow runs 22C80..22D8E). It is a service-attach handler:
+  checks [obj+0x39B]/[cli+0x34], calls 54E00(HUB) (task-spawn w/
+  xor-obfuscated stack fields, refs [375FA8] tick, [375FAC/FB0]
+  singletons w/ refcount), splices into [obj+0x394]+0x38 vector,
+  sets [cli+0x2c]=arg, [cli+0x30]=2. PAD vtable 320D4C slot +0x10;
+  name strings after that vtable: "WS_Portal_Nexus", "Next",
+  "Notes" — pad object is a member of the same command-object
+  family as the dead chain (hub = WS_Portal_Nexus object, vptr
+  322FD4, and 69 static .text refs to [3DD7E8] incl. the whole
+  F12xx-F1Bxx MSG-family — the MSG tier IS the hub's biggest
+  consumer).
