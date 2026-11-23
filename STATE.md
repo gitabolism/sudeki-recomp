@@ -100,27 +100,19 @@ log.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x19: the engine never builds
-   the next SESSION — and the level scene object is never
-   constructed).** frz140 laws: dispatch tier (HUB0 x61/DISP x30/
-   SESSB x30/WALK x30) dies EXACTLY with session 31; loader drain
-   era (PUMP x120..167, resident jobs one-by-one) outlives it;
-   full-record ledger = plain single-open leak (`EE2A0` relay open
-   `1EC148` never dec'd; batch-dword `[+0x14]` NEVER set ->
-   two-counter race refuted; state-bit churn all balanced);
-   ISSMTH x34, 33 drain + 1 new-session (boot); SWEEP x0 = command
-   55 never posted; session table EMPTY + task-registry global
-   `[0x3762EC]` NULL at kill; **`[0x3DC83C]` (level scene for
-   cmd-55/SWEEP) = near-empty stub record `0281BE50` at kill** —
-   scene construction itself never completed/started. Command law:
-   `F1CA0` routes cmd `0x37=55` -> SWEEP; cmd value originates in
-   per-object queues under vtable+0x10 fanout (`15B640` family,
-   vtables 32FAE4/FB50/0464). Side law: `0x115000` (pause-setter)
-   NEVER LIFTED (no dispatch entry; era-dependent ICALL failures
-   frz134/135; 0 hits frz137/138/140; globals 0/0/1 at kill = no
-   pause block) — seed candidate. Next: frz141 = current binary +
-   FRM census on `15B640` -> frame tier alive? then command-post
-   watch or scene-construction decode.
+1. **H31 (ACTIVE, note 0025, RE-POSED x20: the task-ISSUER tier
+   goes silent after batch ~31 — the scene/script never submits the
+   next task batch).** frz141: 115000 seed closed the ICALL-failure
+   law (0 resolve-fails; wall unchanged); FRM(15B640) x0 = that
+   vtable fanout is not probe-reachable (no guarded ICALL site) ->
+   census by METHOD wrappers: MKLU(20E9B0, sole caller of scene
+   executor 20F1A0)/JPSS(1EE400) in frz142 (running, + scene-global
+   watch `[0x3DC83C]`), TBLU(6AD00)/TCTO(7D1E0) queued frz143.
+   ISSMTH x33-34 = task tier fired only for the boot batches; SWEEP
+   x0 = command 55 never posts; scene global = stub `0281BE50` at
+   kill. Heap-VA drift law: manager moved `018BF14C->018CF14C` when
+   the seed set changed — watch DATA GLOBALS across eras, re-derive
+   heap records per era.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop
    (0005); async-IO return convention = the phantom charge (0011);
@@ -133,21 +125,18 @@ log.
 
 ## Queue (next concrete actions)
 
-* **1. frz141 (next run, binary already carries FRM):** census on
-  `15B640` engine-frame dispatcher decides the frame tier: FRM
-  ticking + no command-55 -> watch command-queue posts (queue field
-  = `this+0xFFC`/`0xEB`C family under vtable+0x10); FRM x0 -> frame
-  tier itself dead, find the app loop that calls vtable+0x10.
-* **2. Seed `0x115000`** (never-lifted pause-setter, measured from
-  frz134/135 `[ICALL] Failed to resolve` lines) in next gen cycle;
-  also re-check `tools.recomp.icall_feedback` for any other
-  unresolved targets accumulated in recent logs.
-* **3. Menu artefact completion (rule 6):** xemu shotseq running
-  with later timestamps (300/420/540) after frz140 — pick by
-  uniformity, pair with our title-era FB dumps; t=60/90 dumps exist
-  (FMV era + debug-counter overlay at 0x3C00000 pitch-720 — real
-  xemu-rendered content, right half noise = wrong pitch for game
-  surface). NEVER edit scripts a live chain re-reads.
+* **1. frz142 RUNNING (scene-global watch + MKLU/JPSS), then
+  frz143:** rebuild carries TBLU(6AD00)/TCTO(7D1E0) — decides
+  whether the task-lookup tier is reached at all post-wall. Then
+  xemu QMP probe window (`scripts/xemu_qmp_probe.sh`) for the
+  screenshot question. Gen law: recomp does NOT take functions
+  paths (`--functions` is disasm's `--seed-functions` via
+  `pipeline.sh --seed`) — never pass data-file args to recomp.
+* **2. Menu artefact completion (rule 6):** xemu shotseq now uses
+  unique dump names (collision fixed); FB law still OPEN (linear +
+  Z-order both decode TEXTURE at 0x1A3B000; `0x3C00000` pitch-720
+  law = old-ROM debug-overlay era only). QMP probe decides whether
+  an in-emulator screenshot path exists.
 * **4. Write-path decision**: capacity enforcement (patch 0005)
   sits on `bridge_NtWriteFile` which the guest never uses (patch
   0051 log proves raw thunk route). Move it into `kernel_file.c` or
