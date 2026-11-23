@@ -1537,9 +1537,13 @@ void sub_001EE190(void)
     }
     uint32_t a1 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
                       ? MEM32(g_esp + 4) : 0u;
+    uint32_t flag = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                        ? (MEM32(g_esp + 8) & 0xFFu) : 0u;
     if (on && (n < 40 || g_eax != pl || (n % 200) == 0)) {
-        fprintf(stderr, "  [ENQ] x%u list=%08X queue=%08X a1=%08X\n",
-                n, g_eax, g_ecx, a1);
+        fprintf(stderr, "  [ENQ] x%u list=%08X queue=%08X a1=%08X "
+                        "flg=%u e7=%08X e6=%08X\n",
+                n, g_eax, g_ecx, a1, flag,
+                MEM32(0x37A114), MEM32(0x37A118));
         fflush(stderr);
     }
     if (on) { pl = g_eax; n++; }
@@ -1703,6 +1707,31 @@ void sub_0023AD50(void)
         fprintf(stderr, "  [CQ] x%u -> %08X\n", n, g_eax);
         fflush(stderr);
     }
+}
+
+/* frz128: 26D5CE = guest ResetEvent wrapper. EE190's wake branch does
+ * ResetEvent(evt6)+SetEvent(evt7) as a unit; SMEVT sees only the Set,
+ * so log Resets on the loader tokens too (ra+handle). */
+extern void sub_0026D5CE_gen(void);
+
+void sub_0026D5CE(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 400) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t h = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                         ? MEM32(g_esp + 4) : 0u;
+        fprintf(stderr, "  [SRST] x%u ra=%p h=%08X\n", n, ra, h);
+        fflush(stderr);
+    }
+    n++;
+    sub_0026D5CE_gen();
 }
 
 /* frz127b: 1F1470 / 1F1870 = async issue-and-service loops (enqueue
