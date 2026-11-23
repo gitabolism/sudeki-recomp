@@ -2167,3 +2167,28 @@ not file size; no input drift — doctor green).
   no-owner -> orphan waiter. frz163 = double witness: [JOB] prints slot
   raw per resolution + poll-watch WATCHVA=0x0037A3D0 LEN 0x40 (prints
   the moment slot[2] changes value).
+
+## frz163 — type-table WATCH + JOB-slot: FNT1 anomaly REFUTED (my index bug)
+
+- LAW CORRECTION: the type slots live AT [0x37A3D0 + 4*type] (global
+  dword 0x37A3D0 IS slot[0]); my core reads indexed from the TABLE
+  OBJECT base ([0x37A3D0]=01890420)+8 = inside the type-0 object — the
+  "slot[2]=544E4601 FNT1 tag" was a mid-object dword, NOT the slot.
+- Watch (WATCHVA=0037A3D0 LEN 0x40): slot[0]@450, slot[1]@1791,
+  slot[2]=018B0104 @27498 — valid and STABLE to kill. Terminal
+  resolution JOB x536 id=0A260002 slot=018B0104 -> job=02967ABC st=0 —
+  RESOLUTION HEALTHY. x26 (corrupt type slot) DEAD.
+- Burst window (frz163 61088+): x159 terminal submit = [EENT arg2=
+  0A260002 arg3=00000020 arg4=00000080 arg5=018C5D88 eax-in=018C5D88]
+  -> JOB ok -> WINC x207 (state=20 -> EF0C0 mode=2, a1+8=0) -> done.
+  x160-x166 sibling submits: arg2=FFFFFFFF, arg3=0, arg5=0, and their
+  fresh managers MCOR-construct + WINC cnt=0 + EF0C0 **mode=0** (state
+  0x00) — the 0x20 state arg (mode2 -> no-owner queue leg) is unique to
+  the terminal call. Fresh BF188+ managers prove WINC-on-fresh is fine
+  when mode=0.
+- gdb on frz163 bin+core: burst-window SUBM caller = sub_0016F520+1700
+  (task-code tier); the healthy-era SUBM caller = 1F2270+8029 (ATT2
+  job-object tier). Two different submitters.
+- frz164 (running): SAPI arg census on 1EE7D0 (id + args per call,
+  cap 300) -> full submit id-schedule of the run + who passes
+  templates; paired with EENT.
