@@ -126,6 +126,48 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   the last baf `[READ]`. Also `[EF0C0]` mode/args and `[REG]`/`[DEREG]`
   relay membership.
 
+### frz109-110: the wait cycle runs, the events never fire, RESADD never fires (H31.7)
+
+* frz109 (EF1D0 per-event, killed t+449): only **66 walks session-
+  wide** vs EF0C0 ~476 — the walk is NOT cycling hundreds of times
+  (earlier "≈255" was the EC590/EC6B0 registrar count, not walks).
+  Walk a1s = load-table ctx VAs striding 0x3C; last boot-era walks
+  find legs (`-> esi=010B1EC8` repeats), stall-era walk
+  `a1=018AA4D4 a2=001F15FD -> esi=0` (no leg matches that ctx).
+* frz110 (event census + `RECOMP_LOG_ORDS=123,138,145,205,225`,
+  deterministic 5th replay: baf=314):
+  - `[EACYC]` (load wait cycle `EAAB0`) kept looping (x64+) and its
+    waits return **`0x102` = WAIT_TIMEOUT** — the loader thread is
+    NOT parked; it polls, pumps the relay chain (last pump x167 ran
+    ON THIS THREAD: stack `00021B1B -> EAC88 -> EE160 -> EDB68`),
+    and times out forever.
+  - `KeSetEvent` fired ONLY for the swap-era tokens (`002E2F4C`
+    1546x, `00F7FC7C` 1x) — the load events `0x37A118/0x37A114`
+    were NEVER Set/Reset/Pulsed in any run.
+  - `RESADD` (`EF510`, sole caller = F99D0 processor at 1F9DAF)
+    = **0 events**; `RESREL` kept firing (walk ref-releases drain
+    legs post-stall — legs die of old age, not of completion).
+* Pump processor dispatch decoded (`sub_0023B830` @23B8D2..23B9E7):
+  sentinel `MEM16(ebp+0x18)==0xFFFF` -> skip; else `ECC40(job id
+  mgr+0x18)`: job!=NULL -> `edx = job`; job==NULL -> vtable +
+  **trailer dword `MEM32(buf_end-4)`** as edx. `test edx, 4`:
+  bit set -> F99D0 (the async submitter/reservation-adder), clear
+  -> F9720 (sync path). F99D0 refuses at `1F9B5C` UNLESS its
+  bit-mask guards pass (`popcount(ebx)==1 && popcount(ecx)==1 &&
+  ebx==ecx`, masks = `1<<n` windows shifted by `MEM16(mgr+0x2E)`)
+  — refusal happens BEFORE the RESADD site, so RESADD=0 is
+  consistent with F99D0 running and refusing every time.
+* frz106 [JOB] facts: mgr `018CF100+0x28` id `00970002` -> job
+  `02977A78` NON-NULL st=0 at kill (job alive; frz106 core).
+  frz106 job objects (`02977A78/79AC/B50/B80`) all begin
+  `00000000 FFFFFFFF 0x??10B21...` pattern.
+* frz111 census: `[S99D0]` entry ebx/ecx + return eax per call
+  (ra names which of 3 call sites), `[S9720]` entry. Verdict tree:
+  S99D0 never called -> bit4 of edx (job-ptr low byte 0x78 HAS
+  bit4 set! -> should call) never evaluated => pump path differs;
+  S99D0 called but RESADD=0 -> guard refusal -> read ebx/ecx;
+  S99D0 called + RESADD fires -> look past the processor.
+
 ### frz108 + static close-in: the load-completion EVENT layer (H31.6 candidate)
 
 * frz108 (full-build census, killed t+828 by watcher): funnel totals
