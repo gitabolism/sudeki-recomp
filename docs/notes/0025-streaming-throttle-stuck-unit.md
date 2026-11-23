@@ -2287,3 +2287,40 @@ not file size; no input drift — doctor green).
 - frz166 candidate: TRAP-watch [0x018BF154] ([mgr+8] desc slot, LEN 4, no
   POLL) = true in-stream ordering of desc-install vs WINC x207 (retry of
   frz153 mprotect-watch with single dword).
+
+## frz164 queue-tier laws: EF0C0 tail, 1EC590 counters, PUMP state classes
+
+- EF0C0 TAIL law (1EF131..1EF1C0): after 1EC590 push + 1EC6B0 entry new,
+  mode==1 -> INLINE drain loop (1EADC0 service while queue-flag 0x1000);
+  1EF17C: entry-queue 3D7620 pairs with 3D7668 (cross-drain 23AD50);
+  **1EF1B1: mode != 0 -> RETURN WITHOUT CALLING EF1D0** — EF0C0 services
+  ONLY mode=0 directly (1EF1BB EF1D0(a1, [esp+0x10])). mode-2 = pure
+  deferred enqueue.
+- 1EC590 push TALLY law (1EC615..1EC66C): if entry node id-word != FFFF:
+  push to 3D7620 -> [0x3975A8] += size, state |= 0x400; to 3D7668 ->
+  [0x3975AC] += size, state |= 0x800. Loader pump EE190(3D7620,3975A8,
+  3D768C,1) runs at 1EAC83 when head != 0 (EE190 handles desc==0 mgrs by
+  calling EE110; al=1 leg 1EE22B sets state |= 0x8000).
+- PUMP (engine tick) manager state classes at kill (frz164, BF era):
+  BF020..BF110 st=00025184 + BF14C st=00025120 take leg e47271 with
+  GARBAGE node dwords (never-linked scan slots); BF188..BF2F0 siblings
+  st=00015300 leg e463b1 with VALID node ptrs (serviced tier). Only
+  BF14C keeps the raw state-arg bit 0x20 in [mgr+0x28] — servicing legs
+  (bits 0x84/0x15300 class) never ran for it. Engine waits on its
+  pending word; nothing owns its service.
+- EF1D0 bucket census (frz164, 146 calls): buckets 1..30 all served
+  (BF-siblings bkt 9/10/11 = hash of BF278/B4/F0); bucket 0 (terminal,
+  0x20>>6=0) NEVER served by the engine-tier caller (ra=e61ec0). Bucket
+  table 0x37A120 vs queue pair 3D7620/3D7668: state bit 0x20 routes
+  everything into bucket 0 / queue 3D7668 whose drain leg is 1EACE4
+  (EACK-era tick, gated 37a0f5 flag + tick-return) — frz133 CQ census
+  showed ZERO pushes ever to 3D7668 while 522 pushes hit the other 6
+  queues: the 0x20-state queue tier is dead code IN OUR RUNS end-to-end.
+- frz165 (running): poll-watch [0x3D7620..0x3D7668] LEN 0x48: terminal
+  push visible at queue heads? ever drained?
+- frz166 (queued): poll-watch [0x3975A8..] LEN 0x10: pending-bytes
+  counters [3975A8/3975AC] ledger around the burst.
+- frz164 EENT x159 window recap: burst submit args (id 0A260002, state
+  0x20, arg 0x80, template 018C5D88+018C5D9C); the 6 old BF020-BF110
+  managers carry st 0x25184 THROUGH THE WHOLE RUN (boot-era residue,
+  never waited on) — terminal differs by pending-word + engine wait.
