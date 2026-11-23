@@ -61,3 +61,47 @@ Not done / open:
 - Reference baseline captures from xemu/cxbx for the first scene, before
   any behaviour is judged wrong (rule 2).
 - The two unresolved call stubs.
+
+## 2026-11-22 — Stages closed: ENTRY, THREADS; MENU artefact reached
+
+Backfill (rule 10: stage history lives here; the claims rode STATE.md
+and README first). Verified against artefacts already in `logs/` and
+`docs/notes/`.
+
+**ENTRY — closed** (sessions 4h–4i, 2026-11-21/22):
+
+- Guest runs its own startup end-to-end: boot archive decode completes
+  (note 0010), title intro plays with first GPU submits and vblank
+  flips (`RECOMP_PB_EXEC=1 RECOMP_VBLANK=1` recipe, commit `5ce7e66`).
+- Kernel trace carries real ordinals at scale (e.g. frz150-era run:
+  119 imported ordinals exercised; RtlEnter/LeaveCriticalSection in
+  the 10^5–10^6 range per run).
+
+**THREADS — closed** (sessions 4h–4n):
+
+- No silent exit since the s4h era: 18 guest thread creations per run
+  (`NtCreateThread` traffic in every run log), and live multi-thread
+  lock interleave in the `[CS]` census (holder/waiter thread ids
+  1004/1007/… in `logs/run-frz150-120042.out`).
+- Every thread-start path found by measurement gets a dispatch entry
+  host-side (AGENTS rule 1 — override, not generated-code edit); the
+  TLS-teardown guard (note 0017, commit `ecbd691`) exists because real
+  worker exits were observed poisoning TLS — evidence threads run and
+  die in order.
+- Audio (APU/AC97) and input (OHCI + scripted pad) thread walls closed
+  as part of this stage's follow-through (patches 0022, note 0020,
+  commits `c640f54`, `203b268`).
+
+**MENU — artefact reached; same-moment xemu pair still owed** (rule 6
+keeps this from being called "complete"):
+
+- `reference/fb/` dumps show the animated SUDEKI title presented by
+  the game itself (frz141 era) and, post-START, the static "Loading..."
+  screen (`reference/fb/1460000{17..84}.bmp`, frz146c era,
+  `tools/fbpeek.py --diff`) — the title screen IS rendered by our tree.
+- The xemu side-by-side of the same moment is open: `reference/xemu/`
+  currently holds only the STOP-screen capture and torn-FMV dumps
+  (title90/title-t60 adjudicated garbage, see STATE.md s5b); the
+  shotseq/QMP fix path is in the queue.
+- What does NOT advance past the menu: H31 (level load never completes,
+  note 0025) — gameplay stage not reached.
