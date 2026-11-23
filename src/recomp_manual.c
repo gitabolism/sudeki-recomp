@@ -1696,15 +1696,23 @@ void sub_0023AD50(void)
     void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
     uint32_t a0 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
                       ? MEM32(g_esp + 4) : 0u;
-    if (on && (n < 60 || (n % 256) == 0)) {
-        fprintf(stderr, "  [CQ] x%u ra=%p eax=%08X edi=%08X a0=%08X\n",
-                n, ra, g_eax, g_edi, a0);
-        fflush(stderr);
+    /* frz133: uncapped chain-mutation census with head transitions
+     * (frz128 hit the n<512 print cap — terminal-era pushes were
+     * invisible). queue = edi; head = [edi]. */
+    uint32_t q = g_edi, h0 = 0, h1 = 0;
+    int show = on && (n < 3000 || (n % 512) == 0);
+    if (on) {
+        if (q >= 0x1000u && q < 0x4000000u) h0 = MEM32(q);
+        if (show)
+            fprintf(stderr, "  [CQ] x%u ra=%p eax=%08X edi=%08X a0=%08X h:%08X\n",
+                    n, ra, g_eax, q, a0, h0);
+        if (show) fflush(stderr);
     }
     n++;
     sub_0023AD50_gen();
-    if (on && n < 60) {
-        fprintf(stderr, "  [CQ] x%u -> %08X\n", n, g_eax);
+    if (on && show) {
+        if (q >= 0x1000u && q < 0x4000000u) h1 = MEM32(q);
+        fprintf(stderr, "  [CQ] x%u -> %08X h:%08X\n", n - 1, g_eax, h1);
         fflush(stderr);
     }
 }
@@ -2068,6 +2076,24 @@ void sub_001EACC0(void)
             fprintf(stderr, "  [SESSN] x%u %s\n", my, line);
             fflush(stderr);
             snprintf(last, sizeof last, "%s", line);
+        }
+    }
+    /* frz133: queue-head timeline (on change) — the loader pump loop
+     * (1EAC69) runs EE190 while [0x3D7620]!=0; watch every static
+     * queue head in the 3D75xx-3D76xx block over time. */
+    if (on && (my % 128) == 0) {
+        static char lastq[96] = "";
+        static const uint32_t qslots[] = {0x3D75FCu, 0x3D7620u, 0x3D7644u,
+                                          0x3D7668u, 0x3D768Cu, 0x3D76B0u,
+                                          0x3D76F8u};
+        char ql[96], *p = ql;
+        for (unsigned i2 = 0; i2 < 7; i2++)
+            p += snprintf(p, (size_t)(ql + sizeof ql - p), " %08X",
+                          MEM32(qslots[i2]));
+        if (strcmp(ql, lastq)) {
+            fprintf(stderr, "  [QHEAD] x%u%s\n", my, ql);
+            fflush(stderr);
+            snprintf(lastq, sizeof lastq, "%s", ql);
         }
     }
     if (on && (my < 100 || (my % 512) == 0 || busy || g_eax ||
