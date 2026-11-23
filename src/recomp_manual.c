@@ -2871,16 +2871,51 @@ void sub_001EE2A0(void)
     }
     if (on && (n < 60 || (n % 100) == 0)) {
         void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
-        uint32_t a1 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
-                          ? MEM32(g_esp + 4) : 0u;
-        uint32_t a2 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
-                          ? MEM32(g_esp + 8) : 0u;
-        fprintf(stderr, "  [EENT] x%u ra=%p eax=%08X a1=%08X a2=%08X\n",
-                n, ra, g_eax, a1, a2);
+        uint32_t av[7] = {0};
+        if (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+            for (int k = 0; k < 7; k++) av[k] = MEM32(g_esp + 4 + 4 * k);
+        fprintf(stderr, "  [EENT] x%u ra=%p eax=%08X a=%08X %08X %08X %08X %08X %08X %08X\n",
+                n, ra, g_eax, av[0], av[1], av[2], av[3], av[4], av[5], av[6]);
         fflush(stderr);
     }
     n++;
     sub_001EE2A0_gen();
+}
+
+/* frz161: 1EEEE0 = THE completion/decrement path (static law, note 0025):
+ * [mgr+0x14] array-ref dec (at 0 -> 1EEE20 sweep) ELSE dec word
+ * [mgr+0x2C]; at 0 -> 1F92E0 + 1ED9B0 + vtbl[0](1) = desc CLOSE chain.
+ * WINC x207 attached with cnt(before)=0 -> word became 1; core shows 1 at
+ * kill => no KICK dec ever arrived for the terminal manager. [KICK] pairs
+ * every completion with its mgr + dec kind + pre/post counts. */
+extern void sub_001EEEE0_gen(void);
+
+void sub_001EEEE0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_eax;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t mgr = g_eax;
+    int ok = mgr >= 0x10000u && mgr < 0x4000000u;
+    int show = on && (n < 300 || (n % 512) == 0);
+    if (show) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [KICK] x%u ra=%p mgr=%08X arr=%08X w2C=%04X st=%02X\n",
+                n, ra, mgr, ok ? MEM32(mgr + 0x14) : 0,
+                ok ? MEM16(mgr + 0x2C) : 0, ok ? MEM8(mgr + 0x28) : 0);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EEEE0_gen();
+    if (show) {
+        fprintf(stderr, "  [KICK] x%u -> arr=%08X w2C=%04X\n", n - 1,
+                ok ? MEM32(mgr + 0x14) : 0, ok ? MEM16(mgr + 0x2C) : 0);
+        fflush(stderr);
+    }
 }
 
 /* 26D5AE = guest SetEvent wrapper (all loader-event signals route
