@@ -2217,3 +2217,43 @@ not file size; no input drift — doctor green).
 - vtable 336828 = ASCII 'invalidate.%.s%02d%s\**s%s' format-string
   cluster, NOT a vtable — the frz143b "recursive self-call with vtable
   336828" comment needs re-verification (that dword is string data).
+
+## Static decode: EC130/EF0C0 mode law + EE2A0 arg-sign legs + shared.baf install facts
+
+- EC130 full law (1EC130..1EC186): node[4]=mgr; if [mgr+0x14] != 0 -> inc
+  dword array-refcount ELSE **inc word [mgr+0x2C]** (pending word, frz152b
+  orphan marker); node vtbl 3367ac->336734; MODE DERIVATION at 1EC155:
+  **[mgr+0x28] bit 0x20 -> mode=2, else bit 6 (shr 6 &1) -> 0/1**; then
+  EF0C0(mgr,node,mode|0x20000000). Sibling fresh managers with state 0x05/
+  0xA4 also take mode2 (bit 0x20 set) -> mode-2 ALONE is not the wall.
+- EE2A0 arg-sign legs (1EE5F8..1EE682): ebx=[esp+0x328] (arg col3):
+  bl>=0 -> 1EE661 -> new(8) node + **WINC@1EE682** (full EC130 path).
+  bl<0 -> 1EE621: node[0]=3367ac, node[4]=mgr, then [mgr+0x14]==0 ->
+  **je 1EE645: inc word pending, return WITHOUT WINC/queue**. Terminal
+  arg col3=0x80 (neg), streaming healthy = 0x40 (pos), BF batch siblings
+  = 0x80 too.
+- FMH-record skip law (1EE358): job words [job+4]==[job+6] (both FFFF =
+  empty FMH chain head) -> je 1EE59C -> NO item-array installed ->
+  [mgr+0x14]=0. Boot type-1 healthy job 01000598 ALSO reads FFFF at kill
+  (chain head empties at kill are normal post-EF1D0 unlink state) — so
+  empty-at-kill proves nothing about burst-time; frz163 [JOB] census shows
+  ALL ~47 type-2 resolutions returned chain-head-with-FFFF (st=0), yet
+  those submits completed -> FMH miss is tolerated on the WINC/queue leg.
+- EENT state-column census (frz162, halve for 2-line prints): 0x00 x116,
+  0x84 x42 (streaming era, completed), 0x20 x5 (terminal + 4 others),
+  0x01 x3. The 0x84 set shares mode2 AND FMH-miss with the terminal ->
+  remaining unique terminal features: state 0x20 exactly + arg col3 0x80
+  + template arg (eax-in) + SVC-tier-dead-at-burst (frz161 x26).
+- shared.baf install law: disc file 72,048,640 B (header dword
+  0x07B84800 = 129,516,032 = container VIRTUAL size); cache copy = fully
+  EXPANDED 129,517,568 B; guest read all 72 MB from game/ path and the
+  cache TAIL index region (129,463,976..129,517,568 = 53 KB FMH index)
+  via 20 READSEQs — install COMPLETE in frz163 era. Key 0A260002 present
+  twice in cache (id-directory + one data ref) -> record EXISTS.
+- LAW: never analyze Cache/* while a run is live (wipe + concurrent
+  install = torn reads; a "corrupt header" seen at 14:08 was frz164
+  mid-write). Re-scan only post-run.
+- 1EDE80 builder: ZERO static refs anywhere (not in vtables) — computed
+  dispatch only; keep as suspect but no measured seed possible yet.
+- Harness: nav_run49.sh = nav_run48 + WATCHLEN env (poll-diff window;
+  LEN 0x400 covers terminal + 7-sibling batch: BF14C..BF2FC).
