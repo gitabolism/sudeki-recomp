@@ -1633,6 +1633,55 @@ void sub_001EAAB0(void)
     }
 }
 
+/* Pump's two service processors (frz106 pump chain). F99D0's body
+ * refuses at loc_001F9B5C unless popcount(ebx)==1 && popcount(ecx)==1
+ * && ebx==ecx BEFORE its RESADD site at 1F9DAF; if [S99D0] fires but
+ * [RESADD] stays 0 the refusal is the stall gate. ebx/ecx carry the
+ * job flag bitmasks. */
+extern void sub_001F99D0_gen(void);
+
+void sub_001F99D0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 300) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [S99D0] x%u ra=%p ebx=%08X ecx=%08X\n",
+                n, ra, g_ebx, g_ecx);
+        fflush(stderr);
+    }
+    n++;
+    sub_001F99D0_gen();
+    if (on && n < 300) {
+        fprintf(stderr, "  [S99D0] x%u -> eax=%08X\n", n, g_eax);
+        fflush(stderr);
+    }
+}
+
+extern void sub_001F9720_gen(void);
+
+void sub_001F9720(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 30 || (n % 64) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [S9720] x%u ra=%p ebx=%08X edx=%08X\n",
+                n, ra, g_ebx, g_edx);
+        fflush(stderr);
+    }
+    n++;
+    sub_001F9720_gen();
+}
+
 extern void sub_001EF4C0_gen(void);
 
 void sub_001EF4C0(void)
