@@ -1584,3 +1584,31 @@ scene-global watch 0x3DC83C; 94 wrapped).
   chain gens from the OLD manual but compiles the NEW one ->
   `undefined reference to sub_X_gen`. The frz141-era SUBM failure
   was this, not flakiness.
+
+## frz143 — leaf tier NEVER ticks; SUBM >=257 whole-run; gate byte closed
+
+Run `logs/run-frz143-095510.out` (96 wrapped; tail-sampled CENSUS;
+watch `[0x397110]`).
+
+- `[0x397110]` master gate: written TWICE total, `0 -> 1` at boot
+  (law CLOSED: never re-cleared; every gate/reject story for the
+  submit tier is dead).
+- **MSG1(F1CA0) x0, MSG2(F1D50) x0** — the message LEAF tier never
+  executes from ANY of its 8 direct dispatchers (15B640/15CC30/
+  15DC80/15F3C0/160420/162F80/164790/16A860; all vtable-only, zero
+  static callers). FRM x0 (15B640) is REAL not blindness: dispatch
+  entries point at wrappers, so vtable-mediated calls WOULD count.
+- SUBM x256 = tail-sample line (total >=257) — submit tier churns
+  whole-run (attach path 1F2270 + scheduler callers 200CB0/20AB70/
+  221000). TITER x61 == HUB0 x61 (1:1 hub-tick:task-iterate), last
+  at line 56385 = inside the terminal burst. WALK entry-lines
+  CLUSTER in the endgame (55975..56394: ~35 calls in 420 lines) then
+  stop — the walk tier wakes for each resubmit burst.
+- SCH1/SCH2/SCH3 x0 (scene-executor schedulers never entered —
+  same dead object-graph signature), SCH4 x30.
+- Synthesis: loader+submit+hub tiers healthy; task/message/scene
+  tiers (MSG*, SWEEP, SCH1-3, MKLU, scene-executor 20F1A0) are
+  ENTIRELY ABSENT -> consistent with the message-object classes
+  never being INSTANTIATED. frz144 = CTOR(159710, vptr 32F8E8, 12
+  callers inside the dispatcher family itself) / CTOR2(162790,
+  vptr 330358, sole caller 0x0807D0) / CTRX(807D0).
