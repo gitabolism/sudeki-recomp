@@ -2373,3 +2373,27 @@ not file size; no input drift — doctor green).
 - frz167 (built, queued after frz166): one-shot [BUCK] dump at first PUMP
   manager with pending word != 0: mgr fields, full bucket-table 37A120
   chains (entry/cnt/obj/next), nonzero queue heads, tallies.
+
+## frz166 — queue-band poll-watch (3D75FC..3D76FC, LEN 0x100): full ledger
+
+- 16 changes whole-run, all decoded:
+  * boot era: 3D7620/624 heads set once (line 13811) and drained once
+    (15748) -> the loader 620-pump leg DOES work early (2 jobs), then
+    the 620 queue is NEVER touched again for the rest of the run.
+  * 3D75FC (completion queue) = living tier: heads cycle with WDEC/
+    KICK pairs the whole run (50182, 51634, 52304 = pre-burst window).
+  * 3D76F8 once (50184/51636).
+- TERMINAL burst (WINC x207 @52329, EF0C0 x435 mode-2 @52330): ZERO
+  queue-head changes at or after -> mode-2 push leg ran but wrote NO
+  entry (1EC590 esi-payload==0 skip law, static 1EC5C8).
+- Healthy streaming batch = state 0xA4 (also bit 0x20 -> mode2!) but
+  desc != 0 -> take 1EF0D7 leg -> 3D75FC push -> EACK services -> KICK/
+  WDEC balanced. So mode-2 is FINE when desc installed; the wall combo
+  is fresh manager + FMH-miss (no desc at attach) -> 620 leg -> payload
+  arg 0 -> entry skipped -> orphan.
+- Crack hypothesis (frz168 census testing): attach ordering — if the
+  engine installed [mgr+8] desc BEFORE WINC attach (like older managers
+  at re-attach time), the terminal would take the 5FC leg and be
+  serviced exactly like the healthy batch. frz168 = BUCK registry dump
+  + EF0C0 payload-arg census (prints a4 for every mode-2; zero-payload
+  lines = the skip shapes).
