@@ -56,6 +56,48 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
 
 ## Outcome
 
+### frz96 full + frz97 write-forensics: serving layer exonerated, wall is guest-side
+
+* frz96 (watcher-fired ABRT t=868 s): kill-state — engine alive
+  (T1 inside submit chain `sub_002D5C80<-...<-sub_00207400`), nv2a
+  PB exec active, XAPI workers idle-waiting (T14/T17 chains under
+  `sub_00021B90/sub_00021AD0`), movie mid first lap (mdec 2276).
+* frz97 (RECOMP_IO_WRITE_LOG + WRITE_DUMP): `[WRDUMP]` stream replay
+  (`wreplay.py`) vs live Cache files: **startup.baf 27.7 MB 0
+  mismatched bytes** (within dump-cap), boot.baf 0, Partition5/P0/
+  badger/SOLXM 0. The 4 MB of zero runs inside Cache/startup.baf
+  were written as zeros BY THE GAME (its own pre-allocated slack).
+  Our write path is faithful; read path already proven exact
+  (443/443 disc sizes + got=want).
+* => H31 is purely guest consumer logic: the BAF config reader
+  (through `sub_00270FBD`) stops asking at ~11.36 MB. Next
+  measurement built: `RECOMP_RD_TRACE=1` manual wrapper on
+  `sub_00270FBD` logging thisptr+args+EBP caller chain per read
+  (frz98) -> name the consumer and the branch it stops taking.
+
+### frz96 partial (patch 0047 live, ~9 min in, `logs/run-frz96-201101.out`) — the REAL load census
+
+Phase IO census (path= per read, `io_phase_census.py`):
+* PRE-LOAD: MS/ClimaxLogo biks, Cache/boot.baf, startup.baf,
+  SOLWORLDM.gex — normal boot.
+* LOAD-era: `Movies/FMA01_poem.bik` read **exactly 1.00x of its
+  111,181,980 B** (whole opening FMV, once); every sfx/speech wave
+  bank read 1.00x (complete); then IO collapses to attract-movie
+  looping + intermittent `Cache//startup.baf`.
+* `Cache//startup.baf` (27,762,688 B — the game's own X: install
+  target, page-multiple 27112 KiB, created by the game at boot
+  20:11:42, disc `startup.baf` is the 8,585,216 B source) is read
+  **0.41x total (11.3 MB) with burst+33-KiB-strided-seek access,
+  and goes fully silent mid-run** — that IS the load-progress
+  stream, and it stalls at 41 %.
+* Cache BAFs (boot/startup/shared) are all page-multiples and much
+  larger than disc versions = game-written sparse containers (zero
+  runs = its own slack, not our extraction: disc tree 443/443
+  size-exact).
+* Wavebanks unpacked to X: at 20:13, then quiet.
+* No short reads on startup.baf (all got=want) — reads that happen
+  all succeed; it is the CONSUMER side that stops requesting.
+
 ### CORRECTION (BINK anatomy, frz94 core): the GATE census never measured level loading
 
 frz94 core + section map: ctx 0x82648040 is a **BINK struct** (Bink
