@@ -1528,3 +1528,31 @@ to sub_X_gen`:
    Diagnostic law: compare gen's `N wrapped as sub_X_gen` against
    `grep -c 'extern void sub_.*_gen(void);' src/recomp_manual.c`;
    mismatch = regenerate before debugging the linker.
+
+## frz142 — MEGA-OVERTURN: census print-caps fabricated the dead-tier verdict
+
+Run `logs/run-frz142-094411.out` (binary = MKLU+TBLU+TCTO+SUBM +
+scene-global watch 0x3DC83C; 94 wrapped).
+
+- **SUBM(1EE7D0 universal job-submit) x199 = PRINT CAP (200) hit at
+  line 14061** — never proved silence. The submit tier kept working:
+  JOB census (EE2A0 record-init) ticks to **x536, last at line 57550
+  = the terminal burst itself** (id `0A260002` -> job `02967A8C`).
+- **RESUBMIT LOOP FOUND:** the terminal era re-creates the SAME jobs
+  cyclically — id/ptr pairs repeat exactly: `0AC20002->02967C30` at
+  x412 (55988) and x492 (56878); `0AE70002->02967AA4` x414/x494;
+  `0A7F0002->02967A8C` x418/x498/x536. Burst cycle ~700-900 log
+  lines. `EACK` (x4, shape `f4=0 f5=0 e6=48000006`) fires BETWEEN
+  bursts (55674, 56391, 57688). `EBUSY` census ticks to x2560, last
+  line 64019 (whole-run busy-churn).
+- **Dispatch tier NOT dead:** between bursts (56061..56878) WALK x33
+  and HUB0 x32 lines appear — frz140's "tier dies with session 31"
+  was the CENSUS print cap (LIM 30 == 31st call) masquerading as
+  tier death. Same for WALK x30 everywhere it was cited.
+- MKLU x0 (20E9B0 menu-task method never entered), TBLU x0 (6AD00
+  never entered — ISSMTH ancestry does NOT run through it in the
+  live run), TCTO x33 == ISSMTH x33 (1:1 descriptor feed).
+- LAW: any census count equal to its LIM = saturation, not an end.
+  CENSUS macro now tail-samples every 256th call (committed with
+  frz143). Re-verify EVERY historical "xN = tier dead" citation whose
+  N == LIM before trusting it (STATE hypotheses updated).
