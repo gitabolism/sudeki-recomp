@@ -1612,3 +1612,23 @@ watch `[0x397110]`).
   never being INSTANTIATED. frz144 = CTOR(159710, vptr 32F8E8, 12
   callers inside the dispatcher family itself) / CTOR2(162790,
   vptr 330358, sole caller 0x0807D0) / CTRX(807D0).
+
+## frz144 — message classes NEVER INSTANTIATED (CTOR/CTOR2/CTRX x0)
+
+Run `logs/run-frz144-100310.out` (99 wrapped).
+
+- CTOR(159710, stamps vptr 32F8E8+32F8E0 base+sub-object — real C++
+  ctor) x0; CTOR2(162790) x0; CTRX(807D0, its sole static caller)
+  x0. 100% of instantiation points for the message-dispatcher
+  classes are covered (vptr-immediate scan: one stamp site per
+  class) -> the classes are NEVER BUILT, whole run.
+- Ancestry (static): 159710 called by 12 factory fns (158F60,
+  15AB10, 15B790, 15C430, 15CE90, 15DD50, 15EAF0, 15F4D0, 160CB0,
+  162FF0, 163FC0, 1681F0), each single-caller into the resource
+  HANDLER family 7E4C0..81D10 (0x220 pitch = table-driven), which
+  sits under request entries 77140/7A4C0 <- 70360/72B00 <-
+  5D740/5D880/64990/64AD0 (resource-manager region).
+- frz145 census = RQ1(70360) RQ2(72B00) HND1(77140) HND2(7A4C0)
+  H7E4(7E4C0): names the broken rung. If RQ tick and HND x0 the
+  switch never dispatches these request types; if RQ x0 the
+  resource-manager calls above are the dead edge.
