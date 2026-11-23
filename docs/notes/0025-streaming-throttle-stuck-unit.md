@@ -1874,3 +1874,34 @@ era only ever raised `00000004` x18 / `00000040` x2 — game sat in
   inc [[desc+0x14]] or word [desc+0x2C]) with closes (1EC330->
   1EC350 dec; zero-count runs 1F92E0+1ED9B0+desc->vtbl[0](1) = the
   DESC CLOSE). The unmatched open names the lost completion.
+
+## frz152b — WAITER LEDGER: wall anatomy to the last edge (loader parks INFINITE)
+
+Ledger (WINC 242 / WDEC 229 / CLOSE 27, all under print caps; era
+mgr 018CF14C = same heap era as frz150):
+- desc 018CF14C: inc=2 dec=1; timeline WINC x207 (0->1, line 58414,
+  ra = EE2A0 relay 1EE682 — the frz138(a) open, REPRODUCED) ;
+  splice-ctor inc (EC2C0, invisible to EC130 census) 1->2; WDEC
+  x228 (2->1, self=014BCA58); WINC x241 (1->2, ra=EC190+745);
+  EEEE0 dec (2->1, core-confirmed final word [mgr+0x2C]=1).
+- Core at kill: unmatched waiter node 010E2FF8 vtbl=003367E8
+  (REQUEST-record state, stamped by the 238xxx record ctors),
+  +4=desc; x241 node 010E2168 vtbl=336734 (armed, closed by EEEE0
+  path not EC330); closed record 014BCA58 vtbl=3396CC (retired).
+  ALL request queues (3D75FC/620/644/668/68C/6B0/6D4/6F8/71C/740)
+  = EMPTY; relay queues 3975A8/AC = 0.
+- Sequence at the wall (lines 58414-58663): JOB x536 (id 0A260002)
+  -> WINC x207 -> **EF0C0 x435 a1=018CF14C a1+8=00000000 a2=010E2FF8
+  mode=2** (the desc-OWNER slot reads ZERO at that instant; healthy
+  siblings x436+ have a1+8 != 0). 1EF0C0 branch: owner==0 && mode==2
+  -> queue 3D7620, NO immediate service (mode!=0 skips 1EF1D0).
+  Loader (1EAC50 loop) ENQ x3 moves 3D7620 -> queue 3975A8, drains
+  once, F0F80 busy-check -> 0, then **W2MO x29836 INFINITE on
+  {48000006, 48000001} — NEVER woken** (last SetEvent 48000006 at
+  58585 before the park; last 48000001 at 56333). Engine side polls
+  W1SO(48000006,ms=0) ~780x in the tail, all 0x102 timeouts.
+- So THE WALL = request record 010E2FF8 lost after the no-owner
+  branch; loader thread parked forever; manager pending stuck 1;
+  PUMP x167 terminal. frz153 (same BIN, harness v46): RECOMP_WATCH=
+  0x018CF154 (owner slot manager+0x08) -> WHO clears it at the
+  terminal burst (race vs EC2C0 re-splice) — the last unknown edge.
