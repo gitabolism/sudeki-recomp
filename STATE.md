@@ -107,20 +107,22 @@ Earlier sessions live in the notes (0005-0025) + the session log; the
 
 ## Queue (next concrete actions)
 
-* **1. frz117 (gate census)**: wrap `[EED70]` (sub_001EED70, the
-  completion handler F9720 calls at 1F92C9/1F99A9), `[D550]`
-  (sub_0023D550 tick pump-gate helper: args + result), per-event
-  `[MTICK]` (tick count is small). Verdict tree: EED70 fires during
-  stall but no Set path -> hunt the missing Set host-side; EED70
-  silent -> the F9720 guard chain refuses (read its masks with the
-  real trailer `3EF04C91`); D550==0 -> the tick gate itself.
-* **2. R1-vs-R2 regime header**: pin regime per run (cache clear or
-  not) — and re-check whether R1's earlier freeze (no final job at
-  all) is the SAME wall one stage earlier (it likely is: fresh
-  install = first-ever run of the load; real users start in R1).
-* **3. Relay-leg decode** (unchanged): map load-table descriptors
-  (`0x00F95678`-class `{flags, buf, size, tag}`) to archive FILE
-  names so "the leg that never finishes" gets a file, not just a VA.
+* **1. frz120 (missing-file census)**: add `RECOMP_MISSING_FILES=all`
+  to the recipe and look for failed opens during the load era (the
+  final leg may await a level archive the guest never opened
+  successfully). Cheap, one knob.
+* **2. Pump branch decode**: at x167 `eax = handle 0x00010040`
+  (LO8 bit4 SET -> async branch) but `F99D0` never fires; `S9720`
+  stall-era ra = pump+8654 (= `23B9DC` SYNC branch) -> the branch
+  input at `23B9B2` is NOT `eax` as lifted: re-verify the lifted
+  `PUSH/POP` ordering around `23B8F2-23B913` (trailer-path vtable
+  icalls may clobber `edx` before the branch) or run Ghidra on
+  `23B830..23BA9F` (bench re-import recipe in THIRD_PARTY).
+* **3. Write-path bypass follow-up**: guest writes dispatch
+  `kernel_thunks case 236 -> xbox_NtWriteFile` directly; patch-0005
+  capacity check + old `[WRITE]` log sit on the unused
+  `bridge_NtWriteFile`. Decide whether to move capacity enforcement
+  into `kernel_file.c` (affects disk-full experiments only).
 * **4. Then the Gameplay gate:** first presented level frame =
   fbpeek + visual + texture-coverage carry-over; xemu side-by-side
   of the SAME load as corroborator (needs the QMP/HMP script fix;
