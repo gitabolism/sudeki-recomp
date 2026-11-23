@@ -2101,3 +2101,35 @@ not file size; no input drift — doctor green).
   terminal type-word 0002 — resolution for type 2 would chase a
   non-pointer UNLESS nothing ever calls the 1ECC40 path with type 2.
   frz161 KICK/SVC/SVC2 census decides.
+
+## frz161 — KICK/SVC/SVC2 census: completion tier dies BEFORE the burst
+
+- [KICK] (1EEEE0 decrement) x~300 whole-run (last x299 at line 59876;
+  no x512 milestone) — targets ALL in the 0189Axxx/018A8xxx node-tier
+  (st=84, w2C 8-10), **ZERO for the terminal manager BF14C**; KICK ra =
+  sub_001EE6D0+1642 = the LOOKUP-ATTACH release leg inside the
+  submit-hit path (1EE719/1EE72C/1EE756 sites) — KICK = ephemeral
+  lookup-ref release, NOT a completion event.
+- [SVC] (1EBDE0 node service) x12800+, ALL from ra=sub_001EB0C0+6481
+  (same caller whole-run), LAST at line 59198 = ~670 lines BEFORE the
+  burst WINC x207 (59868); [SVC2] (1EBE20 resolver) x0 whole-run.
+- [EENT] total <200 (x100 last milestone) — burst submits hidden band.
+- So at the wall: service/lookup-release tiers QUIET at the burst; the
+  orphan waiter's completion never existed to lose. frz138 "+1" now =
+  "attach opened for a job whose service leg never runs", not "a
+  completion was lost".
+- Static: manager [0x14] record-array law — ctors COPY it from a
+  template ([ebp+0x14] @1EE451 EE2A0 leg; new-object zeros @1EE2E0);
+  builder 1EDE80..1EDF8F (array hdr refcount@0,count@4,items@0xC,
+  item[+0x14]=array back-ref; per-item stamp) is NOT LIFTED (no
+  sub_001EDxxx entry past 1ED9B0) and has NO measured-ICALL evidence
+  -> census needs seeds (measured only) — frz161 run printed zero
+  001EDxxxx ICALLs, so the builder may itself never run after boot.
+- EF1D0 tail (1EF350-in-EF1D0): after relay processing, UNLINK loop
+  pops [mgr+0x14] list via item[+0x18], writes item[+0x14]=array,
+  EC3E0-release per item then [mgr+0x14]=0 — EXPLAINS healthy managers
+  showing arr=0 at kill (unlinked after service).
+- frz162 (running): EENT post-state per submit (mgr id/arr/w2C/st/desc,
+  cap 240) + SVC node/mgr/id/desc print -> expect: terminal-burst
+  submit call returns m=BF14C with arr=0 copied from a zero template,
+  healthy submits return arr!=0.
