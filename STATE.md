@@ -92,9 +92,17 @@ probe verdict (frz91) + history scrub (user-approved).**
   notification-event wake theft (credit-gate competitor, frz79 saw it
   INFINITE on the same token) or lost-pulse race. Next probe frz93:
   manual-wrapper counters gate vs engine vs completion.
-- frz92 IN FLIGHT (`/tmp/opencode/nav_run2.sh 92 1500`, pad-driven
-  gate, TITLE_KEVENTS regime; log `logs/run-frz92-*.out`, dumps
-  `reference/fb/92*`, watcher era-guarded).
+- frz92 (pad-gated nav + all three mirrors): **GPU wall DEAD**
+  (note 0024 4v addendum): 5C mirror built on demand, class-5 chain
+  ~1100 wakes, ring writer 25/s draining (submit=20112), engine ~10
+  fps, IO streaming LEVEL speech banks (speech_hask/shadow/TSA =
+  navigation reached a level load); GATE job queue 95 % accepted when
+  the flip-criterion watcher false-fired (healthy load era = 0 fps
+  presents, H28 rule) and ABRTed seconds from load end.
+- frz93 IN FLIGHT: same regime, 2500 s window, `frz_watch2.sh`
+  (progress = flips AND GATE acc deltas) — the Gameplay-gate
+  attempt: navigation -> presented level frame. Log
+  `logs/run-frz93-192142.out`, dumps `reference/fb/93*`.
 - Git (user-approved one-time rewrite, rule-7 exception): a
   non-mission housekeeping sentence was scrubbed from ALL history
   (STATE.md was its only home; introduced 573c486, which scrubbed
@@ -543,35 +551,32 @@ arr=0).
     (submit 24,493, iGET following the write cursor). New wall H30:
     the engine device-message layer — `sub_0011ED20` stops invoking
     the swap pump; frz41 plateau-core in flight.
-12. **H30 (4v, ROOT-CAUSED, ACTIVE):** root cause = unresolved shadow
-    handles for D3D hand-built RAM events (note 0024); `TITLE_KEVENTS`
-    fixes the resolution but the plateau SURVIVES with a new terminal
-    shape: engine INFINITE on mirrored 0x2E2F4C while completion
-    SetEvents keep firing (note 0024 Outcome: wake-theft vs lost-pulse
-    race, unresolved). Nav (menu -> Buki -> load) still never
-    completed in census regimes, so no presented level frame yet.
-    frz92 (pad-gated nav + TITLE_KEVENTS) in flight; frz93 = gate/
-    engine/completion counter wrappers if frz92 plateaus.
+12. **H30 (4v, ROOT-CAUSED + SUPERSEDED):** root cause = unresolved
+    shadow handles for D3D hand-built RAM events (note 0024); with
+    all three mirrors (frz92) the GPU/mark era is DEAD — the guest
+    navigates to a level load (speech banks stream, ring writer
+    drains, engine ~10 fps). New wall = load completion: GATE job
+    queue `tot/acc` gap at kill (95 % accepted). frz93 (2500 s,
+    acc-aware watcher) is the decisive run: presented level frame
+    = GAMEPLAY artefact, widening gap = producer/consumer census.
 
 ## Queue (next concrete actions)
 
-* **1 (frz92 verdict when the run lands):** `bash tools/census_snap.sh
-  logs/run-frz92-*.out` + `python3 tools/fbpeek.py reference/fb/92
-  --diff` + visual confirm of late dumps; check `[nav]` lines in
-  `/tmp/opencode/frz92.nav.out` (gate = `ISR claimed it` + 30 s).
-  Buki/level card presented = nav works; animated textured level
-  scene = GAMEPLAY artefact (CHANGELOG row; README wording is
-  user-owned).
-* **2 (frz93, if frz92 plateaus):** wake-theft vs lost-pulse census —
-  manual wrappers counting entries/waits on `sub_002D3420` (credit
-  gate), `sub_001DE5C0` (engine wait) and sets at `sub_002DAFF0`
-  (completion) with thread ids; `RECOMP_EVENT_LOG=1` already traces
-  create/wait/set callers. Decides the fix shape (event type at the
-  mirror, or per-waiter semantics).
-* **3 (frz92 core forensics if watcher ABRTs):** dump core to
-  `/tmp/opencode/sudeki.frz92.core`, run `/tmp/opencode/core_
-  forensics.bt`, compare vs frz91/frz89 baselines (does a second
-  waiter sit on the 4C host event?).
+* **1 (frz93 verdict at completion — THE Gameplay gate):** if PRESENT
+  flips resume after the load (`watch … fps>0` post-t~500s) ->
+  `python3 tools/fbpeek.py reference/fb/93 --diff` + visual check of
+  late dumps: animated textured level scene = GAMEPLAY artefact
+  (CHANGELOG row; README wording user-owned; texture-coverage
+  confirmation = queued carry-over). If acc gap (tot-acc ~76) keeps
+  WIDENING instead of closing -> load producer/consumer imbalance
+  is the wall: census the producer (which function bumps GATE
+  `tot`/ctx+0x270).
+* **2 (if frz93 plateaus v2-style):** core forensics on
+  `sudeki.frz93.core` vs frz92/frz89 baselines (thread map +
+  `[SWAP] pump2` pinned-4096 quirk vs real stall discrimination).
+* **3 (carry-over):** swap-pool `pump2/eng2=4096` census quirk
+  investigation (guest word ctx+0x2478 swap counter vs pump entry
+  counts); xemu title/menu side-by-side (note 0019; needs idle GPU).
 * Carry-over: RECOMP_SWMARK_INTR12/PF/IRQPOST/PB_PARK stay opt-in
   probes; `RECOMP_ARM_UNTIL_SEEN=0` (v4) stays the working regime;
   queue depth 2048 + 0046 idle-clear default-on; `RECOMP_TITLE_
