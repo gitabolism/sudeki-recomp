@@ -3,21 +3,24 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-23 16:3x (session 5d/5e cont., ~13:0x–…)
+**Last updated:** 2026-11-23 17:0x (session 5d/5e cont., ~13:0x–…)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
 (xemu same-moment capture still owed, see Queue);
 **navigation works; the game reaches a fully rendered "Press START"
 title and CYCLES it as an attract loop (frz172/174 FB dumps)**;
-load-stall wall (H31, re-posed x30, home = note 0025) in ONE sentence:
-the old "stuck Loading" picture was partly a HARNESS ARTIFACT (the
-PUMP-x167 early-kill truncated progression, frz171 law); un-killed, the
-load machinery CYCLES and the game renders the full Press START screen —
-but the SOL **scene/object-graph tier stays dead for the whole pill era
-(MSG/SWEEP/MKLU/SCH/CTOR census ALL x0, frz174)**, so pad START (arriving
-and ISR-claimed) has no handler and the title attract-loops forever;
-those tiers are started only from runtime-built tables (SWEEP 4E1F0 and
-friends have ZERO static xrefs) — core forensics at the stuck moment is
-the chosen next lever (frz175 running, SIGABRT-at-timeout = core).
+load-stall wall (H31, re-posed x31, home = note 0025) in ONE sentence:
+the old "stuck Loading" picture was partly a HARNESS ARTIFACT (frz171
+law); un-killed, the load machinery CYCLES and renders the Press START
+title — but the SOL **scene/object-graph tier stays dead for the whole
+pill era** (MSG/SWEEP/MKLU/SCH/CTOR census ALL x0, frz174); the
+**xref-scan-bug overturn (session 5e)** showed the tier family DOES
+have static refs (SWEEP = F1CA0 dispatcher cmd 0x37 leg; MSG1 callers
+= .rdata-table methods; CTOR called from ~12 dispatcher-family
+methods), and the whole dead chain bottomed at command-object methods
+that are never vtable-invoked; frz175 (CF14C, black era) core: main
+parked in D3D task-wait (1DE5C0), wakes era-invariant, runtime-table
+hunt REFUTED (no heap table copies anywhere). frz176 (regen+census
+REGI/REGX/CMD1 running) decides where instantiation dies.
 
 ## Where things are verified
 
