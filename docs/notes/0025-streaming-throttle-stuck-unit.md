@@ -1746,3 +1746,30 @@ era only ever raised `00000004` x18 / `00000040` x2 — game sat in
   no-00000002 regime variant.
 - Laws: OHCI enumeration milestone (00000002) is REGIME-VARIABLE;
   input-dependent depth requires the gate to be era-tolerant.
+
+## frz145b/146 — vblank-tick death, diag patch 0052, regime luck verdict
+
+- frz145b (same 145 binary): hung again — hangwatch (tools/) SIGABRT'd
+  it at ord161 x399827 -> core. bt: main thread inside Bink decode
+  (sub_2C06E0 chain, MMX_PUNPCKLBW), ALL other threads waiting;
+  nv2a flip counter frozen at 2 (145: 224); vblank tick lines froze
+  (145: zero <600 in 1150 s; 145b: died between 1200 and 1800).
+- Host kernel-bridge analysis: TICK-mode vblank (`kernel_vblank_tick`,
+  kernel_bridge.c) runs on kernel_timer_thread's Sleep(10) loop; in
+  the 145b core that thread is ALIVE in Sleep(10) yet ticks stopped —
+  either the gate (`now<next_ms`) or mode went bad, unresolvable from
+  one bt sample. Patch 0052 (RECOMP_VBLANK_DIAG=1) prints
+  entry-count/mode/now/next every 2000 loops.
+- frz146 = 145 code + patch 0052 + VBLANK_DIAG: HEALTHY (9600 ticks
+  @50 Hz, 1823 flips, SUBM x199 cap, PUMP x119, movies to
+  ClimaxLogo/FMA01_poem at 200 s — same depth as 141-144). VBLDIAG
+  shows mode=1(TICK), loop ~100 Hz, now/next normal.
+- VERDICT: the vblank-death is a NONDETERMINISTIC boot-era regime
+  (frz62-83 matrix law, third confirmation), NOT a property of the
+  5-rungs census change. frz146b full-length rerun of the same
+  binary decides census (frz145 census was void — never reached the
+  era). Regime check before ANY census verdict: vblank tick lines +
+  SUBM progression in the first 200 s.
+- Harness law (2nd bite): nav_run scripts name BIN=/tmp/opencode/
+  sudeki-frz$N.bin — ALWAYS `cp build/sudeki /tmp/opencode/
+  sudeki-frz<TAG>.bin` for the EXACT tag before launch.

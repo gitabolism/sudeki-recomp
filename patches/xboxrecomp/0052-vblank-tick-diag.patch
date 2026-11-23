@@ -1,19 +1,24 @@
 --- a/src/kernel/kernel_bridge.c
 +++ b/src/kernel/kernel_bridge.c
-@@ -3393,6 +3393,16 @@
-         return;
+@@ -3359,6 +3359,21 @@
+     uint64_t due;
  
-     now = (long long)GetTickCount64();
-+    /* frz145 diagnostic (RECOMP_VBLANK_DIAG=1): the tick froze in the
-+     * frz145 regime (0 printed ticks over 1150 s) while the timer thread
-+     * was alive in its Sleep(10) loop. Report entries, mode, gate - one
-+     * line per 2000 entries so a dead GATE vs dead LOOP is visible. */
+     *next_due_ns = 0;
++    /* frz145 diagnostic (RECOMP_VBLANK_DIAG=1): vblank-tick death in the
++     * frz145 regime - the timer loop was alive but no tick line ever
++     * printed. Per-2048-loop report of mode/count/due so a dead MODE
++     * gate vs a dead schedule is visible. (The healthy regime is
++     * PACED, not TICK: mode caches on the FIRST caller, racing the
++     * timer thread with the first flip/raise. LAW.) */
 +    {
 +        static unsigned dbn;
-+        if (getenv("RECOMP_VBLANK_DIAG") && (++dbn % 2000) == 0)
-+            fprintf(stderr, "  [VBLDIAG] entry %u mode=%d now=%lld next=%lld\n",
-+                    dbn, (int)kernel_vblank_mode(), now, next_ms);
++        if (getenv("RECOMP_VBLANK_DIAG") && (++dbn % 2048) == 0)
++            fprintf(stderr, "  [VBLDIAG] loop %u mode=%d count=%llu "
++                    "now=%llu due=%llu\n", dbn, (int)kernel_vblank_mode(),
++                    (unsigned long long)count,
++                    (unsigned long long)now_ns,
++                    (unsigned long long)due);
 +    }
-     if (now < next_ms)
-         return;
-     next_ms = now + 16;                       /* ~60 Hz */
+     if (kernel_vblank_mode() != XBOX_VBLANK_PACED)
+         return 0;
+     if (!started) {
