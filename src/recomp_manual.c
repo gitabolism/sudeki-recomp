@@ -2035,6 +2035,66 @@ void sub_001F1870(void)
 extern void sub_001EACC0_gen(void);
 extern void sub_001EAD70_gen(void);
 
+/* frz135: static census proves only TWO sites ever pass EF0C0 mode=2
+ * (the pump-chain 3D7620 feed): 1FD699 inside sub_001FD660 (bulk
+ * submit loop over obj[+0x3C] array) and 208F08 inside sub_00208E60.
+ * EF0C0 mode census (frz133/134) = all mode 0 -> these two functions
+ * never ran their mode-2 branches. Census their entries: x0 proves
+ * the engine never even attempts a pump-chain request. */
+extern void sub_001FD660_gen(void);
+
+void sub_001FD660(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_edi, g_esp, g_eax;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 200) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [SUB2A] x%u ra=%p edi=%08X esp+8=%08X\n",
+                n, ra, g_edi,
+                (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                    ? MEM32(g_esp + 8) : 0u);
+        fflush(stderr);
+    }
+    n++;
+    sub_001FD660_gen();
+    if (on && n < 200) {
+        fprintf(stderr, "  [SUB2A] x%u -> eax=%08X\n", n - 1, g_eax);
+        fflush(stderr);
+    }
+}
+
+extern void sub_00208E60_gen(void);
+
+void sub_00208E60(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_ecx, g_eax, g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 200) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [SUB2B] x%u ra=%p ecx=%08X eax=%08X esp+8=%08X\n",
+                n, ra, g_ecx, g_eax,
+                (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                    ? MEM32(g_esp + 8) : 0u);
+        fflush(stderr);
+    }
+    n++;
+    sub_00208E60_gen();
+    if (on && n < 200) {
+        fprintf(stderr, "  [SUB2B] x%u -> eax=%08X\n", n - 1, g_eax);
+        fflush(stderr);
+    }
+}
+
 void sub_001EACC0(void)
 {
     static int on = -1;
