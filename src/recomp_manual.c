@@ -2393,25 +2393,9 @@ CENSUS(sub_0008A470, "CTORA", 40)
 extern void sub_0008B790_gen(void);
 CENSUS(sub_0008B790, "CTORB", 40)
 
-/* frz150: the ENTIRE dead static chain in one run — resource upper
- * rungs (RSRC1-4 x0, runtime-dispatched only) -> 70360/72B00 ->
- * 77140/7A4C0 -> handler family (7E6E0..81D10) -> factories ->
- * ctors (CTOR x0); plus 17CB7E, sole code ref of the registrar-
- * vtable global 03328D8 (ARROWS/AUSLESE string table -> 8A790 ->
- * 491C0 -> 49B10 task-type registrar REGT x0). Highest ticking rung
- * names the dead edge. */
-extern void sub_00070360_gen(void);
-CENSUS(sub_00070360, "UP1", 40)
-
-extern void sub_00072B00_gen(void);
-CENSUS(sub_00072B00, "UP2", 40)
-
-extern void sub_00077140_gen(void);
-CENSUS(sub_00077140, "UP3", 40)
-
-extern void sub_0007A4C0_gen(void);
-CENSUS(sub_0007A4C0, "UP4", 40)
-
+/* frz150: handler-family rungs of the dead object-graph chain (UP
+ * rungs 70360/72B00/77140/7A4C0 already have census wrappers from
+ * frz146 era; one run names the highest living rung). */
 extern void sub_0007E6E0_gen(void);
 CENSUS(sub_0007E6E0, "FAM2", 40)
 
@@ -2444,9 +2428,6 @@ CENSUS(sub_00081110, "FAM11", 40)
 
 extern void sub_00081D10_gen(void);
 CENSUS(sub_00081D10, "FAM12", 40)
-
-extern void sub_0017CB7E_gen(void);
-CENSUS(sub_0017CB7E, "GATE", 40)
 
 
 
