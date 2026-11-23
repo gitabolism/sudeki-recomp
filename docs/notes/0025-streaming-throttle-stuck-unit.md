@@ -1121,3 +1121,23 @@ NO early-kill watcher, full 1150 s window. If the level then
 streams (level .baf OPEN, new EF770/EF0C0 activity, level FB dumps)
 the "stall" was self-inflicted; if the terminal shape persists
 press-free, H31 stands and the issuer hunt resumes.
+
+## frz134 — clean-input A/B: wall is NOT input-induced; H31 stands (re-pose x14)
+
+Run `logs/run-frz134-061615.out` (binary byte-identical to frz133 —
+`cmp` proved same-as-frz133; only the press script changed:
+frz18-exact 5 starts 8 s apart at pad enumeration, 12 s gap, 3
+starts 15 s apart, then TOTAL SILENCE; no early-kill watcher, full
+1150 s window, timeout-KILL at the end).
+
+Verdict: `[PUMP] x167` terminal appears at line 55017 with the
+IDENTICAL shape (mgr `018CF14C`, id `0002`, `st=00025120`, node
+`EA3D4B48`, same backtrace) and `[ISSDRV]` stays x2, `[EF0C0]` stays
+all-mode-0 (x422). Buki-era file opens reached at line ~9806
+(buki.xwb, Buki_sfx.xwb, SOLWORLDM.gex). So the harness START-spam
+was NOT the cause of the terminal shape — the wall reproduces with
+frz18-clean input. H31 re-pose x14 stands: engine-side stop-of-issue
+after the first job set completes.
+
+Note: this run also confirms the press script (nav_run36a) still
+reaches the Buki load era — navigation itself is healthy.

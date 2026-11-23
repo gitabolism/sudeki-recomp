@@ -3,19 +3,18 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-23 02:5x (session 5a, 22:0x–02:5x)
+**Last updated:** 2026-11-23 06:3x (session 5b, 03:0x–06:3x)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
 (xemu same-moment capture still owed, see Queue);
-**navigation works**; load-stall wall (H31, re-posed x12, home = note
-0025) in ONE sentence: the engine never re-issues the next load leg
-(`1F1470` fires ONCE whole-run, `1F1870` never), so the loader
-heartbeat (`1EACC0`) stays idle, the sole wake producer (`1EAB90`
--> evt6, 5 Sets ever) goes silent, and loader servicing (EE110 ->
-tick -> pump, terminal x167) starves — while job `0A260002` is
-still registered on manager `018CF14C` with its pump gate OPEN.
-ONE regime (frz121); loader thread alive (attract-era REQ); 17/17
-thread starts dispatched; module globals all NULL at kill (frz126
-core); frz128 probes (ENQ flag+state, SRST) committed, NOT yet run.
+**navigation works**; load-stall wall (H31, re-posed x14, home = note
+0025) in ONE sentence: the streaming machinery COMPLETES its whole
+job set cleanly and goes quiet (frz133: 522 CQ pushes all mode-0
+completions incl. the terminal manager itself; zero pump-chain
+pushes ever), while the engine-side issue chain
+(task-table->6AD00->74F10->7D1E0->157B10->EF770 new-session) fires
+only x2 at boot — and this is NOT input self-sabotage (frz134 A/B:
+frz18-exact presses, zero tail STARTs, terminal shape identical).
+frz128→134 census arc complete; nav_run36a.sh = clean-press harness.
 
 ## Where things are verified
 
@@ -50,62 +49,61 @@ core); frz128 probes (ENQ flag+state, SRST) committed, NOT yet run.
 
 ## Last run
 
-Session 5a (22:0x–02:5x): **frz107→127 census arc; H31 anatomy
-complete to the issuer; patches 0048–0051.**
-- frz127 verdict (decisive): `[ISSU1]` (`1F1470` issue-and-service
-  loop) = **1 call whole-run** (line 12331, boot era, ctx
-  `014B6300`, `ctx+0x34`=2, caller inside `1F3310` region);
-  `[ISSU2]` (`1F1870`) = 0; `[EDRV]` (`1EAD70` wait-sessions) = 4,
-  all instant non-busy; `[EBUSY]` (`1EACC0`) alive all run
-  (x4096+, engine-frame ra `1E0C1E`), always idle after ~x1555.
-- frz126: `[EACK]` (`1EAB90`) = 5 total, ALL from `1EACC0` ack
-  branch, last 16 lines before x167; core: module globals all NULL.
-- frz125: `[SMEVT]`/`[POST]`/`[F0F80]` census -> every `NtSetEvent`
-  is wrapper-routed (`from=26D5BA`); **48000007 never Set**; q1
-  posts alive to line 52291 (poster NOT the gap); q2 boot-era only.
-- Terminal shape (deterministic, fresh AND reused cache): PUMP x167
-  = last servicing call ever (bypass site, mgr `018CF14C`, id
-  `0A260002`, node key `EA3D4B48`); EE110=167, MTICK=167, CQ,
-  F9720 — ALL silent after.
-- Wake pair law decoded (frz125/126): evt7/evt6 + flags `37A0F4/F5`;
-  loader wakes ONLY on evt6 Sets from `1EAB90` (5/run, from `1EACC0`
-  ack branch); EAAB0 request path dead by construction (needs evt6
-  Set first); EE190 wake branch never reached — OPEN contradiction
-  (its FLAG=1 calls should Set evt7; frz128 settles it).
-- frz126 core: async-load module all-NULL at kill (idle) while job
-  `0A260002` still on manager; frz127 proved the issuer loops
-  (`1F1470`/`1F1870`) fire once/never.
-- Pump raw decode: async/sync branch = `job[+8]` bit2; tick pump
-  gate = `MEM8(job)==0` — OPEN at kill (frz117/123 cores).
-- Loader wait anatomy (raw): `EABD0` WFMO{48000007,48000006};
-  `21AD0` = consumer loop body (drains q1 keyed by `task[+0xC]`);
-  `21CD0` routing law (flag bits {15,9,10,11,12} -> q2/`220E0`);
-  q2 = boot-era only; `1EAD70` = main-loop load-wait sessions
-  (caller `11AF57`); `1EACC0` = per-frame heartbeat+busy-check.
-- Install integrity proven (frz119 write map 0..27,762,688 no gaps);
-  attract-movie IO explains tail-slot cycling; no level `.baf` ever
-  opens. Regime split REFUTED (frz121). Patch 0050 correct, not the
-  wall; patch 0051 raw-write log (capacity-check decision owed).
-- /review audit #2 ran + applied (drift deleted, README Status
-  honesty pass, ETA 2–4 sessions).
+Session 5b (03:0x–06:3x): **frz128→134 census arc; H31 stands with
+clean input; harness START-spam confounder convicted then EXONERATED
+as cause; xemu FB capture pipeline live.**
+- frz129/130: evt7 = notification event created SIGNALED -> wake/park
+  short-circuit is guest-coherent (frz126 "contradiction" was polarity
+  misread); W2MO fixed: loader parks INFINITE on {evt6,evt1}, wakes
+  17x on evt1 (REQ) — loader healthy. ISSDRV(1EF770) x2 whole-run;
+  session-gate law: EF770 issues iff F8670(0)==0; F8670 x32 all
+  key-miss (11 healthy sessions exist, table allocated).
+- frz131 (corrected base recipe `runtime .text − 0x10ee00`): ISSMTH
+  (157B10) x17 ALL drain (arg5 bit0=1), EFSUB (EF7C0) x16-17,
+  SWEEP (4E1F0) **x0**; REQ ra=21AD0+0x4cf (loader consumer);
+  issuer chain static-complete: task-table (LE ref file 0x3229E8) ->
+  6AD00 -> 74F10 -> 7D1E0 -> 157B10 -> {EF770 new | EF7C0 drain}.
+  Cache cursor 25,137,248 = FMH sparse padding AFTER an index record
+  (key dword 0x06610B21 @0x17F905C, payload resumes 0x17F915C) —
+  install data fine, FMH container law noted.
+- frz132: `[SESSN]` sessions peak 31 (26x1,3x2,1x3) — state-3 exists,
+  NOT the discriminator. Loader pump law decoded raw (1EAC50..):
+  servicing gated SOLELY on `[0x3D7620]!=0`; else loader parks.
+- frz133: CQ uncapped = 522 pushes total (3D76B0x226/68Cx95/5FCx95/
+  6D4x46/764x31/6F8x29); ZERO pushes ever target 3D7620/668;
+  EF0C0 x398 ALL mode=0; terminal burst (56803+) completes the
+  TERMINAL manager `018BF14C` itself -> machinery finishes cleanly,
+  engine never issues the NEXT job.
+- frz134 (A/B, frz18-exact presses, zero tail presses, full 1150 s):
+  PUMP x167 terminal at line 55017 UNCHANGED; buki era reached
+  (line 9806). Wall NOT input-induced.
+- Patches unchanged (0001..0051). Tools added: `tools/xemu_fbpeek.py`,
+  `tools/xemu_rampeek.py`, `tools/hddpeek.py` (qcow2+FATX, unproven),
+  `scripts/xemu_titlecap.sh` (proven: `reference/xemu/title90.png`
+  + `title.bmp`, v1.1.0 VRAM law **off 0x1A3B000 640x576 score .996**).
+- xemu RAM dump dead-end law: game code in RAM is paged + XBE-region
+  encrypted (pattern scans fail); globals NOT VA-locatable in RAM
+  dumps; HDD qcow2 header parse pending (tools/hddpeek.py).
+
+Session 5a summary: frz107-127 census arc; H31 re-posed x12 to issuer
+level; patches 0048-0051; raw-decode law; /review audit #2.
 
 Earlier sessions live in the notes (0001–0011, 0016–0025) + session
 log.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x12): the engine never
-   re-issues the next load leg.** `1F1470` fires once (boot, caller
-   in `1F3310` region), `1F1870` never; heartbeat `1EACC0` alive
-   but always idle; wake supply `1EAB90`->evt6 dries with the
-   idleness. Two open edges: (a) WHO is supposed to issue leg N+1 —
-   candidates are the loader relay itself (manager `EBF20` static-
-   descriptor dispatch, `00F95xxx` tables) and the worker chain
-   `F0DF0/F0F80` (only 11 calls whole-run); supporting datum:
-   reservation-add probe `[RESADD]` = **0 calls whole-run** while
-   `[RESREL]` = 21 (frz125) — the reserve side never runs at the
-   wall. (b) the EE190 FLAG=1/evt7 contradiction (frz128 probes
-   committed). Host-side exoneration not yet proven either way.
+1. **H31 (ACTIVE, note 0025, RE-POSED x14): the engine stops
+   issuing after the first job set completes.** Machinery exonerated
+   end-to-end (loader healthy-parked; completions run to completion
+   incl. the terminal manager; frz134 input A/B clean). The dead
+   edge is engine-side re-issue: new-session path EF770 x2 (boot)
+   only, drain submits x17 (menu-era), sweep 4E1F0 x0, EF0C0 mode
+   1/2 (push->pump-chain 620) NEVER requested. Next: decode 1F1650
+   (session hub — creates sessions AND advances legs) + who ever
+   calls EF0C0 with mode 1/2 (requester that feeds the pump chain)
+   — 21AD0 consumer under a never-true condition, or a task-table
+   entry that never schedules?
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop
    (0005); async-IO return convention = the phantom charge (0011);
@@ -118,24 +116,21 @@ log.
 
 ## Queue (next concrete actions)
 
-* **1. frz128 run (probes already committed, just gen+build+run)**:
-  `[ENQ]` logs flag + evt7/evt6 state per call and `[SRST]`
-  censuses `26D5CE` ResetEvents — settles the EE190 FLAG=1/evt7
-  contradiction and maps all 8 request decisions. Command:
-  `cd xboxrecomp && python3 -m tools.recomp ../game/default.xbe --all --split 250 --gen-dir ../src/recomp/gen --game-name sudeki --exclude-manual ../src/recomp_manual.c && bash scripts/build.sh && cp build/sudeki /tmp/opencode/sudeki-frz128.bin && sed 's|nav_run11|nav_run35|g; s|reference/fb/127|reference/fb/128|g' /tmp/opencode/nav_run34.sh > /tmp/opencode/nav_run35.sh && rm -rf ~/.local/share/xboxrecomp/Cache/* && bash /tmp/opencode/nav_run35.sh 128 1200`
-  (kill early once `[PUMP] x167` appears in the log).
-* **2. Leg-issuer hunt (next after frz128):** symbolize the lone
-  `[ISSU1]` caller precisely (bin `/tmp/opencode/sudeki-frz127.bin`
-  + core `sudeki.frz127.core`, ra `0x55b8e99426e2`); decode the
-  loader relay leg-registration — `EBF20` manager-descriptor
-  dispatch (`00F95xxx` tables) and why `[RESADD]`=0 while
-  `[RESREL]`=21 (which API should call the reserve side at the
-  wall). Probe that API entry in frz129.
-* **3. Menu artefact completion (rule 6, one run-window): xemu
-  title-screen capture for side-by-side with `reference/fb/frz35*`
-  dumps** — needs the QMP/HMP headless fix (note 0019 recipe).
-  Interleave between frz cycles; `reference/xemu/` today holds only
-  the STOP screen.
+* **1. Session-hub decode (static, zero runs):** decode `1F1650`
+  (session create + leg-advance hub, called from EF7C0 submit) and
+  enumerate call sites of `1EF0C0` passing mode 1/2 (kinds that
+  target busy/pump chains `3D7668`/`3D7620`) — grep lift `call
+  0x1ef0c0` sites and their mode args; the never-requested mode-2
+  feed is the structural dead edge.
+* **2. frz135 (after item 1):** clean-press harness
+  `/tmp/opencode/nav_run36a.sh` + targeted probes from item 1
+  (the 1F1650 leg-advance branch + mode-2 requester entry), with
+  early-kill watcher re-armed for a core. One variable per probe.
+* **3. Menu artefact completion (rule 6):** xemu capture pipeline is
+  LIVE (`scripts/xemu_titlecap.sh` -> `tools/xemu_fbpeek.py`, v1.1.0
+  law `0x1A3B000 640x576`); `reference/xemu/title90.png` exists —
+  now pair with a frz134-era title-frame FB dump (same visual
+  moment) for the side-by-side. Interleave between frz cycles.
 * **4. Write-path decision**: capacity enforcement (patch 0005)
   sits on `bridge_NtWriteFile` which the guest never uses (patch
   0051 log proves raw thunk route). Move it into `kernel_file.c` or
@@ -157,14 +152,13 @@ log.
 
 ## Blockers / open questions
 
-- **H31 wall write-up (AGENTS work-loop rule):** 34+ runs
-  (frz93→127), 11 re-poses, 3 header-level facts overturned mid-wall
-  (regime split, trailer-bit4, events-never-Set). No host-side
-  exoneration yet: with the job gate provably open, module globals
-  null and 17/17 threads dispatched, the missing piece is a
-  game-side issuer; if frz127 exonerates EBUSY/EDRV/ISSU, next
-  re-pose compares against a real reference trace (xemu kernel
-  trace of the same load — Queue item 2 serves).
+- **H31 wall write-up (AGENTS work-loop rule):** 41+ runs
+  (frz93→134), 14 re-poses, 4 header-level facts overturned mid-wall
+  (regime split, trailer-bit4, events-never-Set, START-spam
+  confounder). Host side now EXONERATED end-to-end (frz128–134:
+  loader healthy-parked, completions complete, input A/B clean);
+  the wall is engine-side re-issue. Next comparison if the static
+  decode stalls: xemu kernel trace of the same load.
 - User question (rule 7): push posture — see "Where things are
   verified" Git bullet.
 
@@ -178,9 +172,11 @@ log.
   RECOMP_PRES_TRACE=1 RECOMP_EVENT_LOG=1 RECOMP_GSVC_TRACE=1
   RECOMP_RD_TRACE=1 RECOMP_MISSING_FILES=all RECOMP_POST_TRACE=1
   RECOMP_LOG_ORDS=123,138,145,205,225`).
-- Harness trio current: `/tmp/opencode/nav_run34.sh`,
-  `frz_watch*.sh`, `core_forensics.bt` (+`core_ram.py` Core class —
-  ram-base finder above). `/tmp/opencode` ephemeral.
+- Harness current: `/tmp/opencode/nav_run35.sh` (8-start spam,
+  early-kill on `[PUMP] x167 `) and `/tmp/opencode/nav_run36a.sh`
+  (frz18-exact presses, no early kill — clean-input A/B);
+  `core_forensics.bt` + `core_ram.py` Core class. `/tmp/opencode`
+  is tmpfs: everything there vanishes on host reboot.
 - Other useful env: `RECOMP_CACHE_CAP_BYTES`, `RECOMP_WATCH=<va>…`,
   `RECOMP_SEM_TRACE`, `RECOMP_LOG_ORDS=…` (patch homes: THIRD_PARTY
   table).
@@ -198,7 +194,7 @@ log.
 - Deterministic markers: PUMP x167 terminal, EE110=167, baf-read
   counts vary by kill timing (don't pin on them); regime pinned in
   run header from now on.
-- Git: never push (rule 7); local commits through `b0204cd` (+ this
+- Git: never push (rule 7); local commits through `729777e` (+ this
   close-out); every agent commit this session is factory/docs only.
 
 ## Session log (chronological; HH:MM = commit times)
@@ -227,3 +223,4 @@ log.
 | 11-22 18:50–19:23 s4v | **H30 ROOT-CAUSED (note 0024)**; frz91 probe; user-approved history scrub + rule 12 | `19b5f4f` `ff20cad` |
 | 11-22 19:56–22:3x s4w | **H31 framed (note 0025)**; frz92 GPU-wall-dead verdict chain; patch 0047; /review harness + first audit + README sync | `c4b9be4`..`7ce51cb` |
 | 11-22 22:0x–11-23 02:5x s5a | frz107-127 census arc; H31 re-posed x12 to issuer level (1F1470 once/1F1870 never; wake supply evt6 x5 only); patches 0048-0051; raw-decode law; regime split refuted; /review audit #2; frz128 probes committed | `230ede7`..`b0204cd` |
+| 11-23 03:0x–06:3x s5b | frz128→134 census arc: evt7 polarity closed, loader healthy-parked, submit chain runs (ISSMTH x17 drain/SWEEP x0), state-3 refuted, 522 CQ pushes all-completions, START-spam confounder convicted then exonerated (frz134 clean-input reproduces wall) -> **H31 re-posed x14: engine-side stop-of-issue**; xemu FB capture pipeline live (`reference/xemu/title90.png`) | `99d6370`..`729777e` |
