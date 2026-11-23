@@ -100,21 +100,27 @@ log.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x18): one unclosed request on
-   the fresh terminal manager.** Full chain now named: splice
-   (EF0C0 mode2) -> `DISP 1F8A00` -> hub `1F8960` (registry walk of
-   `[0x39761C]`, 10 subsystems alive at kill) -> requester vtable
-   `33812C` (+4=`20B710`=SCH4 x31) / session-builder (`227570` ->
-   `227E60`, vtable `338B64` = the 31 sessions) -> `20BBA0` ->
-   `2027B0` WALK x31 = COMPLETE task list; `startup.baf` container
-   install byte-complete (27.7 MB FMH container vs 8.5 MB disc
-   source — NOT a copy). Pending-count ledger (frz138 watch): the
-   whole streaming era balanced; terminal burst nets **+1** — the
-   open from `sub_001EE2A0` relay call (`1EE682` -> inc `1EC2E5`)
-   never gets its dec; `20F1A0` scene-executor x0. Next: frz139
-   full-record watch ledger + frz140 (HUB0/SESSB/DISP/THKB) to
-   decide whether the dispatch tier keeps ticking post-wall or dies
-   with the manager.
+1. **H31 (ACTIVE, note 0025, RE-POSED x19: the engine never builds
+   the next SESSION — and the level scene object is never
+   constructed).** frz140 laws: dispatch tier (HUB0 x61/DISP x30/
+   SESSB x30/WALK x30) dies EXACTLY with session 31; loader drain
+   era (PUMP x120..167, resident jobs one-by-one) outlives it;
+   full-record ledger = plain single-open leak (`EE2A0` relay open
+   `1EC148` never dec'd; batch-dword `[+0x14]` NEVER set ->
+   two-counter race refuted; state-bit churn all balanced);
+   ISSMTH x34, 33 drain + 1 new-session (boot); SWEEP x0 = command
+   55 never posted; session table EMPTY + task-registry global
+   `[0x3762EC]` NULL at kill; **`[0x3DC83C]` (level scene for
+   cmd-55/SWEEP) = near-empty stub record `0281BE50` at kill** —
+   scene construction itself never completed/started. Command law:
+   `F1CA0` routes cmd `0x37=55` -> SWEEP; cmd value originates in
+   per-object queues under vtable+0x10 fanout (`15B640` family,
+   vtables 32FAE4/FB50/0464). Side law: `0x115000` (pause-setter)
+   NEVER LIFTED (no dispatch entry; era-dependent ICALL failures
+   frz134/135; 0 hits frz137/138/140; globals 0/0/1 at kill = no
+   pause block) — seed candidate. Next: frz141 = current binary +
+   FRM census on `15B640` -> frame tier alive? then command-post
+   watch or scene-construction decode.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop
    (0005); async-IO return convention = the phantom charge (0011);
@@ -127,21 +133,21 @@ log.
 
 ## Queue (next concrete actions)
 
-* **1. Session-hub decode (static, zero runs):** decode `1F1650`
-  (session create + leg-advance hub, called from EF7C0 submit) and
-  enumerate call sites of `1EF0C0` passing mode 1/2 (kinds that
-  target busy/pump chains `3D7668`/`3D7620`) — grep lift `call
-  0x1ef0c0` sites and their mode args; the never-requested mode-2
-  feed is the structural dead edge.
-* **2. frz135 (after item 1):** clean-press harness
-  `/tmp/opencode/nav_run36a.sh` + targeted probes from item 1
-  (the 1F1650 leg-advance branch + mode-2 requester entry), with
-  early-kill watcher re-armed for a core. One variable per probe.
-* **3. Menu artefact completion (rule 6):** xemu capture pipeline is
-  LIVE (`scripts/xemu_titlecap.sh` -> `tools/xemu_fbpeek.py`, v1.1.0
-  law `0x1A3B000 640x576`); `reference/xemu/title90.png` exists —
-  now pair with a frz134-era title-frame FB dump (same visual
-  moment) for the side-by-side. Interleave between frz cycles.
+* **1. frz141 (next run, binary already carries FRM):** census on
+  `15B640` engine-frame dispatcher decides the frame tier: FRM
+  ticking + no command-55 -> watch command-queue posts (queue field
+  = `this+0xFFC`/`0xEB`C family under vtable+0x10); FRM x0 -> frame
+  tier itself dead, find the app loop that calls vtable+0x10.
+* **2. Seed `0x115000`** (never-lifted pause-setter, measured from
+  frz134/135 `[ICALL] Failed to resolve` lines) in next gen cycle;
+  also re-check `tools.recomp.icall_feedback` for any other
+  unresolved targets accumulated in recent logs.
+* **3. Menu artefact completion (rule 6):** xemu shotseq running
+  with later timestamps (300/420/540) after frz140 — pick by
+  uniformity, pair with our title-era FB dumps; t=60/90 dumps exist
+  (FMV era + debug-counter overlay at 0x3C00000 pitch-720 — real
+  xemu-rendered content, right half noise = wrong pitch for game
+  surface). NEVER edit scripts a live chain re-reads.
 * **4. Write-path decision**: capacity enforcement (patch 0005)
   sits on `bridge_NtWriteFile` which the guest never uses (patch
   0051 log proves raw thunk route). Move it into `kernel_file.c` or
