@@ -1,0 +1,64 @@
+--- a/src/kernel/xbox_memory_layout.c
++++ b/src/kernel/xbox_memory_layout.c
+@@ -2331,6 +2331,29 @@
+     return NULL;
+ }
+ 
++/* sudeki-recomp local patch 0053: RECOMP_WATCH_POLL=<ms> — trap-free watch.
++ * The mprotect/TF-step trap proved unreliable for a slow census (once the
++ * boot writes churn the page the later stores can go untrapped), while the
++ * census markers already name writer CONTEXT per log line. So poll the
++ * window and print dword transitions, interleaved with the census lines:
++ * the change lands between two markers, which is enough to identify the
++ * writer's call site. No signals, no protection changes, no guest impact
++ * beyond the poller thread waking every <ms>. */
++static unsigned g_watch_poll_ms;
++
++static void *watch_posix_poll(void *unused)
++{
++    struct timespec ts;
++    (void)unused;
++    ts.tv_sec = g_watch_poll_ms / 1000u;
++    ts.tv_nsec = (long)(g_watch_poll_ms % 1000u) * 1000000L;
++    for (;;) {
++        nanosleep(&ts, NULL);
++        watch_posix_diff();
++    }
++    return NULL;
++}
++
+ static int watch_posix_arm(void)
+ {
+     struct sigaction sa;
+@@ -2357,6 +2380,13 @@
+         g_watch_panic = p && *p ? atoi(p) : 0;
+     }
+     {
++        /* Patch 0053: poll-only mode (see watch_posix_poll). */
++        const char *p = getenv("RECOMP_WATCH_POLL");
++        g_watch_poll_ms = p && *p ? (unsigned)atoi(p) : 0;
++        if (g_watch_poll_ms && g_watch_poll_ms < 20u)
++            g_watch_poll_ms = 20u;
++    }
++    {
+         uintptr_t lo_h = (uintptr_t)g_memory_offset + g_watch_va;
+         g_watch_hsize = (((lo_h + g_watch_len - 1) & ~(g_watch_hsize - 1))
+                          + g_watch_hsize) - g_watch_hpage;
+@@ -2364,6 +2394,17 @@
+     memcpy(g_watch_snap, (const uint8_t *)g_memory_offset + g_watch_va,
+            (g_watch_len + 3) & ~3u);
+ 
++    if (g_watch_poll_ms) {
++        if (pthread_create(&th, NULL, watch_posix_poll, NULL) != 0)
++            return 0;
++        pthread_detach(th);
++        fprintf(stderr, "  WATCH: polling every %u ms for changes to %u bytes "
++                        "at 0x%08X (current %08X)\n", g_watch_poll_ms,
++                g_watch_len, g_watch_va, g_watch_last);
++        fflush(stderr);
++        return 1;
++    }
++
+     memset(&sa, 0, sizeof sa);
+     sa.sa_sigaction = watch_posix_handler;
+     sa.sa_flags = SA_SIGINFO | SA_ONSTACK | SA_NODEFER;
