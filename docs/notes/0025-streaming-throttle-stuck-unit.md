@@ -827,11 +827,15 @@ frz117/121/123/125/126/127 + raw capstone decode of the XBE):
 
 * ISSU1 `1F1470` has exactly TWO static call sites: `sub_001F0410`
   (thiscall vtable leaf: `1F1470(obj+0x14, 0)`) and `sub_001F1280`
-  (site `1F12F2`). The lone frz127 `[ISSU1]` hit came through the
-  vtable leaf: `0x001F0410` is slot 4 of the vtable at guest
-  `0x00336620` (class-name strings "Secret"/"Blur" adjacent at
-  `33660C/336618`) — a game-effect object method, consistent with
-  the earlier "caller in 1F3310 region" wording (dispatch frame).
+  (site `1F12F2`). frz128 symbolization (matched bin, host base
+  `0x55c14e4c5000`) CORRECTS the session-5a attribution: the lone
+  ISSU1 call ran through `sub_001F1280+0x974` — the engine issue
+  path — NOT the vtable leaf. Supporting symbolized sites (frz128):
+  REQ = `21AD0+0x4cf` (consumer body -> EABD0); EACYC caller =
+  `EF1D0+0xe5e` (bucket walk -> EAAB0, matches frz125); CQ push =
+  `EF1D0+0x240a`; both PUMP ra's = `EDA20_gen` (tick main+bypass).
+  The `0x001F0410` vtable leaf (slot 4 of `0x00336620`,
+  "Secret"/"Blur" class) exists but was never taken.
 * `1F1280` has ONE caller: `sub_001EF770` (site `1EF7B9`), gated by
   (a) `MEM8(0x397110) != 0` — the H31.4 engine-frame flag, refuted
   as a stall cause but still the gate on THIS path; (b)
