@@ -126,6 +126,39 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   the last baf `[READ]`. Also `[EF0C0]` mode/args and `[REG]`/`[DEREG]`
   relay membership.
 
+### frz113: the real manager, the trailer dword, and the zero buffer (H31.9)
+
+* PUMP probe arg-slot bug fixed (bypass site `1EDB5E` pushes ONE arg;
+  `ebp = entry esp+4` — the old probe read esp+8 = stale frame). The
+  "mgr `018CF100` id=5678 st=00970002" line was the WRONG object
+  (adjacent array slot). The true final-leg manager (frz113) =
+  `018CF14C`: `+0x18` job id `0A260002` (slot 2 alive), `+0x1C` size
+  `0x1400`, `+0x8` descriptor `00F95738`, `+0` tag `00336794`.
+* All boot-era pumps x1..x166: sentinel `id=FFFF` (array poll,
+  eax=0, eax-less branch), from the tick MAIN site (`1EDA75`).
+  Only x167 = bypass site (`1EDB68`, eax=scratch-ptr `02611EA4` ->
+  handle obj `010E3178` via `E1750`), job id `0x0002` LIVE.
+* Inside x167 (NULL-job... actually the handle-object path): vtable
+  thunk `047CE4` -> scratch alloc `1145D` -> 6144-byte read into
+  `0x02E77650` (real data: tail filled, head zeros), then trailer
+  dword at `buf+6140` = **`3EF04C91`** (LO8 `0x91`, bit4 CLEAR) ->
+  pump took the F9720 SYNC branch (matches S9720 activity); then
+  loc_0023BA71 issued a 5120-byte read from `startup.baf` into the
+  UNCACHED buffer `0x81759A80` — and the core shows that buffer
+  ALL ZEROS (head/tail/past-end). frz103 showed the same shape
+  (buffer `0x8174FA80` all zero). The `[READ]` says got=5120 st=0.
+* Open question = delivery vs file content: are the file bytes at
+  that seq position really zero (padded archive), or does the read
+  land wrong? Patch 0048 adds `[READSEQ] fd pos before->after` for
+  every offset-less read; frz114 = first run with it.
+* Event layer update: `sub_00240390` (sole F99D0 caller seen; boot-era
+  submit with scratch tag `0x33A0B4`, `ebx=0x100` = the ONE S99D0
+  line) is NOT the archive relay path — relay legs run through the
+  pump's F9720 sync processor with trailer-command masks.
+* JOBFREE (`sub_001ECB10`, sole clearer of a `0x37A3D0` slot) fired
+  ZERO times across a full run: no job-slot teardown at all; the
+  earlier "job 5678 freed" note traced to the wrong-slot mgr dump.
+
 ### frz109-110: the wait cycle runs, the events never fire, RESADD never fires (H31.7)
 
 * frz109 (EF1D0 per-event, killed t+449): only **66 walks session-
