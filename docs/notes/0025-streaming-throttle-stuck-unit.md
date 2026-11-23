@@ -2665,3 +2665,39 @@ not file size; no input drift — doctor green).
   / 129 x49.4M — the frz18-era signature pair EXACTLY, 49.4M/49.5M counts:
   the endgame spin identity is era-STABLE, ord pair is the new endgame
   fingerprint to identify (guest wrapper not yet mapped).
+
+## frz175 (CF14C era, SIGABRT-core at 1900 s): BLACK era — main thread parked in D3D task-wait
+
+- FB: ALL 189 dumps black — visual era lottery again (frz171=logo, frz174=pill
+  attract, frz175=black at identical binary).
+- Main thread bt at kill: sub_0011B020 -> sub_001DE310 -> sub_001DE5C0 ->
+  KeWaitForSingleObject on event EMBEDDED in D3D global obj [2E3638]=02E1190
+  at +0x1DBC (1DE5D7 writes obj+0x1DC0=0 then waits). frz171 contrast:
+  [3970C8]=0 (1DE5C0 early-ret leg) and main was INLINE-rendering.
+  frz175: [3970C8]=82648040 (pool ptr) -> wait leg taken. Not per se a
+  deadlock (DPC-drain thread was executing D3D deferred procs 2DAE40/2DB250)
+  = likely a legit between-tasks park; the black screen is a CONTENT fact.
+- Wake activity era-INVARIANT: SMEVT evt1 x51 / evt2 x45 / evt4 x3 / evt6 x5
+  (frz174 identical); W1SO evt6 ms=0 census only x4205 (vs x21.8k capped in
+  frz174) = the mega-spin was pump container-walk work, not a per-frame wait.
+- Runtime-table hunt REFUTED: heap "table copy" hits at 029890F3 were small
+  ints 0x6AC/0x6AD (map indices), NOT code ptrs. 6AD00 flat-table region
+  (323A38, 445 slots): no vptr, no heap copy, in EITHER core = never used.
+- STATIC-XREF OVERTURN (scan bug: old xref loops used VA=off+0x11000, an
+  off-by-0x1000; correct law VA=fileoff+0x10000 for .text): the "ZERO static
+  refs" laws for the SOL tier family are FALSE. Corrected picture:
+  * SWEEP 4E1F0 has a static caller: sub_000F1CA0@F1D3A GATED by cmd id==0x37.
+  * F1CA0/F1D50 = MSG1/MSG2 command dispatchers (edi=cmd; cases C1/C2/C3/37)
+    — both census x0; their 8 callers (15B640,15CC30,15DC80,15F3C0,160420,
+    162F80,164790,16A860) have NO E8 callers but DO have static function-
+    pointer entries in .rdata 0x32F5xx-0x3308D0 (flat vtable-ish region).
+  * TISS 16F520 has ~100 static E8 callers in the B1-BE/14-19/17-19 tiers
+    (that's why TISS census was alive); REGT 49B10 callers = 491F4/4978C
+    inside sub_000491C0 (1984-byte registrar) whose sole caller = 8A799.
+  * Enqueue tier sub_0021CD0 (pack-bit -> loader/pump wake) HAS live static
+    callers 83593/83603/12F51F/12F52D/1DC251/1DC268 — consistent with the
+    x45/x51 SETs. The truly orphan entries are 21D18/21D8D/21D80 (relays).
+- ISSU1 (157B10) live caller symbolized: sub_001E64F0+21870 (loader tier)
+  x2 in frz174 — the ONLY submit route that ever fires.
+- NEXT: regen census batch REGI(491C0)/REGX(8A790)/CMD1(15B640) to see
+  where the command-object instantiation chain stops.
