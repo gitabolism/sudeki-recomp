@@ -2209,6 +2209,54 @@ CENSUS(sub_0020F1A0, "SCH2", 60)
 CENSUS(sub_0021F1F0, "SCH3", 60)
 CENSUS(sub_0020B710, "SCH4", 60)
 
+/* frz140: one tier above SCH4. Driver chain proven (frz138 core):
+ * [1F8960 caller tier] -> 1F8960 -> SCH4(20B710) -> 20BBA0 -> TITER
+ * + WALK(2027B0). SCH2(20F1A0 executor) = x0, so the live feed is
+ * the 1F8A00/1F8A06 thunks (2 call sites) or 227E60 (1 site).
+ * Census the hub + thunks + 227E60; ra pins the site. */
+extern void sub_001F8960_gen(void);
+CENSUS(sub_001F8960, "HUB0", 80)
+
+extern void sub_001F8A00_gen(void);
+extern void sub_001F8A06_gen(void);
+extern void sub_00227E60_gen(void);
+
+void sub_001F8A00(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 256) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [" "THKA" "] x%u ra=%p\n", n, ra);
+        fflush(stderr);
+    }
+    n++;
+    sub_001F8A00_gen();
+}
+
+void sub_001F8A06(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 256) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [" "THKB" "] x%u ra=%p\n", n, ra);
+        fflush(stderr);
+    }
+    n++;
+    sub_001F8A06_gen();
+}
+
+CENSUS(sub_00227E60, "HUB1", 80)
+
 void sub_001FD950(void)
 {
     static int on = -1;
