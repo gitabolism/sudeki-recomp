@@ -84,17 +84,16 @@ Earlier sessions live in the notes (0005–0025) + the session log; the
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED): the game never leaves the
-   load state.** After New Game it streams level assets (wavebanks
-   read at @0), plays the 76.6 s attract movie in an online Bink
-   loop, presents the loading card forever. GPU/events/marks healthy
-   under it; extraction tree is disc-exact (443/443 sizes). What
-   completion event is awaited is UNKNOWN — the old "cur/done frozen
-   queue" evidence was movie pacing (labels wrong; census wrapper
-   needs fixing). frz96's `[READ] path=` per-phase census decides:
-   level IO persists (-> consumer/event wall) vs dies (-> producer/
-   trigger wall). Watch (0x2E2F4C) quiescent; 4C event unused in
-   healthy eras (frz95: zero pulses, rich frames flow).
+1. **H31 (ACTIVE, note 0025, RE-POSED x2): the load stalls when
+   `startup.baf` config reads stop at 41 %.** frz96 phase census:
+   opening FMV `FMA01_poem.bik` consumed 1.00x, all wavebanks 1.00x,
+   attract loops, but `Cache//startup.baf` (game-written X: install,
+   27.7 MB) reads 11.3 MB in bursts w/ 33 KiB strided seeks then
+   goes silent; all reads succeed (got=want) -> CONSUMER side
+   parked. GPU/events/marks healthy; extraction disc-exact. Next:
+   frz96 core forensics (reader thread park site + last read buffer
+   0x02E775E0/0x81759A80 + BAF object). Old "cur/done queue" census
+   was movie pacing (labels fixed in recomp_manual.c).
 2. H14–H30 CLOSED — one-line lessons index (homes = notes 0005–0024):
    cache capacity ends the boot write-loop (0005); async-IO return
    convention = the phantom charge (0011); ICALL-skip stack drift
@@ -107,25 +106,27 @@ Earlier sessions live in the notes (0005–0025) + the session log; the
 
 ## Queue (next concrete actions)
 
-* **1. frz96 verdict** (IN FLIGHT, patch 0047): `[READ] @seq path=`
-  names the stuck stream; cross-check offset 0xE5D5C (+ title-era
-  0xD0194) against the XDVFS entry table from the ISO (gitignored)
-  -> decide extent/slack fix vs consumer census.
-* **2. frz95 DONE** (verdict in note 0025): control passed, wall is
-  era-general; census caveat: re-derive `done`/`acc` labels from the
-  lifted `sub_002C3200` body before trusting queue "progress" math.
-* **3. Core IO pass partially landed** (frz94): gate-ctx fields read
-  (`+0x274=0xE5D4D`/`+0x280=0xE5D5C` bracket the wedge by 15 B),
-  read buffer = ctx`+0x104` pointer `0x827AFC60`; handle->path table
-  unreachable in the core (heap pages truncated) — frz96 covers it.
+* **1. Build + frz98 (RD attribution)**: link lands the
+  `sub_00270FBD` wrapper (gen regen done; build blocked until frz97
+  exits); run `nav_run5.sh 98 1200` + `RECOMP_RD_TRACE=1` -> who
+  reads `Cache//startup.baf` (EBP caller chains) and which caller
+  stops at the ~11.36 MB mark; pair with frz98 core at plateau.
+* **2. DONE** frz95/96/97 trio: control passed; movie-vs-load census
+  correction landed (note 0025); write-path byte-exact (WRDUMP
+  replay). Serving layer exonerated read+write.
+* **3. frz98 follow-up (branch naming)**: once the consumer VA is
+  known, census-wrap it (same manual pattern) to log its state
+  transitions / the gate it stops passing; only then consider any
+  toolkit patch.
 * **4. Then the Gameplay gate:** first presented level frame =
   fbpeek + visual + texture-coverage carry-over; xemu side-by-side
   of the SAME load as corroborator (needs the QMP/HMP script fix;
   note 0019 recipe) — corroborator only, not the shortest path.
 * Carry-over (opt-in probes unchanged: SWMARK_INTR12/PF/IRQPOST/
-  PB_PARK; regime v4 + TITLE_KEVENTS + queue-2048 + 0046); JP disc
-  regression sample later; roadmap staging (vanilla -> Vulkan ->
-  features) per the user directive, untouched.
+  PB_PARK; regime v4 + TITLE_KEVENTS + queue-2048 + 0046 + write
+  knobs now proven safe one-run-at-a-time); JP disc regression
+  sample later; roadmap staging (vanilla -> Vulkan -> features) per
+  the user directive, untouched.
 
 ## Blockers / open questions
 
