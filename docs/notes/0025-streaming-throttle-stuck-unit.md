@@ -55,4 +55,24 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   regression).
 
 ## Outcome
-(fill in AFTER the experiment: what was true)
+
+### frz95 (no-press control, 900 s, `logs/run-frz95-195504.out`) — control PASSED, wall sharpened
+
+* Mirror regime reaches title/attract normally (no regression): rich
+  attract frames to dump #85 (~30-37k colors, luma ~85), engine
+  ~10 fps (`pass≈rend≈9.2k`), 16,077 reads, no crash lines.
+* **The stall signature appears WITHOUT navigation**: at kill, the
+  same GATE ctx shows `cur` frozen at 0x000D0194 (852,372),
+  `done=0`, `tot`/`acc` still climbing; last 3 window dumps pure
+  black (24 colors, luma 0) — same terminal shape as the nav runs.
+  So H31 is era-general (title-era tail at ~t+600 s), not
+  level-load-specific.
+* `cur` semantics corrected: in the healthy era it WALKS a stream —
+  0x000152FD -> 0x0006D7E2 -> 0x0009C5BD -> 0x000D0194 (monotone,
+  with momentary 0 resets between samples) = a stream byte position.
+  Stall = position stops advancing. `done=0` occurs in healthy eras
+  too — census `done` label is NOT load progress (re-derive later).
+* Watch on 4C: 7,694 writes, ZERO value transitions in the whole
+  healthy title era, rich frames flowed anyway -> the 4C swap-slot
+  event is not what feeds healthy rendering; the 20-pulse census in
+  frz94 was incidental. (frz93's "parked on 4C" = terminal detail.)

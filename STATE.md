@@ -9,8 +9,10 @@
 stream, job queue ~90 %) — the one remaining wall to a presented
 level frame is **H31**: the level load never completes. H30 CLOSED
 (note 0024); the GPU/mark era is dead since frz92 (note 0024 4v).
-frz95 (no-press control) IN FLIGHT (`logs/run-frz95-*.out`);
-frz96 (patch-0047 `[READ]` path trace) next.
+frz95 (no-press control) PASSED — same stall appears in the title-era
+tail, so H31 is era-general; `cur` = stream byte position (walks in
+healthy eras, frozen in stalls). frz96 (patch-0047 `[READ]` path
+trace, 1200 s, nav) IN FLIGHT (`logs/run-frz96-*.out`).
 
 ## Where things are verified
 
@@ -28,9 +30,10 @@ frz96 (patch-0047 `[READ]` path trace) next.
   `/tmp/opencode` is ephemeral: cores/harness scripts cited below may
   need recreation (harness: `nav_run3.sh`, `frz_watch2.sh`,
   `core_forensics.bt` — all re-derivable from the notes).
-- Git: scrubbed+reseated history **pushed**; `origin/main = ff20cad`
-  (verified 20:2x). Pre-scrub backup bundle + map were deleted after
-  push verification (audit drift fixed: they were cited as live).
+- Git: scrubbed+reseated history **pushed**; `origin/main = 7ce51cb`
+  (user pushed, verified 20:1x). Pre-scrub backup bundle + map were
+  deleted after push verification (audit drift fixed: they were cited
+  as live).
 - JP second sample: `~/Downloads/xbox/sudeki-jap/default.xbe`
   (parked, outside git; naming `<game>-<region>/`).
 
@@ -76,15 +79,18 @@ Earlier sessions live in the notes (0005–0025) + the session log; the
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025): the level load wedges on one streaming
-   unit.** `cur` frozen at byte 941,404, thousands of identical
+1. **H31 (ACTIVE, note 0025): a stream position stops advancing and
+   never completes.** `cur` = stream byte position: healthy eras walk
+   it forward (frz95: 0x152FD->0xD0194 over 900 s), stalls freeze it
+   (level era 0xE5D5C; **also in the no-press title-era tail** —
+   era-general, navigation only moves where). Thousands of identical
    116-byte zero re-reads (`sub_00270FBD` seq site `0x00271057`),
-   `done/tick` never advance, frame throttle renders forever, load
-   queue balanced but never completes. Suspect: a zero-filled extent
-   we serve as data (extraction/slack vs XDVFS entry sizes) or a
-   guest parse loop that can't advance over zeros. Falsifier: patch
-   0047 names file+offset (frz96) + static/core read of the stream
-   object; compare vs the disc's XDVFS table (gitignored).
+   frame content stays card/black. Census caveat: `done=0` also
+   happens in healthy eras -> `done` label mis-derived. Suspect: a
+   zero-filled extent we serve as data (extraction/slack vs XDVFS
+   entry sizes) or a guest parse loop that can't advance over zeros.
+   Falsifier: frz96's `[READ] @seq path=` names the stuck file;
+   compare vs the disc's XDVFS table (gitignored).
 2. H14–H30 CLOSED — one-line lessons index (homes = notes 0005–0024):
    cache capacity ends the boot write-loop (0005); async-IO return
    convention = the phantom charge (0011); ICALL-skip stack drift
@@ -97,19 +103,17 @@ Earlier sessions live in the notes (0005–0025) + the session log; the
 
 ## Queue (next concrete actions)
 
-* **1. frz95 verdict** (no-press control): does the mirror regime
-  still reach title/attract normally (regression guard)? census_snap
-  + `fbpeek.py reference/fb/95 --diff` + visual.
-* **2. Forensics-first (audit steer), no re-run:** frz94 core pass on
-  the IO/stream side — gate ctx object `0x82648040` fields
-  (+0x270/+0x280/+0x284), read buffers `0x827AFC60`/`0x03438060`,
-  caller frame under `0x00271057` — name the stuck archive+offset
-  directly; `sub_00270FBD` lifted body already at
-  `/tmp/opencode/sub_00270FBD.c`.
-* **3. Rebuild (patch 0047) + frz96** (`nav_run3.sh 96 1200`):
-  `[READ] @seq path=` names the stuck file; cross-check the offset
-  against the XDVFS entry table from the ISO (gitignored) -> decide
-  extent/slack fix vs consumer census.
+* **1. frz96 verdict** (IN FLIGHT, patch 0047): `[READ] @seq path=`
+  names the stuck stream; cross-check offset 0xE5D5C (+ title-era
+  0xD0194) against the XDVFS entry table from the ISO (gitignored)
+  -> decide extent/slack fix vs consumer census.
+* **2. frz95 DONE** (verdict in note 0025): control passed, wall is
+  era-general; census caveat: re-derive `done`/`acc` labels from the
+  lifted `sub_002C3200` body before trusting queue "progress" math.
+* **3. Core IO pass partially landed** (frz94): gate-ctx fields read
+  (`+0x274=0xE5D4D`/`+0x280=0xE5D5C` bracket the wedge by 15 B),
+  read buffer = ctx`+0x104` pointer `0x827AFC60`; handle->path table
+  unreachable in the core (heap pages truncated) — frz96 covers it.
 * **4. Then the Gameplay gate:** first presented level frame =
   fbpeek + visual + texture-coverage carry-over; xemu side-by-side
   of the SAME load as corroborator (needs the QMP/HMP script fix;
