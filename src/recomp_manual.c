@@ -1464,14 +1464,19 @@ void sub_001EF0C0(void)
                       ? MEM32(g_esp + 4) : 0u;
     uint32_t a2 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
                       ? MEM32(g_esp + 8) : 0u;
+    /* frz136 PROBE FIX: mode = arg3 (esp+0xC), not arg2&3 (frz133/
+     * 134 "all mode-0" was an artifact — see note 0025 law). */
+    uint32_t a3 = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                      ? MEM32(g_esp + 0xC) : 0u;
     uint32_t f8 = (a1 >= 0x01000000u && a1 < 0x04000000u)
                       ? MEM32(a1 + 8) : 0xDEADu;
-    if (on && (n < 20 || a1 != pa || (a2 & 3) != pm)) {
-        fprintf(stderr, "  [EF0C0] x%u a1=%08X a1+8=%08X a2=%08X mode=%u\n",
-                n, a1, f8, a2, a2 & 3u);
+    if (on && (n < 20 || a1 != pa || (a3 & 3) != pm)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [EF0C0] x%u ra=%p a1=%08X a1+8=%08X a2=%08X mode=%u\n",
+                n, ra, a1, f8, a2, a3 & 3u);
         fflush(stderr);
     }
-    if (on) { pa = a1; pm = a2 & 3u; n++; }
+    if (on) { pa = a1; pm = a3 & 3u; n++; }
     sub_001EF0C0_gen();
 }
 
@@ -2070,21 +2075,107 @@ void sub_001FD660(void)
 
 extern void sub_00208E60_gen(void);
 
+extern void sub_00208E60_gen(void);
+
+/* frz136: module-entry census for the 1FC/1FD streaming-request
+ * module (1FD660's static callers). These are the dispatch-reachable
+ * entries; x-any tells us which tier of the module runs at all. */
+extern void sub_001FC680_gen(void);
+
+void sub_001FC680(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_ecx, g_edx, g_eax, g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 60) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [MODA] x%u ra=%p ecx=%08X edx=%08X eax=%08X\n",
+                n, ra, g_ecx, g_edx, g_eax);
+        fflush(stderr);
+    }
+    n++;
+    sub_001FC680_gen();
+    if (on && n < 60) {
+        fprintf(stderr, "  [MODA] x%u -> eax=%08X\n", n - 1, g_eax);
+        fflush(stderr);
+    }
+}
+
+extern void sub_001FC8E0_gen(void);
+
+void sub_001FC8E0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_ecx, g_edx, g_eax, g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 60) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [MODB] x%u ra=%p ecx=%08X edx=%08X eax=%08X\n",
+                n, ra, g_ecx, g_edx, g_eax);
+        fflush(stderr);
+    }
+    n++;
+    sub_001FC8E0_gen();
+    if (on && n < 60) {
+        fprintf(stderr, "  [MODB] x%u -> eax=%08X\n", n - 1, g_eax);
+        fflush(stderr);
+    }
+}
+
+extern void sub_001FD950_gen(void);
+
+void sub_001FD950(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_ecx, g_edx, g_eax, g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 60) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [MODC] x%u ra=%p ecx=%08X edx=%08X eax=%08X\n",
+                n, ra, g_ecx, g_edx, g_eax);
+        fflush(stderr);
+    }
+    n++;
+    sub_001FD950_gen();
+    if (on && n < 60) {
+        fprintf(stderr, "  [MODC] x%u -> eax=%08X\n", n - 1, g_eax);
+        fflush(stderr);
+    }
+}
+
 void sub_00208E60(void)
 {
     static int on = -1;
     static unsigned n = 0;
-    extern __thread uint32_t g_ecx, g_eax, g_esp;
+    extern __thread uint32_t g_ecx, g_edx, g_eax, g_esp;
     if (on < 0) {
         const char *e = getenv("RECOMP_RD_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
     }
     if (on && n < 200) {
         void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
-        fprintf(stderr, "  [SUB2B] x%u ra=%p ecx=%08X eax=%08X esp+8=%08X\n",
-                n, ra, g_ecx, g_eax,
-                (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
-                    ? MEM32(g_esp + 8) : 0u);
+        uint32_t sp = g_esp;
+        uint32_t a4 = (sp >= 0x10000u && sp < 0x7FFF0000u)
+                          ? MEM32(sp + 0x10) : 0u;
+        uint32_t a8 = (sp >= 0x10000u && sp < 0x7FFF0000u)
+                          ? MEM32(sp + 0x20) : 0u;
+        fprintf(stderr, "  [SUB2B] x%u ra=%p ecx=%08X edx=%08X eax=%08X "
+                        "esp+8=%08X esp+10=%08X esp+20=%08X\n",
+                n, ra, g_ecx, g_edx, g_eax,
+                (sp >= 0x10000u && sp < 0x7FFF0000u)
+                    ? MEM32(sp + 8) : 0u, a4, a8);
         fflush(stderr);
     }
     n++;
