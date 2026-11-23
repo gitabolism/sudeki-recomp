@@ -1,0 +1,16 @@
+diff --git a/src/kernel/kernel_bridge.c b/src/kernel/kernel_bridge.c
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -5196,6 +5196,11 @@
+     if (getenv("RECOMP_IO_WRITE_LOG")) {
+         static long s_wr_logged = 0, s_wr_seen = 0;
++        static int s_wr_max = -2;
++        if (s_wr_max == -2) {
++            const char *e = getenv("RECOMP_IO_WRITE_MAX");
++            s_wr_max = (e && *e) ? atol(e) : 60;
++        }
+         s_wr_seen++;
+-        if (s_wr_logged < 60) {
++        if (s_wr_logged < s_wr_max) {
+             s_wr_logged++;
+             fprintf(stderr, "  [WRITE] from=0x%08X n=%ld ev=%08X apc=%08X @%s%lld want=%u got=%u st=0x%08X path=%s\n",
