@@ -80,9 +80,12 @@ def q(o, w=20):
     try: return s.recv(65536).decode(errors="replace")
     except socket.timeout: return "TIMEOUT"
 q({"execute": "qmp_capabilities"}, 0.5)
-print("dump:", q({"execute": "dump-guest-memory",
-      "arguments": {"protocol": f"file:///tmp/opencode/ram-{tag}.elf",
-                    "paging": True, "format": "elf"}}, 25).strip()[-140:])
+for t, name in ((0, tag), (8, tag + "b")):
+    if t:
+        time.sleep(t)
+    print("dump:", q({"execute": "dump-guest-memory",
+          "arguments": {"protocol": f"file:///tmp/opencode/ram-{name}.elf",
+                        "paging": True, "format": "elf"}}, 25).strip()[-140:])
 PYEOF
 
 wait $XPID
