@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""tools/xemu_fbpeek.py — reconstruct the NV2A framebuffer from an xemu
+`dump-guest-memory` ELF (rule 5: file dumps, never screenshots).
+
+Recipe home: notes 0009 (VRAM mirror = PT_LOAD @ pa 0xF0000000; old-ROM
+FB at VRAM off 0x3C00000, pitch 720 px, BGRA) and 0019 (v1.1.0 kernel:
+RE-MEASURE — this script's auto-scan is that re-measurement).
+
+usage:
+  tools/xemu_fbpeek.py RAM.elf OUT_PREFIX [--w W] [--h H] [--off OFF]
+Auto-scan (no --w/--h/--off): stride candidate FB windows by 4096,
+score BGRA plausibility (alpha==0xFF fraction + row-pitch self-
+correlation), write the best hit as BMP.
+"""
+import struct, sys
+
+W_CAND = (640, 720, 768, 800, 1024)
+H_CAND = (480, 576)
+
+def loads(path):
+    d = open(path, "rb").read()
+    e_phoff = struct.unpack_from("<Q", d, 0x20)[0]
+    e_phentsize = struct.unpack_from("<H", d, 0x36)[0]
+    e_phnum = struct.unpack_from("<H", d, 0x38)[0]
+    segs = []
+    for i in range(e_phnum):
+        o = e_phoff + i * e_phentsize
+        if struct.unpack_from("<I", d, o)[0] == 1:  # PT_LOAD
+            p_offset, p_paddr = struct.unpack_from("<QQ", d, o + 0x8), None
+            p_off = struct.unpack_from("<Q", d, o + 8)[0]
+            p_vaddr = struct.unpack_from("<Q", d, o + 0x10)[0]
+            p_filesz = struct.unpack_from("<Q", d, o + 0x20)[0]
+            segs.append((p_vaddr, p_filesz, p_off))  # QEMU sets paddr==vaddr
+    return d, segs
+
+def score(buf, off, w, h):
+    """fraction of sampled pixels with alpha 0xFF; -1 if window absent"""
+    need = off + w * h * 4
+    if need > len(buf):
+        return -1.0
+    n = 0; good = 0
+    for y in range(0, h, max(1, h // 48)):
+        base = off + y * w * 4
+        for x in range(0, w, max(1, w // 64)):
+            n += 1
+            if buf[base + x * 4 + 3] == 0xFF:
+                good += 1
+    return good / n if n else -1.0
+
+def bmp(path, buf, off, w, h):
+    rows = []
+    for y in range(h - 1, -1, -1):
+        row = buf[off + y * w * 4: off + (y + 1) * w * 4]
+        rows.append(b"".join(row[x:x + 3] for x in range(0, len(row), 4)))
+    data = b"".join(rows)
+    pad = (4 - (w * 3) % 4) % 4
+    data = b"".join(r + b"\x00" * pad for r in rows)
+    ds = 54 + len(data)
+    open(path, "wb").write(
+        b"BM" + struct.pack("<IHHI", ds, 0, 0, 54) +
+        struct.pack("<IiiHHIIiiII", 40, w, h, 1, 24, 0, len(data), 2835, 2835, 0, 0))
+
+def main():
+    args = sys.argv[1:]
+    elf, outp = args[0], args[1]
+    opts = {}
+    it = iter(args[2:])
+    for a in it:
+        opts[a] = int(next(it), 0)
+    d, segs = loads(elf)
+    vram = max((s for s in segs if s[0] >= 0xF0000000), key=lambda s: s[1])
+    print("VRAM seg pa=0x%X size=0x%X" % (vram[0], vram[1]))
+    buf = d[vram[2]:vram[2] + vram[1]]
+    if "--off" in opts and "--w" in opts and "--h" in opts:
+        bmp(outp + ".bmp", buf, opts["--off"], opts["--w"], opts["--h"])
+        print("wrote %s.bmp off=0x%X %dx%d" % (outp, opts["--off"], opts["--w"], opts["--h"]))
+        return
+    best = (-1.0, 0, 0, 0)
+    for w in W_CAND:
+        for h in H_CAND:
+            for off in range(0, len(buf) - w * h * 4, 0x1000):
+                s = score(buf, off, w, h)
+                if s > best[0] + 0.02:
+                    best = (s, off, w, h)
+                    if s > 0.97:
+                        break
+            if best[0] > 0.99:
+                break
+        if best[0] > 0.99:
+            break
+    s, off, w, h = best
+    print("best: score=%.3f off=0x%X %dx%d" % (s, off, w, h))
+    if s > 0.85:
+        bmp(outp + ".bmp", buf, off, w, h)
+        print("wrote %s.bmp (off=0x%X w=%d h=%d — re-measure law in note 0009)" % (outp, off, w, h))
+    else:
+        print("no confident FB; widen candidates or pass --off/--w/--h")
+
+if __name__ == "__main__":
+    main()
