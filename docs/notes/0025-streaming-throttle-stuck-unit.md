@@ -123,9 +123,31 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   `[JOB]` id->job+state and `[HANDLE]` h->node, printed on arg/result
   transitions): decides which link stops carrying the relay — tick
   entries vs job-lookup verdicts vs pump entries, co-registered with
-  the last baf `[READ]`.
+  the last baf `[READ]`. Also `[EF0C0]` mode/args and `[REG]`/`[DEREG]`
+  relay membership.
 
-### frz104: era-loop probe — the whole driver chain goes SILENT, and static decode finds the kill switch
+### H31.5 static relay lifecycle (decoded 22:0x, before frz106)
+
+* `sub_001EF0C0` mode-switch: arg1+8 set && 3rd arg set -> list
+  `0x3D75FC`; else mode `arg2&3`: {0,1} -> `0x3D7668`, 2 ->
+  `0x3D7620`, 3 -> **no servicing at all**.
+* `sub_001EC590(context, list)` (called ONLY from EF0C0) REGISTERs the
+  next leg: sole caller of `sub_001EC2C0` REGISTER (insert into bucket
+  `0x37A120[((epoch>>6)&31)]`, obj fields `+0x10` epoch, `+0x18` next,
+  tag `0x33677C`).
+* `sub_001EF1D0` walks the bucket list, services objs, and releases
+  refs (9 call sites of `sub_001EC3E0` = ref-release: decrement
+  `obj+0xC`, at zero -> `sub_0023AC90` + `sub_001EC4E0` DEREG + free).
+* frz103 core at kill: ALL 32 buckets + all three mode-lists EMPTY.
+  Last pump x167 (`018CF100`, st `00970002`, not sentineled) followed
+  by ZERO pumps => leg deregistered mid-work with no re-REG.
+  **Prediction for frz106: a `[DEREG] obj=018CF100` line right after
+  the last `[PUMP] x167`, with NO subsequent `[REG]`; `[JOB]` shows
+  id 5678's state in flight; if DEREG happens while the job is not
+  complete, the release path is the abort — why the ref dropped to 0
+  is the open question the census will pair.**
+
+### frz105: H31.4 REFUTED — E0210/POOL ran ONCE at boot, both succeeded
 
 * `[EF1D0]` (mask 0xFFF) printed `x1` only: `sub_001EF1D0` entered
   <4,096 times for the whole run — the load-pipeline chain is NOT

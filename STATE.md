@@ -3,13 +3,15 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-22 21:0x (session 4x)
+**Last updated:** 2026-11-22 22:0x (session 4x)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**;
-**navigation works**; load-stall wall (H31) **anatomy complete**:
-install writes complete byte-exact, read-back of `Cache//startup.baf`
-is the dying stream; its consumer = the BAF job-pump chain
-`sub_001EDA20 -> sub_0023B830 -> vtbl[1] read -> sub_0001E170 ->
-sub_00270FBD`. `[PUMP]` census (frz101) decides WHERE it stops.
+**navigation works**; load-stall wall (H31) anatomy deepened:
+the load is a SERIAL RELAY over ~40 static archive load-tables
+(managers `018Axxxx-018CFxxx`, each a relay leg); the last pumped
+manager `018CF100` (job id 5678, handle `0x00010040`) stops mid-pump
+and the NEXT relay leg never starts. Engine-frame/pool theories
+(H31.4) REFUTED by frz105 census; current model H31.5 = relay
+advance stops (`sub_001EF0C0` mode gate / bucket-list servicing).
 
 ## Where things are verified
 
@@ -81,17 +83,22 @@ Earlier sessions live in the notes (0005–0025) + the session log; the
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x3): the load stalls when
-   `startup.baf` config reads stop at 41 % — deterministically at
-   read-head `0xAD5D09`.** frz101 census: pumped managers drain
-   while the HMF-class queue (`0xFD9550`, global `0x397668`) keeps
-   an unserviced ~177-node backlog; last pump tick == last read.
-   Consumer chain named: `sub_001EDA20` tick -> `sub_0023B830` pump
-   -> vtbl[1] -> `sub_0001E170` -> `sub_00270FBD`. Next datum:
-   `[MTICK]` (which gate closes / who stops calling the tick).
-   Serving layer exonerated read+write; GPU/events healthy. Old
-   "cur/done queue" census was movie pacing (labels fixed in
-   recomp_manual.c).
+1. **H31 (ACTIVE, note 0025, RE-POSED x5): the level-load relay
+   stalls at its last pumped manager — the next relay leg never
+   starts.** frz103 census: 167 pump entries over ~40 per-archive
+   managers (`018A0C00..018CF200`, serial — next starts when previous
+   hits sentinel); LAST pump ever = `018CF100 id=5678 st=00970002`
+   repeated, then zero pumps; baf read-back ends mid-phase; post-stall
+   file traffic = attract movie ring only. frz105 REFUTED H31.4
+   (`0x397110` engine-frame early-exit / pool-OOM theory: E0210/POOL
+   ran once at boot, succeeded). frz103 core: `job[0x5678]` freed at
+   kill while `018CF100+0x18` id dangles. Static chain:
+   `sub_001EF0C0` (mode `arg2&3`: 3 -> NO servicing) -> bucket walk
+   (`0x37A120+((tick>>6)&31)*4`, obj `+0x10` epoch, `+0x18` next) ->
+   `sub_001EDA20` tick (gate `HI8(obj+0x28)&2`; bypass branch pumps
+   only when `sub_001ECC40(job-id)` state&3==0) -> `sub_0023B830`
+   pump (handle lookup `sub_001E1750(obj+4)`). frz106 census
+   `[EF0C0]/[JOB]/[HANDLE]` + tight MTICK/EF1D0 masks names the link.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes 0005–0024):
    cache capacity ends the boot write-loop (0005); async-IO return
    convention = the phantom charge (0011); ICALL-skip stack drift
@@ -104,15 +111,17 @@ Earlier sessions live in the notes (0005–0025) + the session log; the
 
 ## Queue (next concrete actions)
 
-* **1. frz102 (MTICK probe)**: build after gen+idle; `nav_run10.sh
-  102 1200` with `RECOMP_RD_TRACE=1` -> `[MTICK]` names which gate
-  of `sub_001EDA20` closes when the stall begins (or shows the tick
-  itself stops being entered -> then wrap ITS caller). Pair with
-  frz101 core facts (backlog queue at `0xFD9550` unserviced).
-* **2. Node semantics decode** (frz102 core, matched bin): the
-  stride-0x24 node class at `0xFD9550+04` queue — find its vtable
-  from code cross-refs, not heap guesses; then read the in-flight
-  node's file-object/handle/offset fields directly.
+* **1. frz106 (relay census)**: `[EF0C0]` mode/args + `[JOB]`
+  id->job+state + `[HANDLE]` h->node + tight `[MTICK]`/64 `[EF1D0]`/256
+  (gen+build done after frz105 exits): names WHICH link stops
+  carrying the relay — mode gate (arg2&3==3), bucket-list walk, tick
+  job-state gate, or pump handle lookup. Pair with frz103 core facts
+  (`job[0x5678]` freed, `018CF100+0x18` id dangling at kill).
+* **2. Relay-leg decode**: the ~40 static load-table descriptors
+  (image `.data`, e.g. `0x00F95678` group `{flags, buf, size, tag}`)
+  -> map leg order to archive files (cross-ref descriptor bufs with
+  `[READ]` buf= trace) so "the leg that never starts" gets a FILE
+  name, not just a manager VA.
 * **3. Then the Gameplay gate:** first presented level frame =
   fbpeek + visual + texture-coverage carry-over; xemu side-by-side
   of the SAME load as corroborator (needs the QMP/HMP script fix;
