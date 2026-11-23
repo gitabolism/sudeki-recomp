@@ -1632,3 +1632,20 @@ Run `logs/run-frz144-100310.out` (99 wrapped).
   H7E4(7E4C0): names the broken rung. If RQ tick and HND x0 the
   switch never dispatches these request types; if RQ x0 the
   resource-manager calls above are the dead edge.
+
+## frz145 — REGIME BREAK: intro-era IRQL spin hang (same era as 141-144 binary + 5 rungs)
+
+Run `logs/run-frz145-100920.out` (104 wrapped): never reached title.
+Reached Movies (MS logo .bik reads, 185 GPU flips @2.83 fps) then
+HUNG at log line ~3727: kernel summary spam to 11.9k lines with
+**ord 160/161 = KfRaiseIrql/KfLowerIrql x700k each**, 294/277 x479k,
+128 x451k, total 2.96M calls; PUMP only x2 (loader manager barely
+ticked). IRQL-pair spin = XGRAPHCL-style fence/event wait spinning
+guest-side. CTOR/MSG/RQ/HND all x0 (never got to their era).
+- Same seeds as frz141-144; binary adds only pass-through census
+  wrappers on 7xxxxx rungs (all x0, no printing) — no semantic
+  change visible. Regime sensitivity re-confirmed (frz62-83 matrix
+ said depth=luck without regime pinning).
+- frz145b = SAME binary re-run (determinism A/B). Harness gotcha:
+  nav_run43.sh names BIN by N — copy sudeki-frz145b.bin before
+  launching (missing-BIN race = instant pre-nav death).
