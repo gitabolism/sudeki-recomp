@@ -2215,6 +2215,12 @@ extern void sub_0020F1A0_gen(void);
 extern void sub_0021F1F0_gen(void);
 extern void sub_0020B710_gen(void);
 
+/* frz143 law: cap-only printing LIVED a false wall — frz142 proved
+ * WALK/HUB keep ticking far past their LIM ("x30" was the print cap
+ * matching the 31st call, not the end of the tier). Tail sample every
+ * 256th call so tier liveness is always visible. (NOTE: a comment
+ * inside a macro body must end with a backslash — the un-backslashed
+ * version of this note truncated the macro: 16 link-visible errors.) */
 #define CENSUS(NAME, TAG, LIM)                                             \
 void NAME(void)                                                            \
 {                                                                          \
@@ -2225,10 +2231,6 @@ void NAME(void)                                                            \
         const char *e = getenv("RECOMP_RD_TRACE");                         \
         on = (e && *e && *e != '0') ? 1 : 0;                               \
     }                                                                      \
-    /* frz143 law: cap-only printing LIVED a false wall — frz142 proved
-     * WALK/HUB keep ticking far past their LIM ("x30" was the print cap
-     * matching the 31st call, not the end of the tier). Tail sample
-     * every 256th call so tier liveness is always visible. */
     if (on && (n < (LIM) || (n % 256) == 0)) {                             \
         void *ra = __builtin_extract_return_addr(                          \
             __builtin_return_address(0));                                  \
