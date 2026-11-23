@@ -100,17 +100,21 @@ log.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x14): the engine stops
-   issuing after the first job set completes.** Machinery exonerated
-   end-to-end (loader healthy-parked; completions run to completion
-   incl. the terminal manager; frz134 input A/B clean). The dead
-   edge is engine-side re-issue: new-session path EF770 x2 (boot)
-   only, drain submits x17 (menu-era), sweep 4E1F0 x0, EF0C0 mode
-   1/2 (push->pump-chain 620) NEVER requested. Next: decode 1F1650
-   (session hub — creates sessions AND advances legs) + who ever
-   calls EF0C0 with mode 1/2 (requester that feeds the pump chain)
-   — 21AD0 consumer under a never-true condition, or a task-table
-   entry that never schedules?
+1. **H31 (ACTIVE, note 0025, RE-POSED x18): one unclosed request on
+   the fresh terminal manager.** Full chain now named: splice
+   (EF0C0 mode2) -> `DISP 1F8A00` -> hub `1F8960` (registry walk of
+   `[0x39761C]`, 10 subsystems alive at kill) -> requester vtable
+   `33812C` (+4=`20B710`=SCH4 x31) / session-builder (`227570` ->
+   `227E60`, vtable `338B64` = the 31 sessions) -> `20BBA0` ->
+   `2027B0` WALK x31 = COMPLETE task list; `startup.baf` container
+   install byte-complete (27.7 MB FMH container vs 8.5 MB disc
+   source — NOT a copy). Pending-count ledger (frz138 watch): the
+   whole streaming era balanced; terminal burst nets **+1** — the
+   open from `sub_001EE2A0` relay call (`1EE682` -> inc `1EC2E5`)
+   never gets its dec; `20F1A0` scene-executor x0. Next: frz139
+   full-record watch ledger + frz140 (HUB0/SESSB/DISP/THKB) to
+   decide whether the dispatch tier keeps ticking post-wall or dies
+   with the manager.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop
    (0005); async-IO return convention = the phantom charge (0011);
