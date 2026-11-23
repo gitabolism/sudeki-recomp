@@ -1,0 +1,33 @@
+diff --git a/src/kernel/kernel_file.c b/src/kernel/kernel_file.c
+--- a/src/kernel/kernel_file.c	2026-11-23 00:09:13.615838266 -0500
++++ b/src/kernel/kernel_file.c	2026-11-23 00:09:10.765975458 -0500
+@@ -1412,10 +1412,11 @@
+     }
+     long long pos0 = (seqlog && !ByteOffset)
+                          ? (long long)lseek(fd, 0, SEEK_CUR) : -1;
++    ssize_t n;
+     if (ByteOffset && ByteOffset->QuadPart >= 0)
+-        lseek(fd, (off_t)ByteOffset->QuadPart, SEEK_SET);
+-
+-    ssize_t n = read(fd, Buffer, Length);
++        n = pread(fd, Buffer, Length, (off_t)ByteOffset->QuadPart);
++    else
++        n = read(fd, Buffer, Length);
+     if (seqlog && !ByteOffset && n >= 0)
+         fprintf(stderr, "  [READSEQ] fd=%d pos %lld -> %lld n=%zd\n",
+                 fd, pos0, (long long)lseek(fd, 0, SEEK_CUR), n);
+@@ -1452,10 +1453,11 @@
+     }
+ 
+     overwrite_settle(fd);
++    ssize_t n;
+     if (ByteOffset && ByteOffset->QuadPart >= 0)
+-        lseek(fd, (off_t)ByteOffset->QuadPart, SEEK_SET);
+-
+-    ssize_t n = write(fd, Buffer, Length);
++        n = pwrite(fd, Buffer, Length, (off_t)ByteOffset->QuadPart);
++    else
++        n = write(fd, Buffer, Length);
+     if (n < 0) {
+         XBOX_TRACE(XBOX_LOG_FILE, "NtWriteFile(handle=%p) errno=%d", FileHandle, errno);
+         IoStatusBlock->Status = STATUS_UNSUCCESSFUL;

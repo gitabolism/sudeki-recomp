@@ -126,6 +126,19 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   the last baf `[READ]`. Also `[EF0C0]` mode/args and `[REG]`/`[DEREG]`
   relay membership.
 
+* NT file-pointer semantics violation (patch 0050): bridge
+  positioned-reads `lseek` the shared fd and never restore it; the
+  guest relies on positioned IO not moving the handle FPO (the
+  `[READSEQ]` jumps ARE this violation). frz116 = first 0050 run.
+* Open semantic gap: per-handle FPO vs per-fd position — if two
+  guest handles to one file map to one host fd (check
+  `w32_handle_fd` dup), their file pointers cross (NT keeps them
+  separate).
+* frz113 core forensics for the record: `018CF14C` fields
+  `+0x18` id `0A260002`, `+0x1C` `0x1400`, `+0x20` `0x1000`,
+  `+0x8` desc `00F95738`; handle `02611EA4` -> obj `010E3178`
+  (`+0` `0x31C8`, `+4` `0x248`, `+8` data `010E3198`).
+
 ### frz114-115: seq-read positions revealed; installed-tail polling is the loop (H31.10)
 
 * patch 0048 (`[READSEQ] fd pos before->after`) + 0049
