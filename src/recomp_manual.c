@@ -2395,21 +2395,7 @@ CENSUS(sub_0008B790, "CTORB", 40)
 
 
 
-/* frz149: retry-loop drivers (frz148 core attribution: ATT2 called
- * inside lifted 1F5A70, ATT3 inside 1F5AE0; ATT4 inside 20ABF0) and
- * the registrar-family ctors (8A470/8B790 stamp the vtable whose
- * slot 8A790 heads the RGCX->REGT chain). */
-extern void sub_001F5A70_gen(void);
-CENSUS(sub_001F5A70, "DRV1", 60)
 
-extern void sub_001F5AE0_gen(void);
-CENSUS(sub_001F5AE0, "DRV2", 120)
-
-extern void sub_0008A470_gen(void);
-CENSUS(sub_0008A470, "CTORA", 40)
-
-extern void sub_0008B790_gen(void);
-CENSUS(sub_0008B790, "CTORB", 40)
 
 extern void sub_001F8A00_gen(void);
 
