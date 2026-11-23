@@ -1794,3 +1794,36 @@ era only ever raised `00000004` x18 / `00000040` x2 — game sat in
   the per-tag BIN lived inside that killed chain -> next launch had no
   binary ("ABRT gate: game died pre-nav"); (3) 3rd BIN-tag miss.
   BIN-copy must be a separate completed call before launch.
+
+## frz146b/147/148 — healthy-era census arc: whole object/message tier absent; attach tier alive; retry drivers named
+
+- frz146b (145-code + patch 0052, full length, hangwatch-v2 clean):
+  healthy to PUMP x167 terminal (manager 018BF14C). Census: CTOR/CTOR2/
+  CTRX x0, RQ1/RQ2 x0, HND1/HND2/H7E4 x0, MSG1/MSG2 x0, MKLU/TBLU x0
+  — while SUBM x256(cap), HUB0/TITER x61, TCTO x33. The frz144 x0s
+  were NOT regime artifacts: the message-dispatcher classes, the
+  resource-request handlers and the scene/menu tiers NEVER run in a
+  healthy era. Object-graph pose CONFIRMED.
+- frz147 (attract-mode regime; OHCI era raised 00000004 x18 not the
+  00000002 milestone -> pad gate never armed): census valid — REGT x0
+  (49B10 task-type registrar), RSRC1-4 x0 (5D740/5D880/64990/64AD0),
+  ATT2/3 x256 (attach callers ALIVE). LAW: OHCI enumeration milestone
+  is regime-variable; nav pad gate broadened (v45: raised 00000002|4
+  OR vblank-600 fallback).
+- frz148 (nav OK: 9 PAD-live presses, PUMP x167, ABRT core): census
+  CTOR/REGT/RQ1/MSG1 x0; ATT2 x256 ATT3 x256 ATT4 x512 SUBM x256.
+  Core RA symbolization (gdb `info symbol` on the .bin + core):
+  ATT2 called INSIDE sub_001F5A70, ATT3 INSIDE sub_001F5AE0 (adjacent
+  retry-loop drivers; 1F5AE0 static callers = {975B0,F69B0,173570,
+  1E49C0,1F63C0,1FD2D0,20AC50,214930}), ATT4 inside sub_0020ABF0
+  (scheduler region, no static callers), top SUBM caller = 1F2270
+  (attach path). frz149 (running): DRV1/DRV2 + CTOR-A/B(8A470)/
+  CTOR-B(8B790) census.
+- Law (toolchain): census blocks in recomp_manual.c must be grep-count
+  verified (exactly one definition per address) and gcc-syntax-checked
+  BEFORE commit — a double-committed block sat in HEAD all afternoon
+  (builds still passed: out-of-order gen hid it).
+- Law (forensics): gdb -batch `info symbol <host-ra>` on the per-frz
+  .bin + its core symbolizes RA censuses DIRECTLY (no base math; the
+  nm-base arithmetic was unreliable because func_id names shift
+  between builds).
