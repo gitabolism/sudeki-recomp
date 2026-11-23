@@ -2393,6 +2393,32 @@ CENSUS(sub_0008A470, "CTORA", 40)
 extern void sub_0008B790_gen(void);
 CENSUS(sub_0008B790, "CTORB", 40)
 
+/* frz151: scene-root INIT tier. CRT caller 11DE0 -> 8A880 (allocs
+ * 0xdfd0 global object, cs 0x376CC4) -> 8A940 = THE root ctor:
+ * sequential subsystem ctors 8AD40, 56CF0, 8A470(CTORA ran x1),
+ * 8AEC0, 8AFD0, ... 300B0... If 8AD40 is the first x0, every later
+ * ctor incl the 8A790->RGCX->REGT registrar chain is unreachable
+ * and the handler lists 3975E4/3975E8 stay empty (only static
+ * writers are the unlinkers 1F5B30/1F5B70) -> attach-offer loop
+ * DRV1 x256 offers to nobody = the Loading-forever wall. */
+extern void sub_00011DE0_gen(void);
+CENSUS(sub_00011DE0, "INIT0", 20)
+
+extern void sub_0008A880_gen(void);
+CENSUS(sub_0008A880, "INIT1", 20)
+
+extern void sub_0008A940_gen(void);
+CENSUS(sub_0008A940, "INITR", 20)
+
+extern void sub_0008AD40_gen(void);
+CENSUS(sub_0008AD40, "C8AD40", 20)
+
+extern void sub_0008AEC0_gen(void);
+CENSUS(sub_0008AEC0, "C8AEC0", 20)
+
+extern void sub_0008AFD0_gen(void);
+CENSUS(sub_0008AFD0, "C8AFD0", 20)
+
 /* frz150: handler-family rungs of the dead object-graph chain (UP
  * rungs 70360/72B00/77140/7A4C0 already have census wrappers from
  * frz146 era; one run names the highest living rung). */
