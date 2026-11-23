@@ -1724,3 +1724,25 @@ hangwatch-v2 clean, terminal PUMP x167 manager `018CF14C` = frz141 era).
   pool 3229E8), sole caller 491C0 <- 8A790 (vtable-only). frz147
   censuses REG/RGCX/RGT + resource upper rungs RSRC1-4 + attach
   callers ATT1-4.
+
+## frz147 — attract-era census + tag-collision law + OHCI gate regime variant
+
+Run `logs/run-frz147-105103.out` (1150 s full, 186k lines, PUMP x167
+reached; NO nav input: the pad gate greps `raised 00000002` and this
+era only ever raised `00000004` x18 / `00000040` x2 — game sat in
+"Sudeki Atttract Mode.bik" loop).
+
+- **Census tag collision:** my new sub_00049B10 census used tag REG —
+  already owned by the EC2C0 relay-register wrapper (its x200+ obj/
+  epoch lines masked the registrar's true x0). Renamed REGT (law:
+  census tags unique; check before minting).
+- frz147 census (valid despite attract regime): **REGT x0** (task-type
+  registrar never runs), RSRC1-4 x0 (resource upper rungs dead),
+  RQ/HND/CTOR/MSG x0 (all below), ATT2/ATT3 x256+ (attach churn alive
+  — scheduler callers 20AB70/221000 called as adjacent pairs from ONE
+  lifter function, ra-attribution owed via core).
+- Nav harness v45 (tmpfs): gate broadened to `raised 00000002|4` OR
+  `vblank 600 (tick)` fallback — pad injection must survive the
+  no-00000002 regime variant.
+- Laws: OHCI enumeration milestone (00000002) is REGIME-VARIABLE;
+  input-dependent depth requires the gate to be era-tolerant.
