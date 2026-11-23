@@ -45,10 +45,23 @@ screen.
 
 ## Last run
 
-Session 5d (13:0x–…): **waiter ledger closed the wall anatomy; watch-trap
-unreliability law; patch 0053 poll-diff; frz157 ordering = pose x25.**
+Session 5d (13:0x–…): **waiter ledger closed wall anatomy; poll-diff overturn (ctor-at-burst, stack-garbage name, B29=class tag); EACYC=EF1D0 handshake x73 exits 102; frz157 = THE ORDERING (pose x25); frz161 census: completion tier dies PRE-BURST.**
+- frz160 healthy-manager control VOID (boot-era lottery death; loader
+  line "XBE loaded: 3903488" law = file size, no input drift).
+- frz161: KICK x~300 ALL = lookup-release leg in submit-hit path
+  (ra=1EE6D0+1642), ZERO for terminal, dies 59876; SVC x12800 ALL from
+  EB0C0 tick (node geometry getters), dies 59198 = BEFORE WINC x207
+  (59868); SVC2 x0; EENT <200 calls whole-run.
+- Static: manager [0x14] = COPIED record-array ptr (template copy at
+  1EE451); builder 1EDE80 UNLIFTED + no measured ICALL ever; EF1D0
+  unlink law explains healthy arr=0 at kill; CLOSE = EC350 or 1EEEE0
+  at-zero (1F92E0+1ED9B0+vtbl[0](1)); type-slot [0x37A3D0][2] =
+  "FNT1"-looking tag deterministic in 4 cores (type-2 resolution
+  never happens -> SVC2 x0 consistent).
+- frz162 running (EENT post-state per submit + node-stamped SVC;
+  syntax-gate catch + brace fix committed).
 Full verdicts in note 0025 (sections frz152b / frz153 / frz154-155 /
-frz157 / frz159); one-line each:
+frz157 / frz159 / static addenda / frz161); one-line each:
 - frz152b: ledger reproduces net +1; unmatched open = EE2A0 relay
   `1EE682`; loader drains once then parks INFINITE, never woken.
 - frz153/153b: mprotect watch-trap UNRELIABLE -> patch **0053**
@@ -62,8 +75,6 @@ frz157 / frz159); one-line each:
   late; ISERV never for terminal epoch.
 - frz159: `EE2A0`'s SOLE caller = `1EE7D0` submit API, one call per job
   id; WINC-leg + batch-ctor leg inside the same call window.
-- Probes now built through EENT (frz159 bin); frz160 healthy-manager
-  control (`WATCHVA=018A7B68`) running.
 
 Session 5c (06:3x–13:0x): **frz135→144 census arc; wall narrowed to the
 message/object-graph tier; submit-API law found; xemu capture law work.**
