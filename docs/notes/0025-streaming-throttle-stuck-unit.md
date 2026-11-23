@@ -56,6 +56,30 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
 
 ## Outcome
 
+### CORRECTION (BINK anatomy, frz94 core): the GATE census never measured level loading
+
+frz94 core + section map: ctx 0x82648040 is a **BINK struct** (Bink
+player sections live at 0x002C0880-0x002CCFFB — so `sub_002C3200/
+sub_002C0C50/sub_002C0980/sub_002CA6E0/sub_002C31A0` are all Bink
+online-mode internals). Decoded fields (from core + bodies):
++0x270=frames decoded (grew +30/s = real-time decode; 2296 at kill =
+exactly the movie's NumFrames; frz93's 3499 = second loop),
++0x2B4=frames presented (+28/s, lags ~130 = the online buffer),
++0x280/274=tick timestamps, +0x278/27C/28C=last tick (global
+0x3969C8 matches), +0x028=file read pos (EOF-8 at kill),
++0x160/164/188=file size (EOF=0x1C4CD94), +0x14/18=fps 2997/100,
++0x020=496 KiB ring (slots matched 16 KiB at stride 0x4000).
+IO-ring content-match (core): all 16 slots =
+`Movies/Sudeki Atttract Mode.bik` @ 0x1BCE158-0x1C46158 (file size
+29,674,900 = matches XDVFS table exactly; extraction tree verified
+443/443 entries byte-size-exact vs disc).
+=> "load stuck at 90 % with stream position frozen at 0xE5D5C" was
+MOVIE pacing mislabeled: the attract movie (640x480, 76.6 s, 2296
+frames) streams to EOF, finishes, and LOOPS under the loading card.
+No load-progress census exists; H31 must be re-posed as: what event
+does the game await after entering the load state? (frz96 path= per
+phase is the decisive dataset: does non-movie IO persist?)
+
 ### frz95 (no-press control, 900 s, `logs/run-frz95-195504.out`) — control PASSED, wall sharpened
 
 * Mirror regime reaches title/attract normally (no regression): rich

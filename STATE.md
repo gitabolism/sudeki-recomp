@@ -3,16 +3,16 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-22 20:2x (session 4w)
+**Last updated:** 2026-11-22 20:4x (session 4w)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**;
-**navigation works** (New Game -> real level load: speech banks
-stream, job queue ~90 %) — the one remaining wall to a presented
-level frame is **H31**: the level load never completes. H30 CLOSED
-(note 0024); the GPU/mark era is dead since frz92 (note 0024 4v).
-frz95 (no-press control) PASSED — same stall appears in the title-era
-tail, so H31 is era-general; `cur` = stream byte position (walks in
-healthy eras, frozen in stalls). frz96 (patch-0047 `[READ]` path
-trace, 1200 s, nav) IN FLIGHT (`logs/run-frz96-*.out`).
+**navigation works** (New Game -> level assets stream: speech
+wavebanks open+read). **CORRECTION (note 0025):** the earlier "load
+stuck at 90 %" census was Bink MOVIE pacing, not load progress —
+the wall (H31) is re-posed as: game sits in the load state (loading
+card + looping attract movie) and the awaited completion event is
+unknown. frz96 (patch-0047 `[READ]` path trace, 1200 s, nav) IN
+FLIGHT (`logs/run-frz96-*.out`) — per-phase IO census is the
+decisive datum.
 
 ## Where things are verified
 
@@ -67,6 +67,11 @@ H31 framed.**
 - Patch 0047: `[READ] @seq` form gains `sz=`/`path=` (EOF contract
   verified correct upstream: 0-byte read -> `STATUS_END_OF_FILE`, so
   those zeros are real stored content, not a past-EOF artifact).
+- **CORRECTION (frz94 core forensics + `core_ram.py` core-reader):
+  the frz93/94 "load queue" numbers are Bink MOVIE stats** (see note
+  0025 anatomy; ring content matched `Movies/Sudeki Atttract
+  Mode.bik`; tree-vs-disc size audit 443/443 exact). H31 re-posed:
+  awaited load-completion event unknown, movie loops under the card.
 - Harness (user directives): AGENTS rule 12 (mission-only content),
   wall-clock discipline + every-3rd-session audit, `/review` command
   (+ README/progress-bar sync as worktree drafts). First audit ran
@@ -79,18 +84,17 @@ Earlier sessions live in the notes (0005–0025) + the session log; the
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025): a stream position stops advancing and
-   never completes.** `cur` = stream byte position: healthy eras walk
-   it forward (frz95: 0x152FD->0xD0194 over 900 s), stalls freeze it
-   (level era 0xE5D5C; **also in the no-press title-era tail** —
-   era-general, navigation only moves where). Thousands of identical
-   116-byte zero re-reads (`sub_00270FBD` seq site `0x00271057`),
-   frame content stays card/black. Census caveat: `done=0` also
-   happens in healthy eras -> `done` label mis-derived. Suspect: a
-   zero-filled extent we serve as data (extraction/slack vs XDVFS
-   entry sizes) or a guest parse loop that can't advance over zeros.
-   Falsifier: frz96's `[READ] @seq path=` names the stuck file;
-   compare vs the disc's XDVFS table (gitignored).
+1. **H31 (ACTIVE, note 0025, RE-POSED): the game never leaves the
+   load state.** After New Game it streams level assets (wavebanks
+   read at @0), plays the 76.6 s attract movie in an online Bink
+   loop, presents the loading card forever. GPU/events/marks healthy
+   under it; extraction tree is disc-exact (443/443 sizes). What
+   completion event is awaited is UNKNOWN — the old "cur/done frozen
+   queue" evidence was movie pacing (labels wrong; census wrapper
+   needs fixing). frz96's `[READ] path=` per-phase census decides:
+   level IO persists (-> consumer/event wall) vs dies (-> producer/
+   trigger wall). Watch (0x2E2F4C) quiescent; 4C event unused in
+   healthy eras (frz95: zero pulses, rich frames flow).
 2. H14–H30 CLOSED — one-line lessons index (homes = notes 0005–0024):
    cache capacity ends the boot write-loop (0005); async-IO return
    convention = the phantom charge (0011); ICALL-skip stack drift
