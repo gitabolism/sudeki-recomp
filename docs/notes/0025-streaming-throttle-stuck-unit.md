@@ -71,6 +71,31 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   `[MTICK]`: which object class does `sub_001EDA20` tick, and which
   gate closes.
 
+### frz103: the load pipeline is SERIAL over ~40 per-archive managers; the LAST one never finishes
+
+* Full `[PUMP]` census (167 entries): managers are per-archive
+  objects `0x018A0C00..0x018CF200`; the load runs as a SERIAL
+  pipeline — each manager's stage-field walks `1->2->4->8->0xF->
+  ...->sentinel` (e.g. `018A0C00 st=484D4601` = the boot HMF,
+  `018A2400/018B7800` = shared/startup BAFs, wavebank/gex-era
+  `018AAxxx..018CFxxx`), and the NEXT manager starts pumping only
+  when the previous reaches its sentinel. Pump counts per manager
+  are tiny (3-5 samples) — the pipeline is a relay, not a pool.
+* The LAST pump EVER (x167, line 37,217) is manager `018CF100`
+  with `id=5678 st=00970002 node=00010040`, pumping repeatedly
+  (x159..x167, ~3 log lines apart) — it never reaches its sentinel
+  and NO later manager ever starts. Its neighbours `018CF000`
+  (id=001F) and `018CF200` (id=FFFF, node=010E3050) finish;
+  `018CF100` is the head of the queue that never drains.
+* Era file windows: L36,100-37,219 reads are `startup.baf`
+  (a SECOND startup.baf phase — first phase at L~1,200-19,223);
+  post-stall reads are ONLY the attract movie ring (`Sudeki
+  Atttract Mode.bik`, 1,816 reads) — no game-data stream resumes.
+* => H31 final shape: name the archive owned by manager
+  `018CF100` and what its `id=5678` stage waits on. Next probes:
+  `[EF1D0]` era-loop entry counter (pipeline alive?); core dump of
+  `018CF100` object + its node list (frz103 core, matched bin).
+
 ### frz100/101: the stall is DETERMINISTIC and the pump TICK stops
 
 * frz100 reproduced the read-back stop at the EXACT byte: seq head
