@@ -2701,3 +2701,37 @@ not file size; no input drift — doctor green).
   x2 in frz174 — the ONLY submit route that ever fires.
 - NEXT: regen census batch REGI(491C0)/REGX(8A790)/CMD1(15B640) to see
   where the command-object instantiation chain stops.
+
+## xemu healthy-title RAM diff (reference baseline, FIRST valid one) — regime is INVERTED
+
+- Method: ram-title.elf (xemu, title era, 05:45) anchored via identity
+  pair (0037306C,00373074 @3975E4 -> phys 0x038A85E4, delta 0x3511000);
+  caveat: per-page mapping means delta valid only within the contiguous
+  run; sanity check [37602C] FAILED (0, want 3229E8) — so treat reads as
+  era-indicative, not exhaustive; two anchor candidates disagreed
+  (section-start find gave .data delta 0x35C5000 — that hit is the XBE
+  IMAGE COPY in the header area, not the loaded pages; ignore).
+- HEALTHY xemu title-era reads (same VAs as our cores):
+  * pump heads 3D7620/644/668/68C/71C/740 = STATIC image ptrs (31FB48/
+    32107C/32104C/321014/320EC0/31F9A8) — NONZERO; ours ALL ZERO.
+  * scene [3DC83C] = 0x31F7BC (static image blob) — ours = heap object.
+  * singletons [3DD7F0]=31FB30 [3DD7F4]=31FB24 static blobs — ours heap.
+  * BUT: [396E91] (loader-threads boot flag set by 21C7C) = 0; evt slots
+    [397920/24]=0; pump heads-vs-threads: THE HEALTHY GAME HAD NOT
+    STARTED THE 21C60 WORKER TIER AT ITS TITLE MOMENT (or cleared it).
+  * [397110]=0 (ours=1) — the gate we treat as "opened" is CLOSED in the
+    healthy title era (or a different-clock field).
+- READING: our runs boot the loader-worker tier EARLY and drain queues
+  to zero; the healthy title era keeps static queue heads installed and
+  the worker tier unstarted at the same visual moment. Era semantics are
+  time-shifted, not identical — "queues empty = idle healthy" vs
+  "heads static = pre-load" cannot be conflated. Next: capture a LATER
+  xemu moment (post-Press-START, gameplay) for the comparison that
+  actually matters, and re-anchor pages properly (walk per-4KB-page
+  anchors for the globals set).
+- Table-walker facts (static, corrected scanner): the 478-slot run's
+  owner ctors = 57E90/57EE0 (stamp vptr 32307C/323074 + [3DD7F4]); no
+  E8 callers (vtable-dispatched); instances EXIST in our cores
+  ([3DD7F0]/[3DD7F4] heap objs, vptr verified 32307C) but their method
+  slots (RSRC census) never execute; the 83530 tier (calls pack-enqueue
+  21CD0) is a member of the 70xxx resource chain (callers RQ1/RQ2/HND...).
