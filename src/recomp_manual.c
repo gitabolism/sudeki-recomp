@@ -1419,9 +1419,12 @@ void sub_001EF1D0(void)
         const char *e = getenv("RECOMP_RD_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
     }
+    uint32_t arg = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                       ? MEM32(g_esp + 4) : 0u;
     if (on && (n++ & 0xFF) == 0) {
         void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
-        fprintf(stderr, "  [EF1D0] x%u ra=%p\n", n, ra);
+        fprintf(stderr, "  [EF1D0] x%u ra=%p arg=%08X (bkt=%u)\n",
+                n, ra, arg, (arg >> 6) & 31u);
         fflush(stderr);
     }
     sub_001EF1D0_gen();
