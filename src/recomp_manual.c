@@ -1375,6 +1375,34 @@ void sub_0023B830(void)
                     fprintf(stderr, " %08X", v);
             }
             fprintf(stderr, "\n");
+            /* frz167: one-shot registry dump when a PUMP-seen manager has
+             * a nonzero pending word [mgr+0x2C] (terminal orphan shape):
+             * walk bucket table 0x37A120[0..31] chains (entry, cnt, mgr,
+             * flags) + queue heads/counters 3D75FC..3D7718, 3975A8/AC. */
+            static int dumped = 0;
+            if (!dumped && MEM16(mgr + 0x2C) != 0) {
+                dumped = 1;
+                fprintf(stderr, "  [BUCK] mgr=%08X pend=%04X st=%08X +4=%08X +8=%08X +14=%08X\n",
+                        mgr, MEM16(mgr + 0x2C), MEM32(mgr + 0x28),
+                        MEM32(mgr + 4), MEM32(mgr + 8), MEM32(mgr + 0x14));
+                for (uint32_t b = 0; b < 32u; b++) {
+                    uint32_t e = MEM32(0x37A120u + 4u * b);
+                    while (e && e >= 0x01000000u && e < 0x04000000u) {
+                        fprintf(stderr, "    bkt%02u ent=%08X cnt=%08X obj=%08X nxt=%08X\n",
+                                b, e, MEM32(e + 0xC), MEM32(e + 0x10),
+                                MEM32(e + 0x18));
+                        e = MEM32(e + 0x18);
+                    }
+                }
+                for (uint32_t q = 0x3D75FCu; q <= 0x3D7718u; q += 4u) {
+                    uint32_t v = MEM32(q);
+                    if (v)
+                        fprintf(stderr, "    q%08X=%08X\n", q, v);
+                }
+                fprintf(stderr, "    tally A8=%08X AC=%08X\n",
+                        MEM32(0x3975A8u), MEM32(0x3975ACu));
+                fflush(stderr);
+            }
             fflush(stderr);
         }
     }
