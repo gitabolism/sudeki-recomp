@@ -217,4 +217,4 @@ log.
 | 11-22 12:38–17:55 s4u | frz87 deepest = title-era luck; pump-chain anatomy; Ghidra bench; close-out | `105e357`..`f00a8bf` |
 | 11-22 18:50–19:23 s4v | **H30 ROOT-CAUSED (note 0024)**; frz91 probe; user-approved history scrub + rule 12 | `19b5f4f` `ff20cad` |
 | 11-22 19:56–22:3x s4w | **H31 framed (note 0025)**; frz92 GPU-wall-dead verdict chain; patch 0047; /review harness + first audit + README sync | `c4b9be4`..`7ce51cb` |
-| 11-22 22:0x–11-23 02:1x s5a | frz107-125 census arc; H31 re-posed x9 to heartbeat-producer level; patches 0048-0051; raw-decode law; regime split refuted; frz125 in flight; /review audit #2 | `7f37ab3`..`524d2f6` |
+| 11-22 22:0x–11-23 02:1x s5a | frz107-125 census arc; H31 re-posed x9 to heartbeat-producer level; patches 0048-0051; raw-decode law; regime split refuted; frz125 in flight; /review audit #2 | `230ede7`..`524d2f6` |
