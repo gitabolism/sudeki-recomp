@@ -2734,6 +2734,55 @@ void sub_001EAB90(void)
     sub_001EAB90_gen();
 }
 
+/* frz155 wake-iterator tier. EAAB0 (= EACYC census, already above) is THE
+ * loader-side wake path: it iterates the request queue [0x397668] via
+ * 1FE8A0 (esi cursor, eax=next) running each item through 1FE690, and its
+ * tail (1EAB64) sets F4=1 + ReleaseSemaphore([0x37A114]) — the ONLY wake
+ * for the parked loader. frz152b: EACK (mid-body label EAB90) ran exactly
+ * 5x, all from 1EACC0 -> iterator never re-run after tick 5. [ITER] the
+ * per-item step (eax=0 => empty queue at that tick); [EXEC] the item run. */
+extern void sub_001FE8A0_gen(void);
+
+void sub_001FE8A0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 300 || (n % 512) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [ITER] x%u ra=%p esi=%08X\n", n, ra, g_esi);
+        fflush(stderr);
+    }
+    n++;
+    sub_001FE8A0_gen();
+    if (on && n < 300) {
+        fprintf(stderr, "  [ITER] x%u -> eax=%08X\n", n - 1, g_eax);
+        fflush(stderr);
+    }
+}
+
+extern void sub_001FE690_gen(void);
+
+void sub_001FE690(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 300 || (n % 512) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [EXEC] x%u ra=%p eax=%08X\n", n, ra, g_eax);
+        fflush(stderr);
+    }
+    n++;
+    sub_001FE690_gen();
+}
+
 /* 26D5AE = guest SetEvent wrapper (all loader-event signals route
  * through it; EVENT_LOG can't name the CALL SITE). ra + handle per
  * call: which handshake stopped producing wakes after pulse #4. */
