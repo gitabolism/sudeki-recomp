@@ -2038,6 +2038,38 @@ void sub_001EACC0(void)
     unsigned my = n++;
     sub_001EACC0_gen();
     uint32_t busy = MEM32(0x3D7668);
+    /* frz132 session-state census: walk the 32-bucket table at
+     * [0x397620] (F8670 walk law: node+4 key, node+8 state, node+0xC
+     * next). xemu healthy dump showed state=3 objects; ours stuck
+     * 1/2 — does any session EVER reach 3? Emit on histogram change. */
+    if (on && (my % 64) == 0) {
+        static char last[128] = "";
+        uint32_t tbl = MEM32(0x397620);
+        int hist[8] = {0}, total = 0;
+        char lastkey[24] = "";
+        if (tbl >= 0x1000u && tbl < 0x4000000u) {
+            for (int b = 0; b < 32; b++) {
+                uint32_t node = MEM32(tbl + b * 4);
+                for (int g = 0; node >= 0x1000u && node < 0x4000000u && g < 32; g++) {
+                    uint32_t st = MEM32(node + 8);
+                    if (st < 8) hist[st]++;
+                    total++;
+                    snprintf(lastkey, sizeof lastkey, " last=%08X/%u",
+                             MEM32(node + 4), st);
+                    node = MEM32(node + 0xC);
+                }
+            }
+        }
+        char line[128];
+        snprintf(line, sizeof line, "n=%d %d,%d,%d,%d,%d,%d,%d,%d%s",
+                 total, hist[0], hist[1], hist[2], hist[3], hist[4],
+                 hist[5], hist[6], hist[7], lastkey);
+        if (strcmp(line, last)) {
+            fprintf(stderr, "  [SESSN] x%u %s\n", my, line);
+            fflush(stderr);
+            snprintf(last, sizeof last, "%s", line);
+        }
+    }
     if (on && (my < 100 || (my % 512) == 0 || busy || g_eax ||
                MEM8(0x37A0F5))) {
         void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
