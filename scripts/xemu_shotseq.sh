@@ -72,15 +72,19 @@ prev = 0
 for t in times:
     time.sleep(t - prev)
     prev = t
+    # fresh name each pass: dump-guest-memory opens with O_TRUNC and the
+    # AppImage runs unprivileged-writable only if the path is new/clean
+    # (stale 0444 files from prior passes caused GenericError: Permission denied)
+    dest = f"/tmp/opencode/ram-{tag}-{t}-{int(time.time())}.elf"
     r = qmp({"execute": "dump-guest-memory",
-             "arguments": {"protocol": f"file:///tmp/opencode/ram-{tag}-{t}.elf",
+             "arguments": {"protocol": f"file:{dest}",
                            "paging": False, "format": "elf"}}, 180)
     print(f"t={t}:", r.strip()[-100:])
+    print("dest:", dest)
 PYEOF
 
 wait
-for t in $TIMES; do
-    RAM="/tmp/opencode/ram-${TAG}-${t}.elf"
-    [ -f "$RAM" ] || { echo "t=$t no dump"; continue; }
-    python3 tools/xemu_fbpeek.py "$RAM" "reference/xemu/${TAG}-t${t}" || true
+for f in /tmp/opencode/ram-${TAG}-*-[0-9]*.elf; do
+    [ -f "$f" ] || continue
+    python3 tools/xemu_fbpeek.py "$f" "reference/xemu/${TAG}-$(basename "$f" .elf)" || true
 done
