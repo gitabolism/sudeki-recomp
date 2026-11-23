@@ -1553,6 +1553,47 @@ void sub_001EABD0(void)
     sub_001EABD0_gen();
 }
 
+/* Funnel between EF0C0 and EF1D0 (frz107: EF0C0 >=419 entries but
+ * EF1D0 <256 while buckets are FULL -> the skip is between:
+ * EF0C0 -> EC590 (registrar) -> EC6B0 -> [mode gate] -> EF1D0).
+ * EC590/EC6B0 receive (ctx=ebx, list=edi, esi-arg): count + args so
+ * the drop-off is localized exactly. */
+extern void sub_001EC590_gen(void);
+
+void sub_001EC590(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 128) == 0)) {
+        fprintf(stderr, "  [REG590] x%u list=%08X esi=%08X\n", n, g_edi, g_esi);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EC590_gen();
+}
+
+extern void sub_001EC6B0_gen(void);
+
+void sub_001EC6B0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 128) == 0)) {
+        fprintf(stderr, "  [S6B0] x%u\n", n);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EC6B0_gen();
+}
+
 /* H31 master switch: sub_001EE7D0 (load-pipeline driver, 60+ call
  * sites) returns immediately when guest global byte 0x397110 == 0.
  * sub_001E0210 (engine frame driver) zeroes that flag on entry and
