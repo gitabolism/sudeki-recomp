@@ -163,7 +163,7 @@ log.
   RECOMP_PRES_TRACE=1 RECOMP_EVENT_LOG=1 RECOMP_GSVC_TRACE=1
   RECOMP_RD_TRACE=1 RECOMP_MISSING_FILES=all RECOMP_POST_TRACE=1
   RECOMP_LOG_ORDS=123,138,145,205,225`).
-- Harness trio current: `/tmp/opencode/nav_run32.sh`,
+- Harness trio current: `/tmp/opencode/nav_run34.sh`,
   `frz_watch*.sh`, `core_forensics.bt` (+`core_ram.py` Core class —
   ram-base finder above). `/tmp/opencode` ephemeral.
 - Other useful env: `RECOMP_CACHE_CAP_BYTES`, `RECOMP_WATCH=<va>…`,
@@ -183,7 +183,7 @@ log.
 - Deterministic markers: PUMP x167 terminal, EE110=167, baf-read
   counts vary by kill timing (don't pin on them); regime pinned in
   run header from now on.
-- Git: never push (rule 7); local commits through `524d2f6`; every
+- Git: never push (rule 7); local commits through `e6c3519`; every
   agent commit this session is factory/docs only.
 
 ## Session log (chronological; HH:MM = commit times)
