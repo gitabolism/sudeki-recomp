@@ -822,3 +822,35 @@ frz117/121/123/125/126/127 + raw capstone decode of the XBE):
   that should have fired is guest code whose entry census shows it
   was never called; no host path swallowed a Set/queue entry found
   so far.
+
+## frz129 pre-work — static leg-issuer anatomy (session 5b, lifted-C + raw scan, no probes yet)
+
+* ISSU1 `1F1470` has exactly TWO static call sites: `sub_001F0410`
+  (thiscall vtable leaf: `1F1470(obj+0x14, 0)`) and `sub_001F1280`
+  (site `1F12F2`). The lone frz127 `[ISSU1]` hit came through the
+  vtable leaf: `0x001F0410` is slot 4 of the vtable at guest
+  `0x00336620` (class-name strings "Secret"/"Blur" adjacent at
+  `33660C/336618`) — a game-effect object method, consistent with
+  the earlier "caller in 1F3310 region" wording (dispatch frame).
+* `1F1280` has ONE caller: `sub_001EF770` (site `1EF7B9`), gated by
+  (a) `MEM8(0x397110) != 0` — the H31.4 engine-frame flag, refuted
+  as a stall cause but still the gate on THIS path; (b)
+  `sub_001F8670(0) == 0` — session lookup: walks the 32-bucket
+  table at `[0x397620]` under CS `[0x3156C0]`, calls each entry's
+  vtable[+4], matches key; FOUND (ret!=0) -> issue SKIPPED. `EF770`
+  itself has one caller: `sub_00157B10` (game layer, site `157C84`).
+* ISSU2 `1F1870` has ONE static caller chain: `sub_0023E540`
+  (leaf at `23E56C`); its callers: `sub_00208C80` (3 sites, the
+  ranged-read driver: vtable `+0x18` open, descriptor scan on
+  `obj[+0x10]` array for mask `0x1000000`, range math via
+  `202750`, then 23E540 closes slots), plus `2304C2/23E1D6/23E824`.
+  `208C80` callers = asset-API era sites `2021EA/202678/20DCCF/
+  20E31B/211596/21195F/211CA2/211ECA`. Adjacent `sub_00208E60`
+  holds the live `EF0C0` registrar sites (`208F0D/208F22`) — same
+  module, so the module IS alive at the wall while the 23E540
+  leg never runs.
+* frz129 probe shortlist (one variable = leg issuer): `[EF770]`
+  entry + `397110` state + `F8670` return + caller-frame key args
+  (does the engine issue-driver run, and which gate refuses);
+  `[OPEN2]` (`208C80`) entry + descriptor-scan hit count;
+  `[SESS]` (`F8670`) entry + found-bucket. Pick AT MOST two.
