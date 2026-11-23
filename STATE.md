@@ -3,7 +3,7 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-23 12:0x (session 5c, 06:3x–…)
+**Last updated:** 2026-11-23 13:3x (session 5d, ~13:0x–…)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
 (xemu same-moment capture still owed, see Queue);
 **navigation works**; load-stall wall (H31, re-posed x24, home = note
@@ -47,7 +47,37 @@ the game sits on a static "Loading..." screen.
 
 ## Last run
 
-Session 5c (06:3x–…): **frz135→144 census arc; wall narrowed to the
+Session 5d (13:0x–…): **waiter ledger closed the wall anatomy; watch-trap
+unreliability law; patch 0053 poll-diff armed.**
+- frz152b ledger: desc 018CF14C inc=2/dec=1 = net +1 REPRODUCED; unmatched
+  open = EE2A0 relay `1EE682` (frz138(a) confirmed); sequence at wall:
+  JOB x536 -> WINC x207 -> EF0C0 x435 `a1+8=0 mode=2` (no-owner branch ->
+  queue 3D7620, no immediate service) -> loader ENQ x3 drain-once ->
+  W2MO x29836 INFINITE {48000006,48000001} NEVER woken; all queues empty
+  at kill; core final word[+2C]=0001.
+- frz153/153b: mprotect watch on owner-slot `[mgr+8]` trapped ONLY the 4
+  boot memset writes though cores prove later writes -> trap path
+  UNRELIABLE; alias-divergence REFUTED (0x80000000 immediates = D3D/pad
+  flags only; contig window is separate storage). Patch **0053**
+  `RECOMP_WATCH_POLL=<ms>` poll-diff (era-armed both BF/CF) = frz154/154b
+  RUNNING (watch LEN 0x40 over whole manager object).
+- Wake chain decoded: EACYC entry x73 vs EACK ack-leg x5; 1FE8A0 gate =
+  unit[0x397668]=00FD9550 `+C0DC` pending / `+C0C8` busy — unit IDLE at
+  kill (pending not at unit tier; orphan waiter record lives inside the
+  manager PUMP retry). Retry drivers 1F5A70/1F5AE0 = handler-chain
+  walkers over [0x3975E8] (none accepts the key-06610B29 job -> eternal
+  rescan). frz155 probes ITER(1FE8A0)/EXEC(1FE690) committed, awaiting
+  gen+build.
+- frz154/155 verdicts (see note 0025): **terminal manager block CONSTRUCTED
+  at the burst** (inline, EE2A0+0x3517 family; MCOR never names BF14C);
+  name field = stack garbage `EA3D4B48`; `06610B29` = FMH-class DESC tag
+  (24 in-RAM descs), NOT a cache key; EACYC = per-node handshake inside
+  EF1D0 relay-processor, 73 exits all `0x102`, dies at 58557 while PUMP
+  rescans continue (node moves to bit-0x1000 in-service state; its
+  completion — WDEC + bit clear — is the last unknown writer). frz157
+  census staged: 1EC3E0 in-service transition + loader-kick 1EACC0 tail.
+
+Session 5c (06:3x–13:0x): **frz135→144 census arc; wall narrowed to the
 message/object-graph tier; submit-API law found; xemu capture law work.**
 - frz142/143 OVERTURN arc (cap law): dispatch/submit/loader tiers ALL
   alive whole-run (SUBM >=257, EACK from loader 1EACC0, resubmit
@@ -183,11 +213,11 @@ log.
 
 ## Queue (next concrete actions)
 
-* **1. frz152 (WINC/WDEC/CLOSE waiter ledger) gen+build+run** once
-  frz151 lands — ledger pairs every waiter open/close by desc; the
-  unmatched inc names the lost completion; CLOSE census proves which
-  descs reach zero-count. Terminal desc = manager+0x08 (frz150 core:
-  `00F95738`, key `06610B29`, size `0x373F`).
+* **1. frz157 census: in-service completion writer.** Wrap `1EC3E0` (called
+  at EF272/EF2B4 right before EACYC per node — the in-service transition)
+  + decode the bit-0x1000 branch (EF2A6 loader-kick: `1EACC0` + flags
+  `3970E5/6`). Goal: name WHO owes the WDEC + bit-clear for the terminal
+  burst node and why it never runs. Same BIN + MCOR/ITER/EXEC stay.
 * **2. Menu artefact completion (rule 6):** xemu shotseq unique-name
   pair still owed; FB law OPEN (linear + Z-order both decode TEXTURE
   at 0x1A3B000); `xemu_qmp_probe.sh` unrun decides screenshot path.
