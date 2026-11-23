@@ -2302,6 +2302,21 @@ CENSUS(sub_000F1CA0, "MSG1", 120)
 extern void sub_000F1D50_gen(void);
 CENSUS(sub_000F1D50, "MSG2", 120)
 
+/* frz144: construction tier of the message-dispatcher class family.
+ * 159710 stamps vptr 0x32F8E8 (vtable holding FRM/15B640 tier slots),
+ * called from 12 sites inside the dispatcher family itself; 162790
+ * stamps vptr 0x330358 (class-2), sole caller 0x0807D0. If ctors x0,
+ * the message classes are NEVER INSTANTIATED -> the level/menu object
+ * graph never built; the resubmit loop churns on a half-built world. */
+extern void sub_00159710_gen(void);
+CENSUS(sub_00159710, "CTOR", 40)
+
+extern void sub_00162790_gen(void);
+CENSUS(sub_00162790, "CTOR2", 40)
+
+extern void sub_000807D0_gen(void);
+CENSUS(sub_000807D0, "CTRX", 40)
+
 extern void sub_001F8A00_gen(void);
 
 void sub_001F8A00(void)
