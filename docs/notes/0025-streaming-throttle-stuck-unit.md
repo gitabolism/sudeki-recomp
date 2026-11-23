@@ -1239,3 +1239,26 @@ is healthy end-to-end (228 mode-2 pushes, 167 services, all
 completions). Next: wrap `sub_002027B0` (entries + args) and census
 what list it walks (`ebx`/`esi` records, u16 @+0x24 keys) + who
 populates that list (link to RESADD/REFILL refusal era).
+
+## frz136 core forensics — requester objects, batch records, live counters
+
+Core `sudeki.frz136.core` (pid 232033; anchor law: locate guest->host
+offset via a raw XBE .rdata 32-byte anchor; got `+0x12e6b000`; NEVER
+trust `coredumpctl list | tail -1` — stale tail).
+
+* Master pipeline gate `[0x397110] = 1` at kill (NOT blocked); all
+  static chains (`3D7620/668/68C`) null; flag bytes `396E48/396E50`=1.
+* Walker per-batch requester objects (SUB2B edx `02E565E8/02E56848`):
+  common vptr quad `338158/4C/40/38`; `+0x10` = record-array ptr;
+  `+0x20` low u32 = batch id (matches SUB2B esp+20 = 0x0D, 0x1B).
+* Batch record header (`02E4E780`): `+0=0x00032021` (~= remaining
+  BYTES>>6: 0x32021*0x40 = 13,109,312 ~ FBB330 remaining 0x00C87000),
+  `+0xC=0x0D`, `+0x10=0x5C(92)`, `+0x14=0x4A(74)`, `+0x24=13` — the
+  u16 the issue loop counts (batch 0x1B has 27). Sum over 31 batches
+  = 228 mode-2 splices. Sub-lists at `+0x34`: (0/1, ptr) pairs ->
+  per-request entries (`02E4ECFC` block: owner `02E56754..`, flags
+  `00010001`).
+* Law check: startup.baf total 27,762,688; ~14.6 MB streamed;
+  13.1 MB left UNQUEUED when the walker stopped (batch ids 0..0x1E
+  ran; nothing pending). The task-list producer, not the consumer,
+  is the dead edge — frz137 WALK census identifies its driver.
