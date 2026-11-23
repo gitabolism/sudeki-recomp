@@ -49,8 +49,15 @@ frz128→134 census arc complete; nav_run36a.sh = clean-press harness.
 
 ## Last run
 
-Session 5c (06:3x–…): **frz135→142 census arc; wall narrowed to the
-task-ISSUER tier; submit-API law found; xemu capture law work.**
+Session 5c (06:3x–…): **frz135→144 census arc; wall narrowed to the
+message/object-graph tier; submit-API law found; xemu capture law work.**
+- frz142/143 OVERTURN arc (cap law): dispatch/submit/loader tiers ALL
+  alive whole-run (SUBM >=257, EACK from loader 1EACC0, resubmit
+  bursts of identical jobs, WALK endgame cluster); message-leaf tier
+  (MSG1/MSG2/SWEEP/MKLU/SCH1-3/scene-executor) NEVER ticks ->
+  object-graph-never-instantiated pose (CTOR probes frz144).
+- Gate byte `[0x397110]` = one boot write 0->1, never cleared (law
+  closed); scene global written once at boot (`0281BEC0`, exists).
 - frz135-137: SUB2A(1FD660) dead-code x0; WALK x31 = complete task
   list; corrected EF0C0 mode census (mode2 x279 — probe-arg law);
   terminal manager = ONE never-closed request (pending word stuck 1).
@@ -127,22 +134,17 @@ log.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x21: endgame = ENGINE RESUBMIT
-   LOOP; the vtable message tier is the invisible edge).** frz142
-   overturned the "issuer silent" pose: SUBM hit its print cap (x199,
-   cap law: count==LIM = saturation), job-record tier ticks to the
-   terminal burst itself; terminal era CYCLICALLY re-creates the
-   same jobs (id/ptr pairs `0AC20002->02967C30`, `0A7F0002->02967A8C`
-   x3), EACK between bursts FROM the loader pump region (1EACC0),
-   EBUSY x2560 whole-run. Dispatch tier never died (WALK "x30" was
-   the cap) — frz140's tier-death laws retired. Scene global
-   `[0x3DC83C]` written ONCE at boot to `0281BEC0` — scene object
-   EXISTS; SWEEP x0 = cmd 55 never arrives OR leaf tier is
-   dispatch-invisible (MKLU/FRM/TBLU/SWEEP all x0 vs ticking
-   direct-call tiers). frz143 run (in flight) = tail-sampled censuses
-   + MSG1(F1CA0)/MSG2(F1D50) leaf probes + `[0x397110]` gate watch.
-   Heap-recycle law: log-quoted heap VAs are recycled by kill time —
-   core forensics must be live-watched or per-era re-derived.
+1. **H31 (ACTIVE, note 0025, RE-POSED x23: the game's message/scene
+   object graph is never BUILT (healthy-era confirmed); the visual
+   wall is a static "Loading..." screen — load jobs complete but the
+   object graph that ends a load doesn't exist).** frz146c (healthy
+   full era): CTOR/RQ/HND/MSG/MKLU/TBLU/SWEEP ALL x0 while
+   SUBM/HUB/TITER/TCTO churn to the deterministic PUMP x167 wall.
+   Registry lead: task-type registrar 49B10 ("exploration"/"ability"/
+   ...) <- 491C0 <- 8A790 (vtable-only); frz147 (running) censuses
+   REG/RGCX/RGT + RSRC1-4 (5D740/5D880/64990/64AD0) + ATT1-4 — the
+   highest LIVING rung names the missing caller. Regime law active:
+   verify vblank ticks + SUBM depth in first 200 s before ANY verdict.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop
    (0005); async-IO return convention = the phantom charge (0011);
@@ -155,13 +157,10 @@ log.
 
 ## Queue (next concrete actions)
 
-* **1. frz142 RUNNING (scene-global watch + MKLU/JPSS), then
-  frz143:** rebuild carries TBLU(6AD00)/TCTO(7D1E0) — decides
-  whether the task-lookup tier is reached at all post-wall. Then
-  xemu QMP probe window (`scripts/xemu_qmp_probe.sh`) for the
-  screenshot question. Gen law: recomp does NOT take functions
-  paths (`--functions` is disasm's `--seed-functions` via
-  `pipeline.sh --seed`) — never pass data-file args to recomp.
+* **1. frz147 RUNNING (REG/RGCX/RGT + RSRC1-4 + ATT1-4 census)** —
+  highest living rung names the dead edge; then frz148 targets one
+  rung above whichever ticks last. hangwatch v2 + BIN-tag copy are
+  standing procedure.
 * **2. Menu artefact completion (rule 6):** xemu shotseq now uses
   unique dump names (collision fixed); FB law still OPEN (linear +
   Z-order both decode TEXTURE at 0x1A3B000; `0x3C00000` pitch-720
