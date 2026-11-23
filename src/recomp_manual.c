@@ -2275,6 +2275,15 @@ CENSUS(sub_0006AD00, "TBLU", 60)
 extern void sub_0007D1E0_gen(void);
 CENSUS(sub_0007D1E0, "TCTO", 120)
 
+/* frz143b: THE job-submit API 1EE7D0 (gate: MEM8(0x397110)==0 ->
+ * NULL silent reject; fresh-desc path = recursive self-call with
+ * vtable 336828 -> EE2A0 creates the job record; existing-desc path
+ * -> 1EF660/1ECC90 handle lookup). Census decides: submit-API never
+ * called post-boot = game logic never requests stage 2 (engine-side,
+ * as posed) vs called-and-rejected (host-side gap). */
+extern void sub_001EE7D0_gen(void);
+CENSUS(sub_001EE7D0, "SUBM", 200)
+
 extern void sub_001F8A00_gen(void);
 
 void sub_001F8A00(void)
