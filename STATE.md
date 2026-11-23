@@ -3,22 +3,24 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-23 02:1x (session 5a, started 22:0x)
+**Last updated:** 2026-11-23 02:4x (session 5a, started 22:0x)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
 (xemu same-moment capture still owed, see Queue);
-**navigation works**; load-stall wall (H31, re-posed x9, home = note
-0025) at heartbeat-producer level: the servicing chain
-`loader wait -> EE190 pulse -> EE110 -> EDA20 tick -> 23B830 pump`
-runs 167 iterations and dies at pump x167 (job `0A260002`, manager
-`018CF14C`, size `0x1400` = one 5120-B record); the job is NOT stuck
-by any data gate — at kill the pump gate is structurally OPEN (job
-byte0=0, flags eligible, handle resolvable). The loader then waits
-INFINITE `{48000007, XAPI-msg event}` and every wake/pulse producer
-falls silent; frz125 (`[SMEVT]` on `26D5AE` SetEvent + `[F0F80]`
-queue census + `POST` task trace) names the wake that should fire
-pulse #6 but doesn't. ONE regime (fresh vs reused cache identical,
-frz121); loader events DO get Set (5 pulses = 5 Sets) — "events
-never Set" is dead.
+**navigation works**; load-stall wall (H31, re-posed x11, home = note
+0025) at heartbeat/issuer level: servicing = loader thread WFMO
+{evt7=`[0x37A114]`48000007, evt6=`[0x37A118]`48000006}; **evt6 is Set
+ONLY by `1EAB90` (5x whole-run, all from `1EACC0` ack branch)**;
+evt7 never Set (EE190 wake branch flag never true, EAAB0 only
+proceeds while evt6 Set — all 73 calls early-exit 0x102). frz126
+core: ALL async-load module globals NULL at kill (container
+`3D7668`, queues `3D7620/8C/40/1C`, CB list `397564`) while manager
+`018CF14C` still carries job `0A260002` — engine load state machine
+IDLES with a job still registered; the next-leg issue loops
+`1F1470/1F1870` never re-issue. frz127 (EBUSY/EDRV/ISSU1/ISSU2
+census, IN FLIGHT `logs/run-frz127-*.out`) names whether those
+loops exited or spin empty. ONE regime (frz121); loader thread
+alive (services attract era, REQ line 106936); 17/17 thread starts
+dispatched (risk #2 clean).
 
 ## Where things are verified
 
@@ -49,60 +51,52 @@ never Set" is dead.
 
 ## Last run
 
-Session 5a (22:0x–02:1x+): **frz107→125 census arc; H31 anatomy
-complete to the heartbeat producer; patches 0048–0051.**
+Session 5a (22:0x–02:4x+): **frz107→127 census arc; H31 anatomy
+complete to the heartbeat/issuer; patches 0048–0051.**
 - Terminal shape (deterministic, fresh AND reused cache): PUMP x167
   = last servicing call ever (bypass site, mgr `018CF14C`, id
-  `0A260002`, node key `EA3D4B48`, backtrace `1EDB68<-1EE160<-
-  1EE221`); EE110=167, MTICK=167, CQ(23AD50), F9720 — ALL silent
-  after (frz124 per-event EE110 probe: last x166 2 lines before
-  x167; 100k log lines of attract-movie IO only).
-- Pump raw decode: async/sync branch = `job[+8]` bit2 (`0x06610B21`
-  -> sync `F9720`); tick pump gate = `MEM8(job)==0` — OPEN at kill
-  (frz117/123 core forensics; core reader law: find ram base via the
-  `FE000000..FE000008` triple at `[0x3156C0]`).
-- Loader wait anatomy (raw): `EABD0` (single caller `21B1B`) holds
-  CS `37A0F8` across INFINITE wait on `{48000007, [0x397920]}`;
-  `EAAB0` 5-ms cycle ("poll" `[0x315818]` = RtlTryEnterCS);
-  `F0F80` processes worker queues `[0x3D771C/720/740]` (all null at
-  kill) and its handshake Sets the loader events (5 Sets = 5
-  pulses); `EF1D0` bucket walk (bucket `37A120+((tick>>6)&31)*4`,
-  all-empty at kill) waits on the loader container via `EAAB0`;
-  `26D5AE/CE`=Set/ResetEvent, `26D77A/78C`=WFSO/WFMO, `26D54D`=
-  CreateEvent.
-- `[ENQ]` wrapper IS `EE190`: 4-5 calls EVER per run = the pulses.
-  Pulse servicing = per-manager `EE110 -> EDA20 -> pump` walks.
-- Install integrity proven: write map covers `0..27,762,688` once,
-  no gaps; the polled 17-position tail slots ARE zeros the guest
-  itself installed; the cycling reads are the attract movie.
-  No level `.baf` ever opens. Boot-era `startup.baf` (disc,
-  8,585,216 B) -> installed `Cache//startup.baf` 27,762,688 B.
-- Regime split REFUTED (frz121). Patch 0050 (pread/pwrite = NT FPO
-  semantics) correct, not the wall. Patch 0051: writes dispatch
-  `case 236 -> xbox_NtWriteFile` directly — the bridge-side `[WRITE]`
-  log + patch-0005 capacity check never see the real writes
-  (decision owed, see Queue).
-- /review audit ran (fresh context, this session): artefacts verified
-  (patches no gaps, cores, hashes, doctor green, stubs 432); drift
-  applied by this compaction (regime/trailer-bit4/events-never-Set
-  deleted from the header; queue items 1-2 were moot). Audit's
-  direction verdict: H31 is the critical path AND the closest
-  artefact — keep, but close the Menu side-by-side gap in parallel.
+  `0A260002`, node key `EA3D4B48`); EE110=167, MTICK=167, CQ,
+  F9720 — ALL silent after.
+- Wake pair law decoded (frz125/126): evt7/evt6 + flags `37A0F4/F5`;
+  loader wakes ONLY on evt6 Sets from `1EAB90` (5/run, from `1EACC0`
+  ack branch); EAAB0 request path dead by construction (needs evt6
+  Set first); EE190 wake branch flag never true.
+- frz126 core: async-load module all-NULL at kill (idle) while job
+  `0A260002` still on manager — issuer loops `1F1470/1F1870` are
+  the last uninstrumented edge (frz127 census in flight).
+- Pump raw decode: async/sync branch = `job[+8]` bit2; tick pump
+  gate = `MEM8(job)==0` — OPEN at kill (frz117/123 cores).
+- Loader wait anatomy (raw): `EABD0` WFMO{48000007,48000006};
+  `21AD0` = consumer loop body (drains q1 keyed by `task[+0xC]`);
+  `21CD0` routing law (flag bits {15,9,10,11,12} -> q2/`220E0`);
+  q2 = boot-era only; `1EAD70` = main-loop load-wait sessions
+  (caller `11AF57`); `1EACC0` = per-frame heartbeat+busy-check.
+- Install integrity proven (frz119 write map 0..27,762,688 no gaps);
+  attract-movie IO explains tail-slot cycling; no level `.baf` ever
+  opens. Regime split REFUTED (frz121). Patch 0050 correct, not the
+  wall; patch 0051 raw-write log (capacity-check decision owed).
+- /review audit #2 ran + applied (drift deleted, README Status
+  honesty pass, ETA 2–4 sessions).
 
 Earlier sessions live in the notes (0001–0011, 0016–0025) + session
 log.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x9): the post-x167 wake never
-   fires, so the heartbeat that would finish job `0A260002` never
-   runs.** Candidates named and being measured by frz125: (a) task
-   producer `21CD0`/`220E0` (POST trace) stops posting the next-leg
-   task upstream of the loader; (b) `26D5AE`-routed SetEvent sites —
-   SMEVT census names which handshake died; (c) worker-queue refill
-   (`[0x3D7720]` pending list) — F0F80 census proves emptiness.
-   Data-side gates all REFUTED (job byte0=0, queue lists null,
-   buckets empty, install complete).
+1. **H31 (ACTIVE, note 0025, RE-POSED x11): the engine-side load
+   state machine IDLES with a job still registered — the next-leg
+   async issue (`1F1470/1F1870`, container `[0x3D7668]`) never
+   re-fires, so the heartbeat (`1EACC0`) never goes busy, `1EAB90`
+   never acks, and the loader never wakes again.** frz127 measures
+   EBUSY (EACC0 branch/return), EDRV (EAD70 wait-sessions),
+   ISSU1/2 (issue loops' entries + ctx). Decision tree: ISSU silent
+   post-x167 -> who gates the issuer caller (EE110 walk? the
+   manager's `EBF20` static-descriptor dispatch); ISSU spins with
+   ctx==0 -> the leg registration (`1F1310`-family) is the gate;
+   EDRV sessions never entered -> main loop `11AF57` never treats
+   the load as busy (mode/flag at container+0x18 — `EC880` flag).
+   Data-side gates all REFUTED (module globals null, job gate open,
+   buckets empty, install complete, 17/17 threads dispatched).
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop
    (0005); async-IO return convention = the phantom charge (0011);
@@ -115,13 +109,13 @@ log.
 
 ## Queue (next concrete actions)
 
-* **1. frz125 verdict (IN FLIGHT, log `logs/run-frz125-020517.out`)**:
-  `[SMEVT]` ra+handle for every loader-event Set; `[F0F80]`
-  `[0x3D7740/71C/720]` census; `[POST]` task-producer entries.
-  Decision tree: POST silent post-x167 -> who gates the poster
-  (task queue consumer?); POST fires but SMEVT no Set -> consumer
-  side; SMEVT fires on other handles -> map the missing Set's owner
-  (guest site) and why it never runs.
+* **1. frz127 verdict (IN FLIGHT, log `logs/run-frz127-*.out`)**:
+  `[EBUSY]` EACC0 branch/return census, `[EDRV]` EAD70 load-wait
+  sessions (does the main loop ever enter/exit busy), `[ISSU1/2]`
+  `1F1470/1F1870` issue-loop entries + ctx. Decision tree in
+  Hypotheses 1. If all three silent post-x167 -> the gate is the
+  leg-registration caller (`EBF20` manager static-descriptor
+  dispatch), decode + probe that.
 * **2. Menu artefact completion (rule 6, one run-window): xemu
   title-screen capture for side-by-side with `reference/fb/frz35*`
   dumps** — needs the QMP/HMP headless fix (note 0019 recipe).
@@ -148,14 +142,14 @@ log.
 
 ## Blockers / open questions
 
-- **H31 wall write-up (AGENTS work-loop rule):** 30+ runs
-  (frz93→125), 9 re-poses, 3 header-level facts overturned mid-wall
+- **H31 wall write-up (AGENTS work-loop rule):** 34+ runs
+  (frz93→127), 11 re-poses, 3 header-level facts overturned mid-wall
   (regime split, trailer-bit4, events-never-Set). No host-side
-  exoneration yet: with the job gate provably open and queues empty,
-  the missing piece is a game-side producer; if frz125 exonerates
-  all three candidates, next re-pose compares against a real
-  reference trace (xemu kernel trace of the same load — item 2
-  serves).
+  exoneration yet: with the job gate provably open, module globals
+  null and 17/17 threads dispatched, the missing piece is a
+  game-side issuer; if frz127 exonerates EBUSY/EDRV/ISSU, next
+  re-pose compares against a real reference trace (xemu kernel
+  trace of the same load — Queue item 2 serves).
 - User question (rule 7): push posture — see "Where things are
   verified" Git bullet.
 
