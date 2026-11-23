@@ -139,6 +139,59 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   `+0x8` desc `00F95738`; handle `02611EA4` -> obj `010E3178`
   (`+0` `0x31C8`, `+4` `0x248`, `+8` data `010E3198`).
 
+### Raw-bytes decode (capstone direct from XBE; map: file_off = VA - 0x11000 + 0x1000 for .text)
+
+Byte-verified law: guest VA -> file offset via analysis-json section
+fields directly (`raw + (VA_abs - virtual_addr)`); an extra base
+subtract decodes garbage (that mistake once produced a bogus vtable
+decode — deleted). The pump `0x23B830` prologue bytes match the lift
+exactly. Verified raw decode of the pump + siblings:
+* Pump `sub_0023B830(mgr)`: eax=0 tick path -> `HI8(mgr+0x28)&2`
+  selects scratch = `mgr+4` handle; **esi = E1750(scratch)** (hash
+  lookup by node key `mgr+0x04`, e.g. key `EA3D4B48` -> obj
+  `010E3178`); NULL obj -> return 0.
+* `word[mgr+0x18] == 0xFFFF` -> sentinel STREAM pump (vtable +0x14/
+  +4/+0 calls); else job path: `job = ECC40(LO16(id))`; job exists
+  -> descriptor `edx = job[+8]` (packed: bits20-23/24-27 shifts,
+  16-19 count, **bit2 = async flag**).
+* **Async/sync branch = `test dl,4`**: SET -> `F99D0` (4 args);
+  CLEAR -> `F9720` (8 args). frz113's "trailer `3EF04C91` bit4" was
+  a mislabel: the branch input is `job[+8]` (`0x06610B21`, bit2
+  clear -> sync, matches S9720).
+* After processor ret!=0: lock `[0x397668]+0xC164` via `[0x3156C0]`,
+  guard-counter `+0xC0E4` (init via `1FE690/1FE730`), then sentinel
+  -> `rep movsd` record commit into `ebp[0]`; job -> obj vtable
+  `[+8]`, `[+4]`, `[0]` commits; unlock `[0x3156C4]`; return 1.
+* `F9620` = record-size calculator (type switch 0xC-0xF special,
+  else imul chain) — not a gate.
+* Tick `sub_001EDA20`: gate `mgr[0x28]&0x100`; `job=ECC40(mgr+0x18)`;
+  **pump runs only when `MEM8(job)==0`** (job busy byte) — frz117
+  core: job `02977A9C` byte0 = 0, state 0 -> gate OPEN.
+* frz117 core dump of the terminal state: manager `018CF14C`
+  `{+0x00:00336794, +0x04:EA3D4B48 (node key), +0x18:id 0A260002,
+  +0x1C:0x1400, +0x28:00010120 (bit8 set = tick-eligible),
+  +0x2E:1}`; job `02977A9C` = triplet array `{0, FFFFFFFF, 06610B21}`
+  xN; bucket list `0x37A120..37A19C` = ALL ZERO; global `0x37A1C0`
+  table = per-manager ptr array (contains 018CF14C + siblings);
+  scratch record at `0x02611640` holds `{tag 0114D7, 00376CC4,
+  014B3F38, 00047DB2, 0, mgr, 001E1774 (hash fn), key EA3D4B48}`.
+* F9720 guest call sites: `1EB9F4, 1F838E, 239565, 239637, 23B18E,
+  23B9DC (pump), 23D7EA`. The stall-era S9720 ra = `239637` =
+  **sub_002395E0**, a generic single-shot sync-process helper
+  (pool-alloc 0x3c, EEBE0, 8-arg F9720, `ED920`/`2392B0` commits)
+  — runs 192+ times during stall for OTHER streams (attract movie).
+* Static callers of the tick `EDA20`: `1EDE9B/1EE13D/1EE160`
+  (per-object driver family) and `1EF490/1EF4B5` (bucket driver);
+  EF0C0 (bucket registrar/driver) callers = `1EBF44/1EC184/1FD69E/
+  208F0D/208F22` (registration/completion APIs).
+* **Terminal contradiction to resolve:** job alive + byte0=0 +
+  mgr bit8 set + obj resolvable = pump gate fully OPEN, yet EDA20
+  is called ZERO times after x167 (MTICK 167 session-total, none in
+  stall era). The servicing DRIVER stops; the data structures are
+  consistent. frz121 (fresh-install + missing-file census + all
+  probes) decides whether an unopenable file or a driver gate is
+  the stop cause.
+
 ### frz117: tick runs, pump gate refuses after x167; EED70 stream-swaps keep cycling
 
 * R2 replay #7 (deterministic): pump x167 = same final bypass pump
