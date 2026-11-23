@@ -1046,10 +1046,16 @@ void sub_002C3200(void)
         if (now != last) {
             last = now;
             if (ctx >= 0x1000u)
+                /* NOTE (note 0025): ctx is a BINK struct (online-mode
+                 * player), NOT a load-job queue. mdec=+0x270 frames
+                 * decoded (climbs through movie loops), mpr=+0x2B4
+                 * present-target, mtsk=+0x280 pacing tick stamp,
+                 * mtick=+0x27C last tick, mdone=+0x284 end marker,
+                 * bud/cons=pace accumulators, sc14/sc18=fps num/den. */
                 fprintf(stderr, "[GATE] calls=%llu pass=%llu skip=%llu rend=%llu "
                                 "pres=%llu ctx=%08X FC=%08X io=%08X q=%08X "
-                                "tot=%08X cur=%08X done=%08X tick=%08X acc=%08X "
-                                "bud=%08X cons=%08X sc14=%08X sc18=%08X\n",
+                                "mdec=%08X mtsk=%08X mdone=%08X mtick=%08X mpr=%08X "
+                                "bud=%08X cons=%08X fps=%08X/%08X\n",
                         g_gate_calls, g_gate_pass, g_gate_skip, g_rend_seg,
                         g_pres_seg, ctx,
                         MEM32(ctx + 0xFC), MEM32(ctx + 0x2A0), MEM32(ctx + 0x2F8),
