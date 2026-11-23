@@ -2225,7 +2225,11 @@ void NAME(void)                                                            \
         const char *e = getenv("RECOMP_RD_TRACE");                         \
         on = (e && *e && *e != '0') ? 1 : 0;                               \
     }                                                                      \
-    if (on && n < (LIM)) {                                                 \
+    /* frz143 law: cap-only printing LIVED a false wall — frz142 proved
+     * WALK/HUB keep ticking far past their LIM ("x30" was the print cap
+     * matching the 31st call, not the end of the tier). Tail sample
+     * every 256th call so tier liveness is always visible. */
+    if (on && (n < (LIM) || (n % 256) == 0)) {                             \
         void *ra = __builtin_extract_return_addr(                          \
             __builtin_return_address(0));                                  \
         fprintf(stderr, "  [" TAG "] x%u ra=%p eax=%08X ecx=%08X\n",       \
