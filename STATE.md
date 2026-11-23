@@ -3,15 +3,23 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-22 22:0x (session 4x)
+**Last updated:** 2026-11-23 00:5x (session 5a)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**;
-**navigation works**; load-stall wall (H31) anatomy deepened:
-the load is a SERIAL RELAY over ~40 static archive load-tables
-(managers `018Axxxx-018CFxxx`, each a relay leg); the last pumped
-manager `018CF100` (job id 5678, handle `0x00010040`) stops mid-pump
-and the NEXT relay leg never starts. Engine-frame/pool theories
-(H31.4) REFUTED by frz105 census; current model H31.5 = relay
-advance stops (`sub_001EF0C0` mode gate / bucket-list servicing).
+**navigation works**; load-stall wall (H31) anatomy now at pump /
+service-processor level: final leg = manager `018CF14C` (job id
+`0A260002` at `+0x18`, size `0x1400` at `+0x1C`); its pump x167
+(bypass site, `eax=scratch ptr`) reads the handle object via the
+`047CE4/1145D/1152A` vtable chain, takes the trailer dword
+`3EF04C91` (`buf+6140`, bit4 CLEAR) -> SYNC `F9720` branch, ret=1;
+after that pump/tick servicing is silent and the loader wait-cycle
+(`EAAB0`) loops `WAIT_TIMEOUT (0x102)` forever — load events
+`0x37A118/0x37A114` are NEVER Set in any run; job-slot teardown
+`ECB10` fires ZERO times. TWO REGIMES: **R1 fresh-install** (pumps
+freeze ~x119 in sentinel polls, final job never created) vs **R2
+reused-install** (pump x167 + cycling 17-position record chain over
+the installed-cache tail). Patch 0050 (positioned IO = pread/pwrite,
+NT FPO semantics) is correct but NOT the wall — the guest uses
+explicit Set-Position + seq reads.
 
 ## Where things are verified
 
@@ -38,67 +46,55 @@ advance stops (`sub_001EF0C0` mode gate / bucket-list servicing).
 
 ## Last run
 
-Session 4w (19:0x–20:2x+): **H30 root-cause landed, GPU wall died,
-H31 framed.**
-- frz90 (matched-symbol plateau core): D3D hand-built RAM events
-  (swap-slot 0x2E2F4C / ring-free 0x2E2F5C / 0x00F7FC7C) were never
-  shadow-registered -> waits resolved to garbage -> instant-fail
-  spins (note 0024, CLOSED as the H30 cause).
-- frz91 (`RECOMP_TITLE_KEVENTS=1`): mirrors land for 4C+7C; plateau
-  morphed (quiet engine block on 4C); completion Sets kept firing.
-- frz92 (pad-gated nav + 5C mirror built on demand): **GPU wall
-  DEAD** — class-5 chain ~1100 wakes, ring writer draining
-  (submit=20112), engine ~10 fps, and nav REACHED A LEVEL LOAD
-  (`speech_hask*/shadow/TSA.xwb` stream). Watcher false-fired on the
-  healthy load era (0-fps presents are normal while loading — H28
-  rule); v2 watcher counts GATE `acc` deltas too.
-- frz93/frz94 (2500 s, acc-aware watcher): TRUE plateaus at 642/1128 s.
-  Load queue: `tot +30/s, acc +28/s` but `cur` (+0x280) FROZEN at
-  0x000E5D5C, `done/tick` 0 -> streaming throttle (`sub_002C3200`,
-  note 0023 anatomy) skips rendering forever; presented frame =
-  99.6 % loading card (frz94: 9,964 presented window frames). GPU
-  aperture fully idle-clean at kill; watch on 4C object quiescent
-  (20 transitions all run) — coherence NOT the issue. Terminal shape:
-  engine parked INFINITE on mirrored 4C, SignalState=0 (nothing
-  asks for the next swap). Repeated identical `want=116 got=116`
-  ZERO-byte seq-reads from `0x00271057` in `sub_00270FBD` (the
-  standard read helper) = the stuck-unit signature -> **H31**.
-- Patch 0047: `[READ] @seq` form gains `sz=`/`path=` (EOF contract
-  verified correct upstream: 0-byte read -> `STATUS_END_OF_FILE`, so
-  those zeros are real stored content, not a past-EOF artifact).
-- **CORRECTION (frz94 core forensics + `core_ram.py` core-reader):
-  the frz93/94 "load queue" numbers are Bink MOVIE stats** (see note
-  0025 anatomy; ring content matched `Movies/Sudeki Atttract
-  Mode.bik`; tree-vs-disc size audit 443/443 exact). H31 re-posed:
-  awaited load-completion event unknown, movie loops under the card.
-- Harness (user directives): AGENTS rule 12 (mission-only content),
-  wall-clock discipline + every-3rd-session audit, `/review` command
-  (+ README/progress-bar sync as worktree drafts). First audit ran
-  (fresh context): artefacts verified, drift list applied by this
-  compaction; its tactical steer adopted = core+static forensics
-  FIRST, frz96 (window 1200 s, plateau ~t+500 post-nav) parallel.
+Session 5a (22:0x-00:5x): **frz107->116 census arc; H31 anatomy at
+processor level; patches 0048/0049/0050 landed.**
+- frz108-109 funnel: walk `EF1D0` only ~66 session-wide (earlier
+  "~255" was the registrar count); walks match legs by
+  `obj+0x10 == ctx-filter`.
+- frz110 (`[EACYC]/[RESREL]/[RESADD]` + `LOG_ORDS=123,138,145,205,
+  225`): wait cycle loops `0x102` (loader thread NOT parked); load
+  events NEVER Set; `RESADD` (sole caller `F99D0`@1F9DAF) = 0 events.
+- frz111/112: 5th/6th deterministic R2 replays; `F99D0` fired ONCE
+  ever (boot attract cmd via `sub_00240390`) -> relay legs run via
+  SYNC `F9720`; `JOBFREE` (`ECB10`, sole `0x37A3D0` slot clearer)
+  fires ZERO times per run.
+- PUMP probe arg-slot fix (bypass site = 1 arg): true final-leg mgr
+  = `018CF14C` id `0A260002` size `+0x1C=0x1400`; the old "018CF100
+  id=5678" reading was the wrong stack slot.
+- frz113 core: trailer dword `3EF04C91` (bit4 clear -> sync branch);
+  5120-B record buffers all-zero in-core while installed file has
+  mixed data at the seq positions.
+- patch 0048 `[READSEQ]`: seq positions JUMP (24.6M->27.6M->back) =
+  guest does explicit Set-Position + seq reads on one handle.
+- patch 0050 pread/pwrite (NT FPO semantics): correct, but frz116
+  shows the wall unchanged -> guest never relied on the broken
+  semantics; keep the fix regardless.
+- REGIME SPLIT: R1 fresh-cache (frz116: pumps freeze ~x119 sentinel
+  polls, final job never created) vs R2 reused-cache (frz103-115:
+  pump x167 + 17-position chain cycles). All "deterministic" replays
+  so far were R2; pin the regime in run headers from now on.
+- Boot era reads DISC `game/startup.baf` (8,585,216 B positioned,
+  installer); load era streams INSTALLED `Cache//startup.baf`
+  (27,762,688 B seq); installed vs disc: 0/2096 identical 4K blocks
+  (install expands+relocates; disc byte-compare invalid).
 
-Earlier sessions live in the notes (0005–0025) + the session log; the
-4n–4v blocks are summarized there, not here.
+Earlier sessions live in the notes (0005-0025) + the session log; the
+4n-4w blocks are summarized there, not here.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x5): the level-load relay
-   stalls at its last pumped manager — the next relay leg never
-   starts.** frz103 census: 167 pump entries over ~40 per-archive
-   managers (`018A0C00..018CF200`, serial — next starts when previous
-   hits sentinel); LAST pump ever = `018CF100 id=5678 st=00970002`
-   repeated, then zero pumps; baf read-back ends mid-phase; post-stall
-   file traffic = attract movie ring only. frz105 REFUTED H31.4
-   (`0x397110` engine-frame early-exit / pool-OOM theory: E0210/POOL
-   ran once at boot, succeeded). frz103 core: `job[0x5678]` freed at
-   kill while `018CF100+0x18` id dangles. Static chain:
-   `sub_001EF0C0` (mode `arg2&3`: 3 -> NO servicing) -> bucket walk
-   (`0x37A120+((tick>>6)&31)*4`, obj `+0x10` epoch, `+0x18` next) ->
-   `sub_001EDA20` tick (gate `HI8(obj+0x28)&2`; bypass branch pumps
-   only when `sub_001ECC40(job-id)` state&3==0) -> `sub_0023B830`
-   pump (handle lookup `sub_001E1750(obj+4)`). frz106 census
-   `[EF0C0]/[JOB]/[HANDLE]` + tight MTICK/EF1D0 masks names the link.
+1. **H31 (ACTIVE, note 0025, RE-POSED x7): the final relay leg's job
+   never completes -> its manager never sentinelizes; servicing gates
+   shut; loader wait-cycle spins.** R2 terminal shape: pump x167
+   (bypass site, handle `E1750 -> 010E3178`, trailer `3EF04C91` ->
+   `F9720` sync branch, ret=1); after it: zero pumps, but the tick's
+   `23A4F0` leg still fires 256+ times during stall -> tick RUNS,
+   pump gates (`D550`, job-state&3, `HI8(obj+0x28)&2`) shut;
+   `EAAB0` loops WAIT_TIMEOUT; events never Set; `ECB10` never fires.
+   frz117 census: `[EED70]` (completion handler `F9720` calls at
+   1F92C9/1F99A9), `[D550]` (tick gate helper), per-event `[MTICK]`
+   -> names the failing gate or proves completion ran without any
+   Set path.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes 0005–0024):
    cache capacity ends the boot write-loop (0005); async-IO return
    convention = the phantom charge (0011); ICALL-skip stack drift
@@ -111,18 +107,21 @@ Earlier sessions live in the notes (0005–0025) + the session log; the
 
 ## Queue (next concrete actions)
 
-* **1. frz106 (relay census)**: `[EF0C0]` mode/args + `[JOB]`
-  id->job+state + `[HANDLE]` h->node + tight `[MTICK]`/64 `[EF1D0]`/256
-  (gen+build done after frz105 exits): names WHICH link stops
-  carrying the relay — mode gate (arg2&3==3), bucket-list walk, tick
-  job-state gate, or pump handle lookup. Pair with frz103 core facts
-  (`job[0x5678]` freed, `018CF100+0x18` id dangling at kill).
-* **2. Relay-leg decode**: the ~40 static load-table descriptors
-  (image `.data`, e.g. `0x00F95678` group `{flags, buf, size, tag}`)
-  -> map leg order to archive files (cross-ref descriptor bufs with
-  `[READ]` buf= trace) so "the leg that never starts" gets a FILE
-  name, not just a manager VA.
-* **3. Then the Gameplay gate:** first presented level frame =
+* **1. frz117 (gate census)**: wrap `[EED70]` (sub_001EED70, the
+  completion handler F9720 calls at 1F92C9/1F99A9), `[D550]`
+  (sub_0023D550 tick pump-gate helper: args + result), per-event
+  `[MTICK]` (tick count is small). Verdict tree: EED70 fires during
+  stall but no Set path -> hunt the missing Set host-side; EED70
+  silent -> the F9720 guard chain refuses (read its masks with the
+  real trailer `3EF04C91`); D550==0 -> the tick gate itself.
+* **2. R1-vs-R2 regime header**: pin regime per run (cache clear or
+  not) — and re-check whether R1's earlier freeze (no final job at
+  all) is the SAME wall one stage earlier (it likely is: fresh
+  install = first-ever run of the load; real users start in R1).
+* **3. Relay-leg decode** (unchanged): map load-table descriptors
+  (`0x00F95678`-class `{flags, buf, size, tag}`) to archive FILE
+  names so "the leg that never finishes" gets a file, not just a VA.
+* **4. Then the Gameplay gate:** first presented level frame =
   fbpeek + visual + texture-coverage carry-over; xemu side-by-side
   of the SAME load as corroborator (needs the QMP/HMP script fix;
   note 0019 recipe) — corroborator only, not the shortest path.
