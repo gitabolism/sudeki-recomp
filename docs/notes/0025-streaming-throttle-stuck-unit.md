@@ -2575,3 +2575,16 @@ not file size; no input drift — doctor green).
   above (which sleeps). 26D77A census = W1SO; W2MO = 26D78C WaitMultiple:
   frz172 era loader parks INFINITE on {evt6,evt1} x41923 and WAKES
   (ret=1) — loader thread itself is healthy-parked, matching s5b law.
+
+## frz173 — dense presses, 1150 s: did NOT reach the pill (timing law corrected)
+
+- Same binary/era as frz172 (BF1xx fingerprint), PUMP x167 present, 114 FB
+  dumps; final #113 = title logo + rain, NO Press START pill yet.
+- TIMING LAW CORRECTED: FB dump cadence = 120 PRESENTED frames and the
+  title era presents at ~12 fps => one dump per ~10 s wall. frz172's pill
+  at dump #172 = ~1720 s wall (~28 min), NOT ~350 s. frz173's 1150 s
+  simply ended pre-pill; input question untouched.
+- OHCI "raised" census lines: ~24-25 in BOTH press densities -> log cap
+  or coalescing; press-count experiment is blind at that tier.
+- frz174 (running): same binary, 1900 s window -> pill (~28 min) + ~7 min
+  of dense presses after it = the input-acceptance test.
