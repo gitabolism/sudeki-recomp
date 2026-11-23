@@ -121,8 +121,15 @@ Commit at stage boundaries, not at stopping points.
 **End of every session (including interrupted ones):**
 1. Update `STATE.md`: stage, live hypotheses, queue (next three concrete
    actions), last run verdict, session log line with the commit hash.
+   Session and last-run headers carry wall-clock (`date HH:MM–HH:MM`) —
+   elapsed time is measured, never felt; experiment ETAs are stated as
+   the run window itself (the harness kills at it), not as guesses.
 2. Commit any doc/script changes. Never leave uncommitted source changes;
    finish or revert them, and say in STATE.md which you did.
+3. Every third session, or whenever a wall closes: run `/review`
+   (fresh-context audit via subagent) and apply its housekeeping —
+   prune closed hypotheses, re-verify cited artefacts, compact STATE.md.
+   Momentum is the failure mode; a fresh reader is the control.
 
 ## Skill supply policy
 
