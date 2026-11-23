@@ -126,6 +126,31 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   the last baf `[READ]`. Also `[EF0C0]` mode/args and `[REG]`/`[DEREG]`
   relay membership.
 
+### frz106: post-stall the dispatcher keeps polling; producer-side is the open end
+
+* Full-census run (`logs/run-frz106-220143.out`): pump x167 again, 314
+  baf reads — deterministic third reproduction (frz103/104/106).
+* Old `[PUMP] n=... from=00F7FA90 m=0` post-stall lines = the H30-era
+  D3D SWAP-SITE probe (tag collision), NOT `sub_0023B830` — the pump
+  silence after the stall stands.
+* Post-stall `[EF0C0] x469 a1=018CF14C a1+8=00F95738 mode=0`: the
+  dispatcher is STILL cycling with a static load-table ctx, but
+  `EF1D0` (<256) / tick (<192) / pump (167) all frozen -> servicing
+  finds nothing to register (list heads empty).
+* Core (base `0x7fb659000000`): all 32 buckets + all 3 mode-lists
+  EMPTY; byte-pending globals `0x3975A8/0x3975AC` = 0 (no reservation
+  leak; EC590 gate not closed by backlog); leg node `014BE274`
+  still holds `+0x10 = ctx 018AA200` + next `014BD11C` while
+  unbucketed; `REG x200 obj=014BE274`, `DEREG x200 obj=018BD0AC`.
+* New statics: `0x3975A8/AC` = engine-wide pending-byte counters
+  (accounting helpers `sub_001EF4C0/510`); `EC590` = if-not-registered
+  -> `new 0x1C` node -> `EC2C0` register; producer API `EABD0` has a
+  single caller `sub_00021AD0` (a teardown/unload context).
+* frz107 census adds `[ENQ]` (`EE190` list/queue), `[REQ]` (`EABD0`),
+  and `[PUMP] -> ret` to name whether the PRODUCER stopped (engine
+  waiting on last-leg completion) or the leg-completion signal died
+  host-side.
+
 ### H31.5 static relay lifecycle (decoded 22:0x, before frz106)
 
 * `sub_001EF0C0` mode-switch: arg1+8 set && 3rd arg set -> list
