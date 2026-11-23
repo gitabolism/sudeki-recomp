@@ -77,10 +77,17 @@ as cause; xemu FB capture pipeline live.**
 - frz134 (A/B, frz18-exact presses, zero tail presses, full 1150 s):
   PUMP x167 terminal at line 55017 UNCHANGED; buki era reached
   (line 9806). Wall NOT input-induced.
-- Patches unchanged (0001..0051). Tools added: `tools/xemu_fbpeek.py`,
-  `tools/xemu_rampeek.py`, `tools/hddpeek.py` (qcow2+FATX, unproven),
-  `scripts/xemu_titlecap.sh` (proven: `reference/xemu/title90.png`
-  + `title.bmp`, v1.1.0 VRAM law **off 0x1A3B000 640x576 score .996**).
+- Patches unchanged (0001..0051). Tools: `tools/xemu_fbpeek.py`
+  (auto-scan + `--top` uniformity scan), `tools/xemu_rampeek.py`,
+  `tools/hddpeek.py` (qcow2+FATX, unproven), `scripts/xemu_titlecap.sh`
+  (single-shot; title90/title-t60 both TORN-FMV garbage — the
+  "v1.1.0 law 0x1A3B000 640x576 score .996" is NOT a valid FB read,
+  alpha-score fooled by video surfaces), `scripts/xemu_shotseq.sh`
+  (multi-shot; t=60 dump OK, t>=90 QMP TIMEOUT — fixed with
+  id-matched line-delimited QMP reads; re-run owed). xemu VRAM at
+  t=60 = textured FMV surfaces (uniformity max 0.49); title-screen
+  capture needs a LATER timestamp. `reference/xemu/` still has no
+  valid title artefact (only the STOP screen).
 - xemu RAM dump dead-end law: game code in RAM is paged + XBE-region
   encrypted (pattern scans fail); globals NOT VA-locatable in RAM
   dumps; HDD qcow2 header parse pending (tools/hddpeek.py).
