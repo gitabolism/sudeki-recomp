@@ -6,15 +6,16 @@
 **Last updated:** 2026-11-23 13:3x (session 5d, ~13:0x–…)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
 (xemu same-moment capture still owed, see Queue);
-**navigation works**; load-stall wall (H31, re-posed x25, home = note
-0025) in ONE sentence: at the terminal burst the submit API
-(`1EE7D0`→`EE2A0`) opens the waiter (`EE2A0+0x3BD1`) on a manager slot
-whose inline init / desc pointer `[mgr+8]` lands only afterwards, so the
-loader drains the record EMPTY (`EE110 arr=0 cnt=0`), nothing ever
-completes it, the manager's pending word stays 1, the loader parks
-INFINITE on `{48000006,48000001}`, and the engine PUMP rescans to the
-deterministic x167 terminal while the game sits on a static "Loading..."
-screen.
+**navigation works**; load-stall wall (H31, re-posed x26, home = note
+0025) in ONE sentence: the terminal burst's engine-task submit
+(`16F520`→`1EE7D0`→`EE2A0`, id `0A260002`, state-arg `0x20` + template
+arg) creates a fresh manager whose waiter opens while `[mgr+8]` desc is
+still 0, and because state `0x20` routes the node through the EF0C0
+**mode-2 no-owner leg**, the loader drains it EMPTY (`EE110 arr=0
+cnt=0`), nothing completes it, the pending word stays 1, the loader
+parks INFINITE, and the engine PUMP rescans to the deterministic x167
+terminal while the game sits on a static "Loading..." screen (healthy
+fresh managers take the **mode-0** leg and service fine).
 
 ## Where things are verified
 
@@ -188,18 +189,16 @@ log.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x25: submit-before-init — the
-   submit API (`1EE7D0`→`EE2A0`) opens the terminal manager's waiter
-   (`EE2A0+0x3BD1`) before that slot's inline init installs its desc
-   pointer `[mgr+8]`, so the loader drains the record EMPTY
-   (`EE110 x166 arr=0 cnt=0`), nothing completes it, pending word stays
-   1, its zero-count CLOSE never runs; the loader then PARKS INFINITE
-   and only the engine PUMP/EF1D0 rescans loop to PUMP x167).** frz157
-   ordering law (note 0025): WINC+drain precede batch-spawn ctors and
-   inline init; frz159: EE2A0's sole caller is `1EE7D0`, one call per
-   job id, WINC-leg and batch-ctor leg inside the same call window.
-   `06610B29` = FMH-class desc TAG, not a key (frz154). frz151/150:
-   INIT/handler-list tiers alive; object-class ctors x0 = consequence.
+1. **H31 (ACTIVE, note 0025, RE-POSED x26: the terminal submit (engine
+   task tier `16F520`, id `0A260002`, state-arg `0x20`, template arg
+   `018C5D88`) is the only burst call routed through the EF0C0 mode-2
+   no-owner leg (state bit `0x20`); its fresh manager's waiter drains
+   EMPTY and is never completed (pending word stays 1; CLOSE never
+   runs); the seven sibling submits (arg3=0, mode-0) create+service
+   fresh managers fine in the same window).** Type-slot corruption
+   REFUTED (frz163 watch: slot[2] valid+stable; my earlier "FNT1"
+   reading was a core-index error); resolution healthy (`job st=0`).
+   frz164: SAPI full id-schedule + template-arg census.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop
    (0005); async-IO return convention = the phantom charge (0011);
@@ -212,13 +211,12 @@ log.
 
 ## Queue (next concrete actions)
 
-* **1. frz160 control (running): healthy-manager witness.** Poll-watch
-  era-invariant healthy manager `018A7B68`: WHEN does its `[+0x14]` item
-  array + `[+8]` desc install relative to its first WINC — the contrast
-  for the terminal manager's empty-drain ordering. Then name the engine
-  call site inside the `1EE7D0` submit window that issues the terminal
-  burst before the spawn leg (EENT cap-band gap: x101+ hidden; raise
-  cap for frz161 if needed).
+* **1. frz164 (running): SAPI full submit schedule + template census.**
+  Then: name what the engine expects to fill `[mgr+8]` for a mode-2
+  fresh manager — the mode-0 sibling leg proves fresh+WINC is benign;
+  the mode-2 no-owner completion is the missing writer. Candidate
+  probes: EF0C0 branch-side census (which leg per call) + the loader
+  1EAC50 pump condition on 3D7620.
 * **2. Menu artefact completion (rule 6):** xemu shotseq unique-name
   pair still owed; FB law OPEN (linear + Z-order both decode TEXTURE
   at 0x1A3B000); `xemu_qmp_probe.sh` unrun decides screenshot path.
