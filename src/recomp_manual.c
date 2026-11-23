@@ -1814,6 +1814,84 @@ void sub_0026D78C(void)
     n++;
 }
 
+/* frz130: leg-issuer edge (H31 re-pose).
+ * 1EF770 = engine issue-driver entry (gates: MEM8(0x397110), then
+ * F8670 session lookup must return 0 to proceed); sole caller
+ * 157B10. Log entry rate + both gate inputs.
+ * 1F8670 = session table lookup over [0x397620] buckets; FOUND
+ * (ret!=0) suppresses a new issue. Log entry + result.
+ * 23E540-side driver 208C80 = the only route to ISSU2 (1F1870);
+ * log entry rate + obj arg. */
+extern void sub_001EF770_gen(void);
+
+void sub_001EF770(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 64) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [ISSDRV] x%u ra=%p flag397110=%u\n",
+                n, ra, MEM8(0x397110));
+        fflush(stderr);
+    }
+    n++;
+    sub_001EF770_gen();
+    if (on && n < 40) {
+        fprintf(stderr, "  [ISSDRV] x%u -> %08X\n", n, g_eax);
+        fflush(stderr);
+    }
+}
+
+extern void sub_001F8670_gen(void);
+
+void sub_001F8670(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 60 || (n % 256) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [SESS] x%u ra=%p\n", n, ra);
+        fflush(stderr);
+    }
+    n++;
+    sub_001F8670_gen();
+    if (on && n < 60) {
+        fprintf(stderr, "  [SESS] x%u -> %08X\n", n, g_eax);
+        fflush(stderr);
+    }
+}
+
+extern void sub_00208C80_gen(void);
+
+void sub_00208C80(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_esp;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 40 || (n % 64) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        uint32_t o = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                         ? MEM32(g_esp + 0x24) : 0u;
+        fprintf(stderr, "  [OPEN2] x%u ra=%p obj=%08X\n", n, ra, o);
+        fflush(stderr);
+    }
+    n++;
+    sub_00208C80_gen();
+}
+
 /* frz127b: 1F1470 / 1F1870 = async issue-and-service loops (enqueue
  * under CS 37A4D0, issue via 1F06C0, wake attempt EAAB0, Sleep(5)
  * retry; queue selector ctx+8 in {3D7740,3D771C,3D76F8,3D7764}).
