@@ -2419,6 +2419,72 @@ CENSUS(sub_0008AEC0, "C8AEC0", 20)
 extern void sub_0008AFD0_gen(void);
 CENSUS(sub_0008AFD0, "C8AFD0", 20)
 
+/* frz152: WAITER LEDGER (note 0025 frz138 unmatched-open (a)).
+ * 1EC130 (waiter open): eax=desc, esi=new waiter node; incs
+ * [[desc+0x14]] dword or word [desc+0x2C], then dispatches via
+ * 1EF0C0. 1EC330->1EC350 (waiter close, ecx=self): desc=[[self]]
+ * ... dec; when word [desc+0x2C] hits ZERO it calls 1F92E0 +
+ * 1ED9B0 + desc->vtbl[0](1) = THE DESC CLOSE. Terminal desc
+ * F95738 stuck at 1 -> close never ran -> load never ends.
+ * Ledger: every inc/dec with desc, new count, ra, guest stack;
+ * CLOSE(1F92E0) census names which descs DID close.
+ * RECOMP_RD_TRACE=1. */
+extern void sub_001EC130_gen(void);
+void sub_001EC130(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_eax, g_esi;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 300 || (n % 256) == 0)) {
+        uint32_t d = g_eax, node = g_esi;
+        uint32_t ctr = d ? MEM32(d + 0x14) : 0;
+        fprintf(stderr, "  [WINC] x%u desc=%08X node=%08X ctr=%08X cnt=%04X state=%02X\n",
+                n, d, node, ctr, d ? MEM16(d + 0x2C) : 0,
+                d ? MEM8(d + 0x28) : 0);
+        fprintf(stderr, "    stack:");
+        {
+            uint32_t sp = g_esp;
+            for (int k = 0; k < 8 && sp; k++) {
+                fprintf(stderr, " %08X", MEM32(sp));
+                sp = MEM32(sp);
+            }
+        }
+        fprintf(stderr, "\n");
+        fflush(stderr);
+    }
+    n++;
+    sub_001EC130_gen();
+}
+
+extern void sub_001EC330_gen(void);
+void sub_001EC330(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_ecx;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    uint32_t self = g_ecx;
+    uint32_t d = self ? MEM32(self + 0x10) : 0;
+    if (on && (n < 300 || (n % 256) == 0)) {
+        uint32_t ctr = d ? MEM32(d + 0x14) : 0;
+        fprintf(stderr, "  [WDEC] x%u self=%08X desc=%08X ctr=%08X cnt=%04X\n",
+                n, self, d, ctr, d ? MEM16(d + 0x2C) : 0);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EC330_gen();
+}
+
+extern void sub_001F92E0_gen(void);
+CENSUS(sub_001F92E0, "CLOSE", 60)
+
 /* frz150: handler-family rungs of the dead object-graph chain (UP
  * rungs 70360/72B00/77140/7A4C0 already have census wrappers from
  * frz146 era; one run names the highest living rung). */
