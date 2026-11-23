@@ -112,3 +112,29 @@ classifier (host-side, toolkit).
   `sub_001DE5C0` (engine) vs `sub_002DAFF0` (completion set) — catches
   the stealer or the lost pulse directly.
 
+## 4v addendum — frz92 (pad-driven nav + all three mirrors): the GPU wall is DEAD
+
+frz92 (`logs/run-frz92-190958.out`, core `sudeki.frz92.core`): the
+ring-free wait was REACHED and the 5C mirror built on demand
+(`[KERNEL] event 0x002E2F5C built by the title`, line 26504); the
+class-5 chain ran fully — `KeSetEvent(5C)` ~1100x `from=0x2DB61F`
+(H26 chain alive, vs x1 in frz90). Everything ALIVE at the
+"plateau": ring writer 25/s from both sites, `submit=20112` climbing,
+iGET draining, alloc failures 0; engine loop ~10 fps
+(`[GATE] pass=5506`, 70.4 M skip decisions = "load in progress");
+IO streaming LEVEL assets — speech banks `speech_hask_b/haskilia/
+shadow/TSA.xwb`: navigation (8 STARTs after pad enumeration) REACHED
+A LEVEL LOAD; presented frame = 99.6 % loading card.
+`[SWAP] pump2/eng2` (unconditional counters) pin at exactly 4096
+while submits continue — swap-pool accounting quirk, NOT a stall.
+GATE job-queue at kill: `tot=0x5F9 acc=0x5AD` (95 % accepted, gap
+~76) — the era-guarded watcher's flip criterion false-fired on a
+HEALTHY load era and ABRTed seconds from load completion. v2 watcher
+counts GATE `acc` deltas as progress; frz93 = same regime, 2500 s
+window, no early kill: the Gameplay-gate attempt (navigation ->
+presented level frame). Guest RAM `4C SignalState=1` pending at core
+time with the main thread mid-body (not in a wait): the LTCG-inlined
+dispatcher fast-path mutates event words directly (`MEM32(ctx+0x1DC0)
+= 0` preambles at both 4C wait sites), so mirror/RAM coherence is
+real — but no longer wall-relevant in this regime.
+
