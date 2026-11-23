@@ -1931,6 +1931,38 @@ void sub_001EF7C0(void)
     sub_001EF7C0_gen();
 }
 
+/* frz141: engine frame dispatcher 15B640 (thiscall, arg = frame/tick
+ * value at esp+0x10-ish after 3 pushes): fans out per-subsystem tick
+ * handlers; the F1CA0 leaf routes command 0x37(55) -> SWEEP(4E1F0)
+ * on the level-scene object [0x3DC83C]. SWEEP x0 whole-run: command
+ * 55 never arrives. If FRM ticks but command 55 never posts, the
+ * scene-command issuer is the dead edge; if FRM stops, the frame
+ * tier died. vtable refs at file 0x32E424/490/DA4 (3 slots). */
+extern __thread uint32_t g_edi;
+extern void sub_0015B640_gen(void);
+
+void sub_0015B640(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    extern __thread uint32_t g_ecx;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 12 || (n % 512) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        extern __thread uint32_t g_esp;
+        uint32_t a = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
+                         ? MEM32(g_esp + 0x10) : 0u;
+        fprintf(stderr, "  [FRM] x%u ra=%p this=%08X arg=%08X\n",
+                n, ra, g_ecx, a);
+        fflush(stderr);
+    }
+    n++;
+    sub_0015B640_gen();
+}
+
 extern void sub_0004E1F0_gen(void);
 
 void sub_0004E1F0(void)
