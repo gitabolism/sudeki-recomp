@@ -2290,6 +2290,18 @@ CENSUS(sub_0007D1E0, "TCTO", 120)
 extern void sub_001EE7D0_gen(void);
 CENSUS(sub_001EE7D0, "SUBM", 200)
 
+/* frz144: message-leaf tier. F1CA0 routes cmd 0x37=55 -> SWEEP on the
+ * scene object; F1D50 is the sibling guard ([edi+0x14]&0x200 family).
+ * SWEEP/MKLU/FRM/TBLU all x0 while direct-call tiers tick — the leaf
+ * census decides: leaf ticks but SWEEP x0 = command 55 genuinely
+ * never posted; leaf x0 too = the whole vtable message tier is
+ * invisible to dispatch-mediated census (SAFE_AT bypass law). */
+extern void sub_000F1CA0_gen(void);
+CENSUS(sub_000F1CA0, "MSG1", 120)
+
+extern void sub_000F1D50_gen(void);
+CENSUS(sub_000F1D50, "MSG2", 120)
+
 extern void sub_001F8A00_gen(void);
 
 void sub_001F8A00(void)
