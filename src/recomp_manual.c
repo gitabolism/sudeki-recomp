@@ -924,11 +924,12 @@ void sub_0011ED20(void)
  *
  * Aggregate per second (cumulative counters): gate calls/pass/skip,
  * render-segment entries (sub_002C27A0), present-path entries
- * (sub_002D5BF0), and the ctx accounting slots the gate reads:
- * +0x14/+0x18 tick scalers, +0xFC loading flag, +0x2A0 outstanding
- * IO, +0x2F8 queue bytes, +0x270 total, +0x280 cursor, +0x284 done,
- * +0x27C last tick, +0x338/+0x33C budget terms. Off (no wrapper cost
- * beyond one getenv-cached branch when unset).
+ * (sub_002D5BF0), and the ctx slots the gate reads -- NOTE 0025:
+ * ctx is a BINK struct (online movie): +0x14/+0x18 fps num/den,
+ * +0x270 frames decoded, +0x280 pacing tick stamp, +0x284 end
+ * marker, +0x27C last tick, +0x2B4 present target, +0x338/+0x33C
+ * budget accumulators. Off (no wrapper cost beyond one
+ * getenv-cached branch when unset).
  */
 #include <time.h>
 
@@ -1289,4 +1290,85 @@ void sub_001E0390(void)
         swap_site("ENG", g_esp, &g_eng_submit, NULL);
     }
     sub_001E0390_gen();
+}
+
+/* ── read-helper attribution trace (note 0025 H31, RECOMP_RD_TRACE=1) ──
+ * sub_00270FBD is the title's stock archive/movie read helper: both
+ * Bink buffers and the BAF config streams land in NtReadFile through
+ * it. The bridge [READ] line names path/size but not the consumer;
+ * this wrapper logs thisptr + stack args + the caller chain (EBP
+ * frames, LTCG frames are usually intact) so the moment BAF
+ * consumption stops can be attributed to the function that stopped
+ * asking. One line per read: arm it only on forensics runs. */
+extern void sub_00270FBD_gen(void);
+
+void sub_00270FBD(void)
+{
+    extern __thread uint32_t g_esp, g_ebp, g_ecx;
+    static int on = -1;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on) {
+        /* The helper is frameless LTCG (EBP inherited, no chain), so
+         * attribution = scan the caller's live stack for return
+         * addresses: a coarse but FPO-proof caller fingerprint.
+         * NOTE (sub_0001E170 anatomy): the real stream object is the
+         * CALLER's ECX, saved at push site esp+0x24; obj+0x08 = file
+         * handle, obj+0x14 = byte cursor, obj+0x30+0x81C = lock.
+         * Log obj + cursor before, and cursor after, per read. */
+        /* (esp+0x24 "caller ecx" probe on frz100 printed code words --
+         * the save slot is not uniform; stream-object identity stays
+         * with the [PUMP] census instead.) */
+        fprintf(stderr, "  [RD] a1=%08X a2=%08X n=%u stack:",
+                MEM32(g_esp + 4), MEM32(g_esp + 8), MEM32(g_esp + 0xC));
+        for (uint32_t k = 0; k < 0x140u; k += 4) {
+            uint32_t v = MEM32(g_esp + k);
+            if (v >= 0x11000u && v < 0x286000u)
+                fprintf(stderr, " %08X", v);
+        }
+        fprintf(stderr, "\n");
+        fflush(stderr);
+    }
+    sub_00270FBD_gen();
+}
+
+/* ── BAF job-pump state census (note 0025 H31, RECOMP_RD_TRACE=1) ──
+ * sub_0023B830 is the title's job-pump: it walks a list off this(eax),
+ * per-node calls vtbl[2](open) / vtbl[1](read -> sub_0001E170 -> our
+ * [RD]) / vtbl[0](close), under global cs 0x3156C0, guarded by
+ * sub_001F96C0(type-16 <= 0x31) and a reentrancy slot this+0xC0E4.
+ * Logs one line per pump entry: thisptr, node-list head (+0x10),
+ * +0x0C tail, +0x04 link, queue slot, and the caller fingerprint from
+ * its stack. Shows whether reads stop because the pump stops running,
+ * runs with an empty list, or runs but the nodes stop reading. */
+extern void sub_0023B830_gen(void);
+
+void sub_0023B830(void)
+{
+    extern __thread uint32_t g_esp, g_eax;
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on) {
+        uint32_t th = g_eax;
+        if ((n++ & 0x3F) == 0 || n < 400) {
+            fprintf(stderr, "  [PUMP] x%u this=%08X head=%08X tail=%08X "
+                    "link=%08X q=%u st=%08X:", n, th,
+                    MEM32(th + 0x10), MEM32(th + 0x0C), MEM32(th + 4),
+                    MEM32(th + 0xC0E4), MEM32(th + 0x94));
+            for (uint32_t k = 0; k < 0x60u; k += 4) {
+                uint32_t v = MEM32(g_esp + k);
+                if (v >= 0x11000u && v < 0x286000u)
+                    fprintf(stderr, " %08X", v);
+            }
+            fprintf(stderr, "\n");
+            fflush(stderr);
+        }
+    }
+    sub_0023B830_gen();
 }

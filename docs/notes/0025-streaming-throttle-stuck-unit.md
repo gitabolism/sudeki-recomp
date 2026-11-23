@@ -56,7 +56,37 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
 
 ## Outcome
 
-### frz96 full + frz97 write-forensics: serving layer exonerated, wall is guest-side
+### frz98-100 consumer anatomy: the job-pump chain is named end-to-end
+
+* `sub_00270FBD` (helper) call sites: `sub_0001E170` (stream read
+  method: lock cs-table `0x3156C0/C4` -> seek `sub_00271204` -> read
+  helper -> cursor += n) reached via thunk `sub_0001E0A0` from
+  vtable `0x00320BE4` slot +0x18; second family `sub_00020900`
+  (`.gex` table walker).
+* Phase ordering settled from `[FILE]`/`[WRDUMP]`/`[READ]` interleaving
+  (frz97, fresh cache): install = D:\*.Baf open + Z:\*.baf create
+  (disp 3) + 61,440-B writes, COMPLETES (27,762,688 B), then
+  read-back opens (disp 1 opts 0x60) and the pump starts. Read-back
+  is the stream that dies at ~11.33-11.36 MB (40.8 %) in frz97/99.
+* frz99 flip timeline (runtime `fps (` lines): flips 225->652->1159
+  ->1752 (menu/attract era), 1823->1824 one flip across the whole
+  plateau, +25 at t=525 (2.02 fps) just before ABRT. All `[READ]`
+  traffic stops at line 37,799 (3 s before kill) — the attract movie
+  keeps decoding from its in-memory ring (mdec 3495 vs mpr 3196).
+* `[RD]` stack fingerprints on the LAST startup.baf reads are the
+  pump chain: `0001E1BC | 0023BA71 | 00272470 | 0001145D | 0001152A
+  | 0047CE4` — i.e. `sub_0023B830` (job-pump: lock cs, reentrancy
+  slot `this+0xC0E4`, walks node list, per-node vtbl[2] open /
+  vtbl[1] read (site `0023BA71`) / vtbl[0] release), entered through
+  `sub_001F9720` (pool alloc `sub_001FEAE0`, popcount==1 size gate,
+  gate `sub_001F96C0` = type range-check `eax-16 <= 0x31` against
+  2-entry table at `0x1F96DC`).
+* Next measurement (frz101): `[PUMP]` census wrapper on
+  `sub_0023B830` (thisptr, node-list head `+0x10`, tail `+0x0C`,
+  queue slot, caller fingerprint) -> distinguishes pump-stops-running
+  vs runs-with-empty-list vs nodes-never-read.
+
+### frz97 write-forensics: serving layer exonerated, wall is guest-side
 
 * frz96 (watcher-fired ABRT t=868 s): kill-state — engine alive
   (T1 inside submit chain `sub_002D5C80<-...<-sub_00207400`), nv2a
