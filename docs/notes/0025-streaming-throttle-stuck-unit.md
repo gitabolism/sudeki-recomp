@@ -2816,3 +2816,54 @@ not file size; no input drift — doctor green).
   322FD4, and 69 static .text refs to [3DD7E8] incl. the whole
   F12xx-F1Bxx MSG-family — the MSG tier IS the hub's biggest
   consumer).
+
+## OVERTURN (18:24): healthy trace says the dead chain RAN 766x — and the caller tier was never lifted
+
+- v6 run (fs_run5 pattern: probe-attach loop, scripted uinput START every 6 s,
+  port-consistency law: cmds target must equal -gdb port — three lost windows
+  traced to that mismatch): 300 s window, **HITS: FRM x290, MSG1 x402,
+  CTOR x73, SWEEP x1** on the healthy game.
+- Caller map (ra at hit):
+  - FRM 15B640 <- **F9CF0@F9D79 exclusively** (single caller!).
+  - MSG1 F1CA0 <- 15B680 (INSIDE FRM, 289x), 164640@1647C3 (107x),
+    1603F0@160460 (6x), F1D10@F1D3F (1x).
+  - CTOR 159710 <- 164140@164176 (64x), 163063@1631A6, 15AB80@15ACC6, 1683A0.
+  - SWEEP 4E1F0 <- F1D10@F1D3F (static law F1CA0-leg confirmed dynamically).
+- **None of {F9CF0, F98D0, 32170, 57C70, 164640, 164140, 1603F0, 15AB80,
+  163063, F1D10} is in the lifted tree** (grep recomp_funcs.h = 0) — the
+  tick tier is invisible to func_id (register-indirect entry: F9CF0 takes
+  eax+edi pre-set; obfuscated xor-decode fields w/ [375FA8] tick, same
+  scheme as 54E00). Our census x0s downstream were TRUE but the wall
+  bottom moved: the tier does not exist in our gen tree at all.
+- F9CF0 static callers: E8 from 032170 (call @321FC) and 57C70 (@57C98) —
+  57C70 sits on the "owner ctor" cluster (s5e wrote 57E90/57EE0 — recheck).
+- Action: seeds-frz177-tick-tier.json (29 VAs incl. these 10, source =
+  measured xemu-trace rads) -> pipeline --seed regen -> census wrappers
+  TICK1(F9CF0)/CHK1(F98D0)/C321/C57C/M164A/M164B/M160/M15A/M163/MSG2 ->
+  frz177 verdict on whether our boot ever reaches 32170/57C70.
+
+## ERRATA (same day): my own session off-by-0x1000 — corrected tick-tier anatomy
+
+- Half-remembered off() (`f = VA - 0xF000`) shifted EVERY static decode in
+  the 18:0x-18:2x block below by -0x1000. Ground truth law re-proved three
+  ways: toolkit text.asm (0x32170 = mov ecx,[esi+0xE0]), xemu RAM pattern
+  search (XBE bytes at file 0xEAD64 live at xemu VA 0xFAD64), and the trace
+  rads themselves. **Law: VA = file_off + 0x10000 everywhere; tools/ra2fn.py
+  fixed; ra F9D79 -> entry F9D40 now exact.**
+- Corrected tier (all TRUE addrs, ALL already lifted in gen):
+  FRM 15B640 invoked from **F9D40** via **call [edx+0xC]** (rad F9D79 =
+  vtable-slot dispatch, that's why static scans never saw it — edx+0xC
+  slot holds 15B640 at runtime; FRM vtable at VA 0x33E424-family).
+  MSG1 <- 164790 (rad 1647C3), 160420, + inside FRM (15B680 = tail leg).
+  CTOR <- 164140 (exact, seed_vtable_thunk — real entry), 162FF0, 15AB10,
+  1681F0. TickService = **33170** (gate byte [this+0x454], container
+  [this+0x39c], id table 0x353938-family, callee **FACF0**); its callers
+  32BD8..32C1E = switch inside **32B8C** (event-code dispatch writing
+  [obj+0x45C]).
+- Scene-manager object ([3DC83C], vptr 322C50 BOTH sides): healthy xemu
+  container [+0x39c]=0113DA20 ALLOCATED, ours NULL — the TickService
+  container never populated in our port. (Flag [+0x454] nonzero both.)
+- census wrappers in manual.c (TICK1/M164A/M164B/M160/M15A/M163/M164C/
+  M168/TSVC/TKL2) -> required regen (new manual VAs = _gen rename law):
+  pipeline --seed seeds-frz177-tick-tier.json v2 (10 TRUE owners; the 9
+  bogus -0x1000 seeds removed) -> build -> frz177.

@@ -12,18 +12,18 @@ D = open("game/default.xbe", "rb").read()
 
 
 def off(va):
-    return va - 0x10000 + 0x1000
+    return va - 0x10000  # toolkit law: VA = file_off + 0x10000 (xemu-verified)
 
 
 def entry_of(ra):
     # walk back for 0xCC gap then first non-CC after the gap = entry
     o = off(ra)
     p = o
-    while p > off(0x1000) and D[p - 1] != 0xCC:
+    while p > 0x1000 and D[p - 1] != 0xCC:
         p -= 1
     while D[p] == 0xCC:
         p += 1
-    return 0xF000 + p if p - off(0x1000) < 0x25754C else None
+    return 0x10000 + p if 0x1000 < p < 0x1000 + 0x25754C else None
 
 
 def ptr_sites(target):
@@ -34,7 +34,7 @@ def ptr_sites(target):
         j = D.find(p, i)
         if j < 0:
             break
-        out.append(j)          # XBE file offset; VA = j + 0xF000 in .text/.rdata
+        out.append(j)          # XBE file offset; VA = j + 0x10000
         i = j + 1
     return out
 
@@ -46,7 +46,7 @@ def main():
         print("ra %06X -> entry %s" % (ra, "%06X" % e if e else "?"))
         if e:
             for s in ptr_sites(e)[:8]:
-                print("   ptr at file %06X (VA %06X)" % (s, s + 0xF000))
+                print("   ptr at file %06X (VA %06X)" % (s, s + 0x10000))
 
 
 if __name__ == "__main__":
