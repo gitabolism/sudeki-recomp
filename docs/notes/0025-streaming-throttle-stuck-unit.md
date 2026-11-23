@@ -2010,3 +2010,17 @@ batch ctors ra=+0x3517 — different calls; ordering chosen by caller.
 NEXT (frz159): census EE2A0 ENTRY (args + ra + which internal leg) and
 the SUBM 2C-2D thunk ra at 59574 -> name the engine call site that
 submits first; compare with a healthy batch spawn ordering.
+
+## frz159 — EE2A0's ONLY caller = 1EE7D0 (the SUBMIT API); per-id calls
+
+[EENT] census: 61 prints (cap n<60 + x100), ALL from one host ra ->
+sub_001EE7D0_gen+5810. EE2A0 = internal engine half of THE job-submit API
+(1EE7D0, master gate byte [0x397110]); one EE2A0 call per job id
+(a2 = id<<16|1: 00B00001, 01330001...). Terminal burst calls fall in the
+hidden x101..x199 band (total < 200 calls whole-run; no x200 milestone).
+WINC-ra (EE2A0+0x3BD1) and batch-ctor ra (EE2A0+0x3517) are both INSIDE
+the same EE2A0 call window: the submit leg opens the waiter on the not-yet
+-spawned slot, then the same/next call spawns siblings; the terminal
+slot's inline init lands after the loader already drained the record
+(EE110 arr=[mgr+0x14]=0 witness). Control frz160: poll-watch healthy
+era-invariant sibling 018A7B68 -> when does ITS +0x14 array appear?
