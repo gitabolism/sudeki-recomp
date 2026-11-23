@@ -1331,3 +1331,39 @@ the pass whose COMPLETION branch (1EC390 `ja` path vs zero path, or
 (`RECOMP_WATCH=0x18BF14C` LEN 0x40): complete mutation ledger incl.
 state-word `[+0x28]` ORs (0x2000 open-flush bit at 1EF022, ah&0x20
 test at 1EEF23) with stacks.
+
+## frz138 addendum — static decode of the open/close machinery (queue heads EMPTY at kill)
+
+Core forensics (sudeki.frz138.core): ALL six pump-chain queue heads
+`0x3D7620/668/6B0/6F8/730/764` = **0** at kill. So no task sits
+queued-uncompleted — the unclosed count is NOT a stuck queue item.
+
+Roles re-decoded (raw .text):
+- `sub_001EC130` = **submit wrapper ctor**: vptr 3367AC -> field +4 =
+  target job record; incs target count (`+[mgr+0x14]` dword if the
+  job has a batch-refcount dword at +0x14, else `inc word [mgr+0x2C]`
+  at `1EC148`); then vptr 336734 and **`call EF0C0(desc, wrapper,
+  mode)`** where mode = (`[mgr+0x28]&0x20` ? 2 : bits>>6&1) — so the
+  EC130 relay feed CAN target pump chain `3D7620` (mode 2) depending
+  on the manager's state byte. `ret 8` = two stack args (EE2A0 site
+  pushes 0,0 at `1EE675/67D`).
+- `sub_001EC190` = wrapper factory (`new 8` + EC130 with null args).
+- `sub_001EC1C0` = wrapper dtor-ish: calls `1EF3D0`, then **if
+  `[wrapper+4]` != 0 -> `call 1EEEE0`** (the dec path at `1EEEFF`).
+  So the dec rides on wrapper DESTRUCTION by the queue owner.
+- `sub_001EC350` = job-completion closer: `1EF4C0`, clears bit 0x4000
+  in `[mgr+0x28]`; if `[mgr+0x14]` (batch dword) != 0 use THAT ref
+  count, else `dec word [mgr+0x2C]` at `1EC390`; at zero ->
+  `1F92E0 + 1ED9B0 + vtable[0](mgr,1)` = the job-done finalize.
+- Two-level ledger law: a job record with a batch-refcount dword
+  (`+0x14` != 0) accounts on THAT counter; only batch-less records use
+  the word at +0x2C. The terminal manager (`018BF14C`, created by
+  `EE2A0` via `new 0x3C`, vptr 336794) had `[+0x14]`=0 -> word path.
+- `EE2A0` return law (`1EE6BD`): returns the wrapper (`edi`) on
+  success; the `(bl&0x60)` / `[mgr+8]==0` branch at `1EE694` can call
+  vtable[0](wrapper,1) and NULL the return = **failure path**
+  (wrapper discarded by caller, count left incremented?? no —
+  vtable[0] on wrapper -> dtor path -> EEEE0 dec). frz140's
+  full-record watch (LEN 0x40) will show which of a/b/c got which
+  closer and whether any +0x28 state bit (0x20 flush / 0x40 in-flight)
+  explains the missing dec.
