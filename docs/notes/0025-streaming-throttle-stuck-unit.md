@@ -2588,3 +2588,23 @@ not file size; no input drift — doctor green).
   or coalescing; press-count experiment is blind at that tier.
 - frz174 (running): same binary, 1900 s window -> pill (~28 min) + ~7 min
   of dense presses after it = the input-acceptance test.
+
+## frz174 — 1900 s pill-era window: ATTRACT LOOP, scene tier dead under it
+
+- FB timeline (~10 s cadence): #172 black -> #176/#180/#182 pill+© full
+  title -> #178/#184 logo -> #186/#187 black at window end = the title
+  screen CYCLES (fade-to-black attract loop) while loads pending; pill
+  persists ~150 s+ under 5 s-cadence START presses (OHCI claimed).
+- Object-graph tier census in the SAME run all x0: MSG1/MSG2/SWEEP/MKLU/
+  SCH1-3/UP1/FAM2/REGT/CTOR — the SOL scene tier never ticks under the
+  pill era; the UI/attract tier is a separate live path (title animates).
+- 4E1F0 (SWEEP) has ZERO static refs (no E8, no dword) — same
+  computed/runtime-table dispatch law as 16F520/1EDE80: SOL starts tiers
+  only from runtime-built tables; static xref hunting is exhausted for
+  this family — must catch tables + thread stacks in a core instead.
+- frz18-era law reminds: START acceptance + Buki card were reached in the
+  old era, so the input pipeline works end-to-end; current wall = the
+  pill's input handler lives behind the dead scene tier.
+- frz175 (running): nav_run53 = timeout --signal=ABRT -> CORE at pill
+  era (frz174 had none); will read gates/scene globals/handler lists +
+  per-thread stacks at the exact stuck moment.
