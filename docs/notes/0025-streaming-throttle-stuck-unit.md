@@ -2644,3 +2644,24 @@ not file size; no input drift — doctor green).
 - frz18-era check: that run NEVER passed Press START (Buki_sfx = title-era
   asset; end = ordinal-161/129 x49M spin) — no pre-regression "menu worked"
   baseline exists; current attract-loop depth is the DEEPEST observed.
+
+## Static hunt update (frz175 pending; issuer-owner object never instantiated)
+
+- 6AD00 (TBLU, issuer head) sits in a 445-slot FLAT function table
+  0x323A38..0x324128 in .rdata (slots all code ptrs, first=F71D0; no MSVC
+  COL/RTTI -> not a class vtable; looks like an XDK/title dispatch table).
+  dword-scan of the WHOLE frz171 core for vptr=0x323A38: only hits were
+  unaligned code bytes (false positives) -> NO object ever carries this
+  table's base in the CF era: the dispatch class that would feed the
+  issuer chain was never instantiated.
+- EXEC (1EF7C0) IS alive in the pill era (frz174 x300) but its live callers
+  (base-diff symbolized) are 1F9720+5088, 23B830+9658, 1FEDE0+890,
+  23D550+12989, 1FEC60+2597 — i.e. executor entry is runtime-driven from
+  the 1F9-23D tier; the static SWEEP-grid path (4E1F0) and issuer chain
+  (6AD00 tier) are a SEPARATE, never-started front end of the same exec.
+- frz175 (nav_run53, SIGABRT-at-1900s): era fingerprint CF14C (PUMP x167
+  a4=018CF14C = same era as frz171 core; logo-screen frames). Live tail at
+  ~1000 s: kernel spin pair ordinal 234 x148.1M / 221 x148.1M (+ 161 x49.6M
+  / 129 x49.4M — the frz18-era signature pair EXACTLY, 49.4M/49.5M counts:
+  the endgame spin identity is era-STABLE, ord pair is the new endgame
+  fingerprint to identify (guest wrapper not yet mapped).
