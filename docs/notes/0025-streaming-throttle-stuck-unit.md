@@ -639,3 +639,60 @@ phase is the decisive dataset: does non-movie IO persist?)
   healthy title era, rich frames flowed anyway -> the 4C swap-slot
   event is not what feeds healthy rendering; the 20-pulse census in
   frz94 was incidental. (frz93's "parked on 4C" = terminal detail.)
+
+## frz125 — wake-producer census: the handshake pair decoded (H31 re-pose x10)
+
+* `[SMEVT]` (26D5AE SetEvent wrapper, ra+handle) 110 Sets, exactly 5
+  guest call-site families: `21CD0`→h=48000001 x51, `220E0`→48000002
+  x45, `2C5CE0+370`→48000013/0F x6, `1EAB90`→48000006 x5,
+  `11D200+1863`→48000004 x3. Host `[EVENT]` census: every
+  `NtSetEvent` is `from=0x0026D5BA` (the wrapper) — **48000007 is
+  NEVER Set via NtSetEvent**; the 5 loader pulses = the 5
+  `SetEvent(48000006)` calls from `1EAB90`.
+* Loader wait-handle array (frz125 core): `[0x37A114]=48000007`,
+  `[0x37A118]=48000006` — corrects the older `{48000007,[0x397920]}`
+  wording (`[0x397920]=48000001` is the CONSUMER loop's own ack
+  event, `21AD0` calls `EABD0` then `ResetEvent(0x397920)`).
+* `21CD0` (task poster, wrapped `[POST] q1`) raw decode = routing
+  law on `task[+8]` word: bits {15,9,10,11,12} set -> tail-call
+  `220E0` (q2, Sets 48000002); else sorted insert into q1 list
+  `[0x396E8C]` keyed by `task[+0xC]` + `SetEvent([0x397920])`.
+  q2 entries = 45, ALL dead at log-line 15022 (boot era; q2 tasks
+  carry flag 0x8001, stall-era q1 tasks carry 0x4001 = bit14, not
+  routed to q2). q1 runs to line 52291 (96 entries).
+* Consumer thread body = `sub_00021AD0`: loop = `EABD0(evt)` wait ->
+  `ResetEvent(0x397920)` -> CS 36CC54 -> drain q1 popping tail
+  `[0x396E8C]`: call vtable slot1 (type tag; `3381B0` -> `20E520`
+  returns "MATR"), call slot0 `(1)` = `220A70` (bit0 arg = don't
+  destruct; Run for this type only swaps vtable `3381B0 -> 33818C`).
+  The two last tasks (018CA250/A0) ran and drained; queue null at
+  kill. The engine poster for q1 tasks = site `18EE11` (inside
+  `18EDA0`, an async-complete callback of object vtable `332C54`;
+  it allocs a 0x50 task via `125A80` (XOR-obfuscated fields vs
+  `[0x39E650]` table) and posts via `21F90`).
+* **Wake pair law (raw decode of `1EAAB0`/`1EAB90`):** evt7 =
+  `[0x37A114]` "loader run", evt6 = `[0x37A118]` "engine parked";
+  flags `[0x37A0F4]` request-pending, `[0x37A0F5]` engine-waiting.
+  `EAAB0` (engine load-wait, caller = `EF1D0` bucket walk): if F4
+  set -> ret; WFSO evt6 0; `1FE8A0`/`1FE690` on `[0x397668]`;
+  `ResetEvent(evt7)`; F5=1; `TryEnterCS(37A0F8)`: success ->
+  `SetEvent(evt7)`, F4=1; fail -> <=1000x{WFSO evt6, WFMO evt7
+  5ms} retry, and if evt6 ever Set -> `SetEvent(evt7)` WITHOUT CS.
+  `1EAB90` (ack; SMEVT-proven ran exactly 5x): if F4 -> CS-leave +
+  clear F4; WFSO evt6; if evt6 unset -> `SetEvent(evt6)`, F5=0.
+* `[EACYC]` census (old probe, entry gate `n<20 || n%64==0` — mod
+  gate again): EAAB0 called >=65x, last logged entry x64 at line
+  25849 (~29k lines BEFORE pump x167), every logged return =
+  `0x102` WAIT_TIMEOUT. The engine load-wait stops even ATTEMPTING
+  long before the servicing chain's last pump.
+* frz125 core at kill: F4=F5=0, CS `37A0F8` all-zero (free — the
+  "loader holds CS across INFINITE wait" claim is WRONG for the
+  terminal state), q1 null, buckets empty, loader thread 6 inside
+  `xbox_NtWaitForMultipleObjectsEx` <- `26D78C` <- `EABD0`.
+* Model: 5 pulses = 5 `1EAB90` acks; after the 5th, EAAB0 never
+  fires again (EF1D0 never reaches it — buckets empty), loader
+  parks, and nothing in the engine re-requests. The question moves
+  one step up: WHO calls `EF1D0`/feeds its buckets, and who is
+  supposed to re-arm the request after the 5th pulse. frz126 adds
+  `[EACK]` (1EAB90 ra census) + state-rich `[EACYC]` (f4/f5/e6/e7
+  per call, every call printed).

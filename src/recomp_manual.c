@@ -1626,15 +1626,18 @@ void sub_001EAAB0(void)
         const char *e = getenv("RECOMP_RD_TRACE");
         on = (e && *e && *e != '0') ? 1 : 0;
     }
-    if (on && (n < 20 || (n % 64) == 0)) {
+    if (on && n < 400) {
         void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
-        fprintf(stderr, "  [EACYC] x%u ra=%p\n", n, ra);
+        fprintf(stderr, "  [EACYC] x%u ra=%p f4=%u f5=%u e7=%08X e6=%08X\n",
+                n, ra, MEM8(0x37A0F4), MEM8(0x37A0F5),
+                MEM32(0x37A114), MEM32(0x37A118));
         fflush(stderr);
     }
     n++;
     sub_001EAAB0_gen();
-    if (on && n < 20) {
-        fprintf(stderr, "  [EACYC] x%u -> %08X\n", n, g_eax);
+    if (on && n <= 400) {
+        fprintf(stderr, "  [EACYC] x%u -> %08X f4=%u f5=%u\n",
+                n - 1, g_eax, MEM8(0x37A0F4), MEM8(0x37A0F5));
         fflush(stderr);
     }
 }
@@ -1700,6 +1703,34 @@ void sub_0023AD50(void)
         fprintf(stderr, "  [CQ] x%u -> %08X\n", n, g_eax);
         fflush(stderr);
     }
+}
+
+/* frz126 handshake-state probes. The loader/engine wake pair decoded raw:
+ *   evt7=[0x37A114]=48000007 ("loader run"), evt6=[0x37A118]=48000006
+ *   ("engine parked"); flags [0x37A0F4]=request-pending, [0x37A0F5]=
+ *   engine-waiting. EAAB0 (1EAAB0) = engine load-wait: only Sets evt7
+ *   via TryEnterCS(37A0F8) success or evt6-already-Set paths.
+ *   1EAB90 = loader ack: WFSO evt6, Sets evt6 if unset, clears F5 (and
+ *   leaves CS + clears F4 when F4 set). Log per-call state so the lost
+ *   transition after pulse #5 is directly visible. */
+extern void sub_001EAB90_gen(void);
+
+void sub_001EAB90(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && n < 400) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [EACK] x%u ra=%p f4=%u f5=%u e6=%08X\n",
+                n, ra, MEM8(0x37A0F4), MEM8(0x37A0F5), MEM32(0x37A118));
+        fflush(stderr);
+    }
+    n++;
+    sub_001EAB90_gen();
 }
 
 /* 26D5AE = guest SetEvent wrapper (all loader-event signals route
