@@ -3365,14 +3365,17 @@ void sub_001ECC40(void)
     }
     uint32_t id = (g_esp >= 0x10000u && g_esp < 0x7FFF0000u)
                       ? MEM32(g_esp + 4) : 0xDEADu;
+    /* frz163: capture type-table slot raw at call time (slot[2] FNT1-tag
+     * law adjudication for the terminal burst resolutions) */
+    uint32_t slot = MEM32(0x37A3D0u + 4u * (id & 0xFFFFu));
     sub_001ECC40_gen();
     if (on) {
         uint32_t job = g_eax;
         uint32_t st = (job >= 0x01000000u && job < 0x04000000u)
                           ? MEM32(job) : 0u;
         if (n < 20 || (id != pid || job != pres) || (n % 200) == 0)
-            fprintf(stderr, "  [JOB] x%u id=%08X -> job=%08X st=%08X\n",
-                    n, id, job, st);
+            fprintf(stderr, "  [JOB] x%u id=%08X slot=%08X -> job=%08X st=%08X\n",
+                    n, id, slot, job, st);
         if (n < 20 || id != pid || job != pres) fflush(stderr);
         pid = id; pres = job; n++;
     }
