@@ -2735,3 +2735,43 @@ not file size; no input drift — doctor green).
   ([3DD7F0]/[3DD7F4] heap objs, vptr verified 32307C) but their method
   slots (RSRC census) never execute; the 83530 tier (calls pack-enqueue
   21CD0) is a member of the 70xxx resource chain (callers RQ1/RQ2/HND...).
+
+## xemu RAM-diff REFUTED + input tier ALIVE + FRM permanent zero (session 5e cont.)
+
+- REFUTATION (same-day): the "xemu healthy-title RAM diff" section above
+  is INVALID. paging:false QMP dump = PHYSICAL segments; the identity-pair
+  delta died between pages (the [37602C] sanity check failed and won).
+  The "static instances" at 31F7BC/31FB24/31FB48/320EC0... are STRING
+  POOL bytes in the image ("CompileAnimation","DetachScript/Name/Trait",
+  "sweep/Back/Front","Area/Range","over/song/medium","SIU_...turation",
+  "spec2/spec1") — the dead-delta reads returned string-table contents,
+  not game state. No regime-inversion claim stands.
+  Fix owed: dump-guest-memory paging:true (VA-mapped ELF) — queued,
+  /tmp/opencode/ram-paged.elf in flight.
+- INPUT TIER IS ALIVE in pill era (frz176 core): XAPI init chain ran
+  ([3DD84C]=1, [3DD850] obj vptr 327AE4, [3DD8CC]=1); pad factory tier
+  133F0<-11F3B (inside 11DE0) -> 12D80 -> 22960 CTOR ran: dev obj
+  01892820 vptr 3226D4, [3DC7FC]+0x38 = PAD OBJ 01490E48 vptr 320D4C
+  (0x28-byte obj; bytes past +0x28 are an adjacent string alloc — the
+  "SIU_PORT..." red herring). Startup law: CRT entry 26C703 -> 26C68F
+  -> 11560 (XInitDevices-ish) -> 12090 -> 11DE0 -> ... -> 133F0 ->
+  12D80. So START input reaches the game; the dead tier is its consumer.
+- FRM (15B640 engine frame dispatcher, hand wrapper w/ [FRM]) = x0 in
+  EVERY logged era (frz15x-176 full sweep). The scene-tier tick pump
+  itself NEVER runs — dead chain now bottoms at "no object ever calls
+  the frame-dispatcher slot"; vtable dispatch into it is [obj+disp]
+  form (static scan: no direct FF-9x with the 478-table slot offsets).
+- frz176 (nav_run53 1900s SIGABRT, BF14C era, pill attract era, 188 FB
+  dumps): census dead set unchanged (MSG/SWEEP/MKLU/SCH1-3/RQ/HND/
+  RSRC1-4/TBLU/REGT/RGCX/RGT/CTOR/CTOR2/CTORB/FAMx ALL x0); LIVE tier:
+  INIT0 x1 (XAPI), CTORA x1, INIT1/INITR x1, TCTO x34, SCH4 x31,
+  SESSB x31, ATT1-4 x41, DRV/TITER/CLOSE x60ish. Core at
+  /tmp/opencode/sudeki.frz176.core (2.6 GB, BF era).
+- NEW TOOL LINE: xemu 0.8.139 = QEMU 10.2 wrapper; `-gdb tcp::PORT`
+  + host gdb `set architecture i386` gives guest-VA breakpoints &
+  MMU reads on the HEALTHY game. First trace run wired: 10 soft
+  breakpoints on the dead chain (FRM/CTOR/MSG1/RGT/RGCX/RSRC1/SWEEP/
+  MKLU/RQ1/HND1), auto-log regs+14 esp dwords, /tmp/opencode/
+  gdbtrace.cmds -> /tmp/opencode/gdbtrace.out. This answers "who
+  invokes the dead tier" from the reference side (rule 6) instead of
+  static guessing.
