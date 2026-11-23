@@ -6,76 +6,64 @@
 **Last updated:** 2026-11-23 13:3x (session 5d, ~13:0x–…)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
 (xemu same-moment capture still owed, see Queue);
-**navigation works**; load-stall wall (H31, re-posed x24, home = note
-0025) in ONE sentence: the terminal manager's desc keeps a pending
-count of 1 forever (frz138 unmatched waiter-open; frz150 core desc
-`00F95738` key `06610B29`), so its zero-count CLOSE never runs —
-loader/submit/attach tiers and the loader itself stay alive and
-retry the same jobs to the deterministic PUMP x167 terminal while
-the game sits on a static "Loading..." screen.
+**navigation works**; load-stall wall (H31, re-posed x25, home = note
+0025) in ONE sentence: at the terminal burst the submit API
+(`1EE7D0`→`EE2A0`) opens the waiter (`EE2A0+0x3BD1`) on a manager slot
+whose inline init / desc pointer `[mgr+8]` lands only afterwards, so the
+loader drains the record EMPTY (`EE110 arr=0 cnt=0`), nothing ever
+completes it, the manager's pending word stays 1, the loader parks
+INFINITE on `{48000006,48000001}`, and the engine PUMP rescans to the
+deterministic x167 terminal while the game sits on a static "Loading..."
+screen.
 
 ## Where things are verified
 
 - Toolkit: `xboxrecomp/` @ v0.18.0 / `37b61d589168adee3680fabd51805ee81427bf07`;
   `scripts/doctor.sh` green (XBE SHA-256 pin, skill digests, stubs
-  432 agree). Patch series **`0001..0052`**; the patch-by-patch table
+  432 agree). Patch series **`0001..0053`**; the patch-by-patch table
   lives in THIRD_PARTY.md (its one home); `scripts/build.sh` resets
   to the pin and re-applies in order.
 - Manual overrides (`src/recomp_manual.c`, `--exclude-manual`): census
   wrappers incl. PUMP/S9720/S99D0/EE110/EE190(ENQ)/MTICK/EED70/CQ/
   SMEVT/SRST/F0F80/POST/REFILL/EACK/EACYC/EBUSY/EDRV/ISSU1/ISSU2 +
   INIT/CTOR/UP/FAM census tier + WINC/WDEC/CLOSE waiter ledger +
-  cache-writer/audio/swap wrappers. All source changes are complete
-  units, committed; build era = frz151 (INIT probes), frz152 probes
-  (waiter ledger) committed awaiting gen+build.
+  cache-writer/audio/swap wrappers + MCOR/ITER/EXEC/ISERV/EENT tier.
+  All source changes are complete units, committed;
+  build era = frz159 (EENT census; frz160 control staged).
 - Raw-bytes decode law (verified against lift): `.text` file offset =
   VA − 0x11000 + 0x1000 (capstone direct on the XBE; the earlier
   0x1F0000-offset decode was garbage — deleted from note 0025).
   Kernel thunk placeholders `[0x3156xx]=0xFE000000+i*4` are the real
   bridge VA encoding (slot = index into the XBE import table).
-- Ghidra bench installed; flat-import recipe in THIRD_PARTY.md; the
-  `/tmp/opencode/ghidra` project was lost to a host reboot — no
-  re-import needed so far (capstone raw decode replaced it).
+- Ghidra bench installed; flat-import recipe in THIRD_PARTY.md
+  (capstone raw decode has replaced it for now).
 - Git: `origin/main = 77f770f` per `git reflog` (four pushes
-  postdating the recorded user-approved push `7ce51cb`).
-  **User question (rule 7):** AGENTS says the remote is `NO_PUSH`,
-  but `remote.origin.pushurl` is a live SSH URL and pushes happened
-  after `7ce51cb`. Confirm posture (re-approved pushes, or restore
-  NO_PUSH) — agent keeps pushing nothing either way.
+  postdating the recorded user-approved push `7ce51cb`); posture
+  question lives in Blockers — agent pushes nothing either way.
 - JP second sample: `~/Downloads/xbox/sudeki-jap/default.xbe`
   (parked, outside git; naming `<game>-<region>/`).
 
 ## Last run
 
 Session 5d (13:0x–…): **waiter ledger closed the wall anatomy; watch-trap
-unreliability law; patch 0053 poll-diff armed.**
-- frz152b ledger: desc 018CF14C inc=2/dec=1 = net +1 REPRODUCED; unmatched
-  open = EE2A0 relay `1EE682` (frz138(a) confirmed); sequence at wall:
-  JOB x536 -> WINC x207 -> EF0C0 x435 `a1+8=0 mode=2` (no-owner branch ->
-  queue 3D7620, no immediate service) -> loader ENQ x3 drain-once ->
-  W2MO x29836 INFINITE {48000006,48000001} NEVER woken; all queues empty
-  at kill; core final word[+2C]=0001.
-- frz153/153b: mprotect watch on owner-slot `[mgr+8]` trapped ONLY the 4
-  boot memset writes though cores prove later writes -> trap path
-  UNRELIABLE; alias-divergence REFUTED (0x80000000 immediates = D3D/pad
-  flags only; contig window is separate storage). Patch **0053**
-  `RECOMP_WATCH_POLL=<ms>` poll-diff (era-armed both BF/CF) = frz154/154b
-  RUNNING (watch LEN 0x40 over whole manager object).
-- Wake chain decoded: EACYC entry x73 vs EACK ack-leg x5; 1FE8A0 gate =
-  unit[0x397668]=00FD9550 `+C0DC` pending / `+C0C8` busy — unit IDLE at
-  kill (pending not at unit tier; orphan waiter record lives inside the
-  manager PUMP retry). Retry drivers 1F5A70/1F5AE0 = handler-chain
-  walkers over [0x3975E8] (none accepts the key-06610B29 job -> eternal
-  rescan). frz155 probes ITER(1FE8A0)/EXEC(1FE690) committed, awaiting
-  gen+build.
-- frz154/155 verdicts (see note 0025): **terminal manager block CONSTRUCTED
-  at the burst** (inline, EE2A0+0x3517 family; MCOR never names BF14C);
-  name field = stack garbage `EA3D4B48`; `06610B29` = FMH-class DESC tag
-  (24 in-RAM descs), NOT a cache key; EACYC = per-node handshake inside
-  EF1D0 relay-processor, 73 exits all `0x102`, dies at 58557 while PUMP
-  rescans continue (node moves to bit-0x1000 in-service state; its
-  completion — WDEC + bit clear — is the last unknown writer). frz157
-  census staged: 1EC3E0 in-service transition + loader-kick 1EACC0 tail.
+unreliability law; patch 0053 poll-diff; frz157 ordering = pose x25.**
+Full verdicts in note 0025 (sections frz152b / frz153 / frz154-155 /
+frz157 / frz159); one-line each:
+- frz152b: ledger reproduces net +1; unmatched open = EE2A0 relay
+  `1EE682`; loader drains once then parks INFINITE, never woken.
+- frz153/153b: mprotect watch-trap UNRELIABLE -> patch **0053**
+  `RECOMP_WATCH_POLL` poll-diff (LEN 0x40 over whole manager).
+- frz154/155: terminal manager block CONSTRUCTED at the burst; name
+  field = stack garbage; `06610B29` = FMH-class desc TAG not key;
+  EACYC = per-node handshake x73 all `0x102`; wake-chain tier decoded.
+- **frz157 = THE ORDERING:** WINC x207 on uninit slot -> no-owner mode2
+  -> sibling batch ctors -> loader drain -> **EE110 processed record
+  EMPTY (`arr=[mgr+0x14]=0 cnt=0`), never completed**; inline init too
+  late; ISERV never for terminal epoch.
+- frz159: `EE2A0`'s SOLE caller = `1EE7D0` submit API, one call per job
+  id; WINC-leg + batch-ctor leg inside the same call window.
+- Probes now built through EENT (frz159 bin); frz160 healthy-manager
+  control (`WATCHVA=018A7B68`) running.
 
 Session 5c (06:3x–13:0x): **frz135→144 census arc; wall narrowed to the
 message/object-graph tier; submit-API law found; xemu capture law work.**
@@ -189,18 +177,18 @@ log.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x24: ONE waiter never closes —
-   the terminal manager's desc (core: `00F95738`, key `06610B29`,
-   size `0x373F`) keeps pending-count 1, so its zero-count CLOSE
-   (1F92E0 + 1ED9B0 + vtbl[0](1)) never runs and the load never
-   ends; the loader/submit/attach tiers are ALIVE and retry the
-   same jobs forever).** frz151: INIT tier ran at boot; object-CLASS
-   ctors x0 = post-load consequence, not cause. frz150 core: both
-   handler lists (3975E4/3975E8) populated from boot via CRT
-   static-init (26CFF8 + 271-thunk table); ATT census = live
-   list-B dispatch; ATT2 allocates accepted job objects.
-   frz152 (running): WINC/WDEC/CLOSE ledger names the unmatched
-   open and the desc that never reaches zero-count.
+1. **H31 (ACTIVE, note 0025, RE-POSED x25: submit-before-init — the
+   submit API (`1EE7D0`→`EE2A0`) opens the terminal manager's waiter
+   (`EE2A0+0x3BD1`) before that slot's inline init installs its desc
+   pointer `[mgr+8]`, so the loader drains the record EMPTY
+   (`EE110 x166 arr=0 cnt=0`), nothing completes it, pending word stays
+   1, its zero-count CLOSE never runs; the loader then PARKS INFINITE
+   and only the engine PUMP/EF1D0 rescans loop to PUMP x167).** frz157
+   ordering law (note 0025): WINC+drain precede batch-spawn ctors and
+   inline init; frz159: EE2A0's sole caller is `1EE7D0`, one call per
+   job id, WINC-leg and batch-ctor leg inside the same call window.
+   `06610B29` = FMH-class desc TAG, not a key (frz154). frz151/150:
+   INIT/handler-list tiers alive; object-class ctors x0 = consequence.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop
    (0005); async-IO return convention = the phantom charge (0011);
@@ -213,11 +201,13 @@ log.
 
 ## Queue (next concrete actions)
 
-* **1. frz157 census: in-service completion writer.** Wrap `1EC3E0` (called
-  at EF272/EF2B4 right before EACYC per node — the in-service transition)
-  + decode the bit-0x1000 branch (EF2A6 loader-kick: `1EACC0` + flags
-  `3970E5/6`). Goal: name WHO owes the WDEC + bit-clear for the terminal
-  burst node and why it never runs. Same BIN + MCOR/ITER/EXEC stay.
+* **1. frz160 control (running): healthy-manager witness.** Poll-watch
+  era-invariant healthy manager `018A7B68`: WHEN does its `[+0x14]` item
+  array + `[+8]` desc install relative to its first WINC — the contrast
+  for the terminal manager's empty-drain ordering. Then name the engine
+  call site inside the `1EE7D0` submit window that issues the terminal
+  burst before the spawn leg (EENT cap-band gap: x101+ hidden; raise
+  cap for frz161 if needed).
 * **2. Menu artefact completion (rule 6):** xemu shotseq unique-name
   pair still owed; FB law OPEN (linear + Z-order both decode TEXTURE
   at 0x1A3B000); `xemu_qmp_probe.sh` unrun decides screenshot path.
@@ -241,14 +231,15 @@ log.
 
 ## Blockers / open questions
 
-- **H31 wall write-up (AGENTS work-loop rule):** 50+ runs
-  (frz93→152), 24 re-poses, 5 header-level facts overturned mid-wall
-  (regime split, trailer-bit4, events-never-Set, START-spam
-  confounder, empty-handler-lists core misread). Host side
-  EXONERATED end-to-end (frz128–134); wall narrowed to ONE
-  never-closed waiter on the terminal desc (frz138/frz150 core);
-  frz152 ledger closes or re-poses it. Next comparison if the
-  ledger stalls: xemu kernel trace of the same load.
+- **H31 wall write-up (AGENTS work-loop rule):** 60+ runs
+  (frz93→159, frz160 staged), 25 re-poses, 5 header-level facts
+  overturned mid-wall (regime split, trailer-bit4, events-never-Set,
+  START-spam confounder, empty-handler-lists core misread) plus the
+  frz154/155 poll-diff overturn (ctor-at-burst, stack-garbage name,
+  B29=tag-not-key). Host side EXONERATED end-to-end (frz128–134);
+  wall now = submit-before-init ordering at the engine tier
+  (frz157/frz159). Next comparison if the frz160 control stalls:
+  xemu kernel trace of the same load.
 - User question (rule 7): push posture — see "Where things are
   verified" Git bullet.
 
@@ -262,10 +253,12 @@ log.
   RECOMP_PRES_TRACE=1 RECOMP_EVENT_LOG=1 RECOMP_GSVC_TRACE=1
   RECOMP_RD_TRACE=1 RECOMP_MISSING_FILES=all RECOMP_POST_TRACE=1
   RECOMP_LOG_ORDS=123,138,145,205,225`).
-- Harness current: `/tmp/opencode/nav_run45.sh` (pad gate: OHCI
-  raised 00000002|4 OR vblank-600 fallback; early SIGABRT on
-  `[PUMP] x167 `) + `tools/hangwatch.sh` v2; core reads via
-  `tools/corepeek.py` + the identity-chunk law (note 0025).
+- Harness current: `/tmp/opencode/nav_run48.sh` (`WATCHVA` env param,
+  `RECOMP_WATCH_LEN=0x40 RECOMP_WATCH_POLL=150`; pad gate: OHCI raised
+  00000002|4 OR vblank-600 fallback; early SIGABRT on `[PUMP] x167 `;
+  BIN pattern `/tmp/opencode/sudeki-frz$N.bin` — cp per N) +
+  `tools/hangwatch.sh` v2; core reads via `tools/corepeek.py` + the
+  identity-chunk law (note 0025).
   `/tmp/opencode` is tmpfs: everything there vanishes on host reboot.
 - Other useful env: `RECOMP_CACHE_CAP_BYTES`, `RECOMP_WATCH=<va>…`,
   `RECOMP_SEM_TRACE`, `RECOMP_LOG_ORDS=…` (patch homes: THIRD_PARTY
@@ -273,9 +266,9 @@ log.
 - Harness: `scripts/{doctor,pipeline,build,run,stubs,new_note,env,
   skills_check}.sh`; logs -> `logs/`, captures -> `reference/`
   (gitignored); cores via `coredumpctl dump <pid>` (~2.4 GB each —
-  dumped set: frz138/144/145b/146b/148/150 in /tmp/opencode; prune
-  at next pause); cache dir `~/.local/share/xboxrecomp/Cache/*`
-  between long runs.
+  dumped set: frz138/144/145b/146b/148/150/152b/153/155/159 in
+  /tmp/opencode ~7 GB tmpfs; prune at next pause); cache dir
+  `~/.local/share/xboxrecomp/Cache/*` between long runs.
 - Shell law: never edit a script a live bash re-reads; never edit
   `src/recomp_manual.c` while a gen+build chain is in flight (gen
   reads OLD manual, make compiles NEW -> `undefined reference to
