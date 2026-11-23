@@ -1043,3 +1043,43 @@ VA-anchored global reads from RAM dumps are NOT viable (dead end,
 don't retry); xemu HDD is qcow2 (header parse pending) and its guest
 cache drive is `Z:` — HDD byte-diff parked until the qcow2 L1/L2
 walk works.
+
+## frz132 — session-state census: state-3 is NOT the discriminator; loader pump law decoded raw
+
+Run `logs/run-frz132-060206.out` (pump x167 at line 54638 — same
+terminal shape). `[SESSN]` (table walk from heartbeat, `x%64`,
+change-triggered): x0 `n=0`; x320 `n=12 (9x1,1x2,1x3)`; x1792
+`n=31 (26x1,3x2,1x3)` — then NO change until kill. A state-3 session
+exists in our runs too (xemu "healthy state-3" signal is not unique);
+and session creation itself freezes early (last change x1792).
+
+Loader pump-loop law (raw `1EAC50..1EACBB`, the W2MO site era):
+`W2MO(evt6,evt1) -> loop: F0F80 drain while al -> if [0x3D7620]!=0:
+EE190(ecx=0x3975A8, eax=[0x3D7620], args 0x3D768C,1) -> jmp loop;
+else ResetEvent(evt6=[0x37A118]) -> W2MO again.`
+=> servicing is gated SOLELY on the static pending-chain head
+`[0x3D7620]` being non-null. Terminal park = chain went null while
+job `0A260002` is still registered on manager `018BF14C`.
+
+frz131 core forensics (base `0x7f42f3e00000`):
+* manager records (stride 0x3C, vtable `0x336794`): `+4` node key,
+  `+8/+C/+10` descriptor heads (F95xxx/F9Bxxx/FBBxxx), `+18` id,
+  `+1C/+20` offset/size (0x1400/0x1000), `+28` state word, `+38`
+  back-link (terminal `018BD3A4`). Terminal `+28..+30`:
+  `00010120 / 1 / 00010080` vs COMPLETED siblings
+  `00010184 / 3 / 00010040` — done managers end `state=3`.
+* descriptors (16 B): `(type 0x00040001, RAM-OFFSET dest, count
+  0x48CD/0x48CB, key 0x??10B29)` — terminal dest `0x01759A80` =
+  the exact buffer VA `0x81759A80` of the last read; keys share
+  suffix `10B29`; cache dword at `0x17F905C` = `0x06610B21` vs
+  job key `0x06610B29` (bit3 differs). FBB block terminal:
+  `(0x81759A80, 0x1400, 0x00C87000, 1)` — third word = ~13 MB
+  REMAINING while completed siblings show `0x1400`.
+* FMH container note: cursor `0x17F9060` is NOT a corrupt hole —
+  index record ends at `0x17F905C`, sparse zero padding follows,
+  real payload resumes at `0x17F915C`. Install integrity fine.
+
+frz133 = chain lifecycle: uncapped `[CQ]` (23AD50 push census with
+queue-head before/after) + `[QHEAD]` static-queue timeline
+(3D75FC/3D7620/3D7644/3D7668/3D768C/3D76B0/3D76F8) — settles WHO
+de-chains the manager and whether any push re-chains it at the wall.
