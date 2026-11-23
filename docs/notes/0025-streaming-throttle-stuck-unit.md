@@ -1773,3 +1773,24 @@ era only ever raised `00000004` x18 / `00000040` x2 — game sat in
 - Harness law (2nd bite): nav_run scripts name BIN=/tmp/opencode/
   sudeki-frz$N.bin — ALWAYS `cp build/sudeki /tmp/opencode/
   sudeki-frz<TAG>.bin` for the EXACT tag before launch.
+
+## hangwatch v1 CONVICTED as confounder; only frz145 confirmed vblank-death
+
+- Healthy eras spin ord 160/161 at >100k/s by design (frz146: x32.9M in
+  200 s; frz144: x48.2M) — v1's "ord161 >= 20000 -> abort" SIGABRT'd
+  145b and 146b possibly-healthy runs at 20-60 s (their "frozen" vblank
+  counts 600-1200 were NORMAL for that elapsed time; VBLDIAG entries
+  still incrementing at kill in 146b = loop healthy to the end).
+- Only frz145 (timeout-KILL at 1150 s, no watcher) is a CONFIRMED
+  vblank-tick death: zero "vblank N (tick)" lines over 19 min. 145b
+  verdict VOID. Regime lottery: 1 confirmed stall, 1 confirmed-healthy
+  same-code (frz146 200 s), middle runs watcher-poisoned.
+- hangwatch v2 (committed): aborts on the TRUE signature — vblank tick
+  count < elapsed*10 after 90 s grace.
+- Harness self-fouls this arc (all three law-adjacent, recorded so the
+  next session does not repeat): (1) `pgrep -f "nav_run44.sh 146c"`
+  matched the invoking bash -c line and SIGTERM'd the whole chain
+  (NEVER pgrep -f, bite the agent directly this time); (2) the `cp` of
+  the per-tag BIN lived inside that killed chain -> next launch had no
+  binary ("ABRT gate: game died pre-nav"); (3) 3rd BIN-tag miss.
+  BIN-copy must be a separate completed call before launch.
