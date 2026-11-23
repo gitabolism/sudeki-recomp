@@ -23,3 +23,11 @@ never edit). Order:
 5. Output: verdict on direction; stale list to prune; a compaction
    plan (STATE.md target ≤ ~300 lines, one home per fact); anything
    claimed-but-unverified labelled as such.
+6. Update `README.md` to match verified reality: the stage table
+   (Status + Proof cells, citing the same artefacts this audit
+   verified), the `Progress to playable` bar and percentage (state
+   the evidence for the number), and the `ETA to a playable release`
+   section (windows and walls, never vibes). This is a DRAFT in the
+   working tree only — README wording is user-owned (AGENTS rules
+   9/11): never stage or commit it; list the changed sections in the
+   report so the user can review the diff.
