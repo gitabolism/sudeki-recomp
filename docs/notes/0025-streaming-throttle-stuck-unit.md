@@ -1556,3 +1556,31 @@ scene-global watch 0x3DC83C; 94 wrapped).
   CENSUS macro now tail-samples every 256th call (committed with
   frz143). Re-verify EVERY historical "xN = tier dead" citation whose
   N == LIM before trusting it (STATE hypotheses updated).
+
+## frz142 core/symbol law + gen-race law (the "transient" wrap miss was me)
+
+- gdb symbolization works directly: `gdb -batch -ex "info symbol RA"
+  /tmp/opencode/sudeki-frzNN.bin /tmp/opencode/sudeki.frzNN.core` —
+  no delta math needed. SUBM burst attribution: x94 = attach path
+  inside WRB(1F2270) +8029; x32=1ADD90, x24=16FF60, x8=11F290,
+  x7+x7=173570 sites, x2=2CF40. **EACK caller = sub_001EACC0+2152 =
+  inside the loader pump region (1EAC50 chain)** — the loader itself
+  emits the acks between resubmit bursts.
+- `[0x3DC83C]` scene global: written ONCE (line 12899, boot era,
+  `0 -> 0281BEC0`), never reset. Scene object IS constructed;
+  frz140's "stub 0281BE50 at kill" was the same object class, heap
+  era drift. SWEEP x0 then = command 55 never reaches the leaf OR
+  the leaf tier is dispatch-invisible -> MSG1(F1CA0)/MSG2(F1D50)
+  census in frz143(+44 merged) run.
+- Core arena law: 30 image-anchor copies at 0x4000000 pitch (mirror
+  arenas); heap VAs from log lines were RECYCLED by kill time —
+  manager record content at kill is post-completion reuse (0x30-
+  pitch records, vptr 337ED0 into string pool). Heap forensics must
+  watch LIVE or dump the arena copy that differs — parked as low
+  value vs the census route.
+- GEN-RACE LAW (3rd incident of the live-edit family, and the true
+  explanation of the "transient 93-vs-94"): NEVER edit
+  `src/recomp_manual.c` while a gen+build chain is in flight — the
+  chain gens from the OLD manual but compiles the NEW one ->
+  `undefined reference to sub_X_gen`. The frz141-era SUBM failure
+  was this, not flakiness.
