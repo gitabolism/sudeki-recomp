@@ -2324,3 +2324,27 @@ not file size; no input drift — doctor green).
   0x20, arg 0x80, template 018C5D88+018C5D9C); the 6 old BF020-BF110
   managers carry st 0x25184 THROUGH THE WHOLE RUN (boot-era residue,
   never waited on) — terminal differs by pending-word + engine wait.
+
+## frz164 final arc: loader thread anatomy + REQ law + EE190 leg census
+
+- Loader thread = guest sub_0021AD0 (PsCreateSystemThreadEx #2, routine
+  26D3E4, stack top 02601FF0). Its init calls REQ(1EABD0) x22 = creates/
+  pulses loader events [37A118]=evt6, [37A114]=evt7(!) and waits.
+- REQ (1EABD0) = loader event object init/pulse (26D54D x2 creating two
+  auto-reset events under cs 37a0f8; then 26D77A/26D5AE = try-lock+set).
+- ENQ census = EE190 drain wrapper: ONLY 4 calls whole-run, ALL
+  (list=3D7620, queue=3975A8, a1=3D768C, flg=1) at boot era, ret 0.
+  **EE190 NEVER ran with list=3D7668/queue=3975AC** — the 0x84-batch
+  streaming submits completed through other legs (ATT/EACK tiers), but
+  the bucket-0/3D7668 queue tier has NO feeder in our runs at all.
+- WDEC decrements named 12 of 13 BF-era managers (BF020..BF2F0) —
+  BF14C sole never-decremented (orphan) at kill.
+- Loader globals at kill (frz164 core): [3975A8]=0 [3975AC]=0 (counters
+  balanced/never charged: terminal push had node id-word FFFF ->
+  tally skipped 1EC615), [37A118]=48000006 [37A114]=48000007,
+  [3D7620]=0 [3D7668]=0 (heads EMPTY at kill: either never charged or
+  drained; frz165 poll-watch decides).
+- Static law recap for the record: EF0C0 mode2 -> push 3D7620 + RETURN
+  (no EF1D0); the only legs calling EF1D0-with-37A120-bucket0 or EE190
+  with the 668 pair are the loader pump (1EAC69 head!=0 branch +
+  1EACE4 gate) — loader thread parked INFINITE at W2MO x8815.
