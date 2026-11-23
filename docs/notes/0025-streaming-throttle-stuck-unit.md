@@ -2518,3 +2518,26 @@ not file size; no input drift — doctor green).
   NOT a hard deadlock at x167.
 - frz172 (running): frz171 binary, NO early-kill (nav_run51), 1750 s, FB
   dumps every 120 s -> adjudicate visually whether the load ever advances.
+
+## frz172 — NO-EARLY-KILL full run (1750 s): the game REACHES PRESS START
+
+- New era (BF14C naming again; era lottery law). PUMP census = 167 entries
+  TRUE-terminal this era; FB dumps 173: black loading era (#40 black,
+  #120 black) -> **dump #172 = "Press START" title + © 2004 Microsoft
+  fully rendered** (~vblank 20.8k = ~350 s). Menu tier reached WITHOUT any
+  wall-fix; the earlier era's "stuck Loading" was partly the x167+30s
+  early-kill truncating progression (frz171 law).
+- Post-Press-START endgame (~850 s): vblank alive (71.4k), GPU draws
+  #9842, sw-method DPC ticks, but NO response to pad START: OHCI raised
+  00000002 x25 "ISR claimed it"; PUMP stays 167; TISS x92, WDEC x246.
+- Endgame census signatures at kill: [W1SO] x749,469,543 on h=48000006
+  ms=0 from 2DB0BE (evt6 zero-timeout POLL-SPIN, ret 0x102 every iter —
+  also x144M in frz171 era: constant companion, probably D3D8LTCG present
+  wait); kernel ord-145 x2.0 BILLION from 2DB0BE (same loop); [PRES]
+  try=39700 submit=114445 **blk=8006** alloc=322/0 (PB submit blocked-code
+  census, callers 2D3640/1E03D8 = XDK PB tier).
+- Wall face now = game sits on Press START accepting no START while a
+  loader/present tier spins on evt6. Next discriminators:
+  (a) does any pad-read tier see the presses (XAPI in-guest state);
+  (b) what is blk=8006 in the PB census law; (c) era lottery sampling
+  (frz173 = same binary, no-kill rerun).
