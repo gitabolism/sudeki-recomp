@@ -21,17 +21,17 @@ bytes, no captures, no analysis artefacts.
 | Stage | Status | Proof |
 |---|---|---|
 | **Lift** | ✅ done | 14,741 functions / 1.12M instructions lifted; 432 stubs counted |
-| **Entry** | ✅ done | guest runs its own CRT + startup; 119 kernel ordinals exercised |
+| **Entry** | ✅ done | guest runs its own CRT + startup; kernel-call trace shows real ordinals across boot and load eras |
 | **Threads** | ✅ done | every thread start dispatched; no silent exit |
-| **Menu** | ✅ reached | title-screen frame dumps ("SUDEKI / Press START"), movies play, audio up |
-| **Gameplay** | 🔶 in progress | level + wavebank streaming ✔, AC'97/MCPX audio ✔, real Xbox pad via OHCI ✔, **navigation works — New Game streams level assets end-to-end** ✔ · remaining: **first presented level frame** (one wall left: H31 — the level load is a serial relay over ~40 archive load-tables and its last one never drains, note 0025), saves, crash-free soak |
+| **Menu** | ✅ reached | title-screen frame dumps ("SUDEKI / Press START"), movies play, audio up; xemu same-moment capture queued |
+| **Gameplay** | 🔶 in progress | level + wavebank streaming ✔, AC'97/MCPX audio ✔, real Xbox pad via OHCI ✔, **navigation works (New Game reaches the load)** · remaining: **first presented level frame** (one wall left: H31 — the final load-leg's job never completes because the servicing heartbeat stops right after its last pump, note 0025), saves, crash-free soak |
 
 ```
 Progress to playable:  ██████████████░░░░░░  ~70 %
 ```
 
 Walls toppled so far (each with a written note *before* the fix — 21
-notes, 47 toolkit patches, all reproducible from the disc alone):
+notes, 51 toolkit patches, all reproducible from the disc alone):
 async-IO return convention ✔ · boot-archive decoder starvation ✔ ·
 unresolved-ICALL stack drift ✔ · GPU→CPU software-method wake chain ✔ ·
 host ke-shadow lock race freezing the attract demo ✔ · AC'97
@@ -46,9 +46,11 @@ Sessions here are autonomous engineering sprints, not calendar days —
 each has cleared 1–3 walls. At the current pace:
 
 * **first playable level, on a pad**: gated on one wall (H31 — the
-  archive-load relay stalls at its final table; the stuck consumer
-  chain is named end-to-end, the closing gate is being pinpointed
-  now, note 0025): ≈ 1–3 more sessions
+  load heartbeat (`EE190 -> EE110 -> tick -> pump`) stops dead
+  after the final leg's last pump; the wake/producer that should
+  fire the next pulse is being named right now, note 0025):
+  ≈ 2–4 more sessions (re-estimated 2026-11-23; the wall is deeper
+  than the earlier 1–3 estimate)
 * **"playable release" grade** (saves, audio rock-solid, early game
   end-to-end, long soak clean): ≈ +3–5 sessions after the first frame
 * **Vulkan back-end parity** (staged end-state renderer): ≈ +2–3, gated
