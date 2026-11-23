@@ -1779,3 +1779,43 @@ era only ever raised `00000004` x18 / `00000040` x2 — game sat in
   .bin + its core symbolizes RA censuses DIRECTLY (no base math; the
   nm-base arithmetic was unreliable because func_id names shift
   between builds).
+
+## frz149/150 — whole dead chain x0; handler-list anatomy (the mechanism of "Loading forever")
+
+- frz149/150 (both healthy, PUMP x167 terminal, PAD-live 9): census
+  DRV1(1F5A70) x256 SATURATED, DRV2(1F5AE0) x11; every rung of the
+  object tier x0 — UP1-4(70360/72B00/77140/7A4C0), FAM2-12
+  (7E6E0..81D10), ctors 159710/162790/807D0 x0, REGT/RGCX/RGT x0,
+  RSRC1-4 x0; CTOR-A(8A470) x1 (boot), CTOR-B(8B790) x0.
+  ATT2/3 x256, ATT4 x512, ATT1 x2, SUBM x256: the loader/attach tier
+  churns forever against a dead target.
+- Static anatomy (capstone raw, .text full-image scan):
+  * 1F5A70 (DRV1) POPS a job off a queue ([obj+4] head walk) then
+    OFFERS it to the singly-linked handler list at **[0x3975E8]**
+    (per-node vtbl[0](args), first nonzero wins). 1F5AE0 (DRV2) and
+    1F5A10 do the same for **[0x3975E4]** (resolver list) under a
+    hash-bucket side table [0x37E6A8].
+  * Full-image scan of ALL executable sections: the ONLY writes to
+    3975E4/3975E8 ever are the UNLINKERS 1F5B30/1F5B70 (stamp node
+    with magic 0x31FE00/0x336970 and splice out; sole caller of
+    1F5B70 = 200D20 in the ATT1 region). NO INSERTION SITE EXISTS in
+    any lifted section — the lists live in .data BSS (initial 0).
+  * So: handler lists are EMPTY for the whole run -> every offer
+    loop exits immediately -> jobs vanish -> loader re-submits
+    forever. Insertion must come from the object tier that never
+    instantiates (ctors x0).
+  * Init tier static chain found: CRT 0x11DE0 (called by 12090) ->
+    8A880 (allocates the 0xDFD0-byte global scene object via
+    27233F, cs 0x376CC4, init-guard byte [0x396E50]) -> 8A940 = THE
+    scene-root ctor: sequential subsystem ctors 8AD40, 56CF0,
+    8A470(CTORA x1 — so 8A940 RAN at boot), 8AEC0, 8AFD0, 300B0,
+    3F7F0, 377A0, 2AD20, 8B200, 8B2D0, 8B430, 4C420, C6C30, 178F0,
+    16C9A0, 4CE70, 8B5F0; stamps dozens of manager vtables
+    (0x324Exx/0x3250xx/0x330Dxx families) and sets globals
+    3DC7C0..3DD87C. CTOR-B (8B790, called from 8B280/91040) x0.
+  * frz151 census (running): INIT0(11DE0)/INIT1(8A880)/INITR(8A940)
+    + first subsystem ctors 8AD40/8AEC0/8AFD0 — if all ~x1 but the
+    8A790 registrar chain x0, the registrar is registered-but-never-
+    invoked (a METHOD on a stamped vtable whose dispatcher is the
+    dead tier), i.e. the dead edge moves to "who dispatches
+    0x324E24-family vtable slots".
