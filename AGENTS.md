@@ -56,11 +56,9 @@ never progress.
    commit, never as its own eager commit. The README is co-authored:
    the progress section — `## Status` (stage table + progress bar +
    ETA + feature roadmap subsections) — is agent-maintained and
-   agent-committed (user directives, 2026-11-22; the former separate
-   `## ETA to a playable release` section was merged into it); all
-   other README wording is user-owned: draft, they review. Rule 7
-   (NO_PUSH) is harness law and lives here — the README never
-   mentions the remote.
+   agent-committed (user directives, 2026-11-22); all other README
+   wording is user-owned: draft, they review. Rule 7 (NO_PUSH) is
+   harness law and lives here — the README never mentions the remote.
 10. **Docs stay lean; every fact has one home.** Rules/harness →
     `AGENTS.md`, live state → `STATE.md`, stage history → `CHANGELOG.md`,
     per-anomaly detail → `docs/notes/`. When something changes, update
