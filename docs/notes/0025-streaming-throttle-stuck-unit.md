@@ -2192,3 +2192,28 @@ not file size; no input drift — doctor green).
 - frz164 (running): SAPI arg census on 1EE7D0 (id + args per call,
   cap 300) -> full submit id-schedule of the run + who passes
   templates; paired with EENT.
+
+## frz163 core + EF0C0 mode-dispatch law — terminal key NOT in FMH index
+
+- EF0C0 dispatch law (static, full): if [mgr+8] desc != 0: enqueue to
+  3D75FC only when arg[+0x24]!=0, else RETURN (no-op). If desc==0 the
+  mode arg (ebp&3) routes: 0 -> queue 3D7668 then DIRECT EF1D0 service;
+  1 -> 3D7668 + in-line service loop (bit-0x1000 dance, 23AD50);
+  2 -> queue 3D7620, RETURN (deferred; loader-drain ownership).
+  Terminal = mode-2 unique in the burst (state 0x20 -> (state>>6)&1
+  shifted form); siblings fresh = mode-0 = immediately served.
+- frz163 core: type-2 class object [0x37A3D8]=018B0104 is an FMH-type
+  container: [+4]=02967AB0 index base, [+8]=544E4601 FNT1 tag (its own
+  class tag — explains the "FNT1" sighting once indexing was fixed),
+  +0x20/+0x2C index-map fields.
+- Terminal job slot @02967ABC = (state=00000000, key=FFFFFFFF, next=
+  06610B21 FMH magic) = EMPTY index slot: **the FMH container for
+  type 2 has NO record for key 0A260002** (hash slot lands empty).
+  Fresh manager built around an empty FMH index slot; mode-2 defers;
+  loader drains EMPTY; orphan.
+- So the deepest wall question = why the FMH index never gained the
+  0A260002 record (the "FNT1" class object = fonts!). Engine task
+  16F520 submits a FONT-class load whose container record is absent.
+- vtable 336828 = ASCII 'invalidate.%.s%02d%s\**s%s' format-string
+  cluster, NOT a vtable — the frz143b "recursive self-call with vtable
+  336828" comment needs re-verification (that dword is string data).
