@@ -2257,3 +2257,33 @@ not file size; no input drift — doctor green).
   dispatch only; keep as suspect but no measured seed possible yet.
 - Harness: nav_run49.sh = nav_run48 + WATCHLEN env (poll-diff window;
   LEN 0x400 covers terminal + 7-sibling batch: BF14C..BF2FC).
+
+## frz164 — SAPI census + per-run symbolization: WINC x207 site = EC130 internal tail
+
+- frz164 (SAPI on 1EE7D0, cap 300 reached; state-word at [esp+8] not id):
+  burst-window submitter callers: x252-x259 ra=**16F520+1700** (engine task,
+  pairs 018BA508/51C style a5=object,a4=+0x10, state word 0x20); boot-era
+  pairs x45-x58 ra=173570+5354/+6174; x59-x64 ra=975B0+1989. Healthy-era
+  streaming submits carry state 0x84 + a5=0. Terminal EENT x159 at line
+  59226 with SAPI x252-259 in the same engine-task window.
+- gdb frz164 bin+core: WINC x207 ra -> sub_001EE2A0_gen + 15313 (host body,
+  the 1EE682-window relay leg); EENT x159 caller ra -> 1EE7D0_gen+5810
+  (submit API internal); siblings WINC x208+ ra -> 1EE6D0+2311; EF0C0 x435
+  ra -> EC130_gen+1386 (EC130 calls EF0C0 itself -> attach+mode dispatch are
+  ONE leg inside WINC: 1EC155 bit 0x20 -> mode=2, queue push via 1EC590).
+- frz164 core: type-2 container fields identical to frz163 (index
+  029679D0..02969508, map 02967ED4, count 0x29=41). Byte-swapped directory
+  form of the id (00020A26) appears NOWHERE in guest 16-64 MB RAM at kill:
+  the shared.baf font DIRECTORY (file @0x1213AEA, sorted byte-swapped ids
+  incl 0A260002) was NEVER READ into memory (READSEQ census: shared.baf
+  cache reads = 20 seqs, header 14K-70K + tail 53K only; directory page at
+  ~18.9 MB never touched).
+- => Container has 41 records from other archives; the font-class record
+  for key 0A260002 EXISTS in shared.baf dir but guest never scanned it.
+  Lookup miss -> je 1EE59C no-array path -> pending word orphan.
+- frz165 (running): poll-watch [0x3D7620..0x3D7668] LEN 0x48 (queue heads,
+  era-safe globals): does the terminal node's push make [3D7620]!=0 and
+  does the loader EVER observe + drain it to 0? (frz132 pump law.)
+- frz166 candidate: TRAP-watch [0x018BF154] ([mgr+8] desc slot, LEN 4, no
+  POLL) = true in-stream ordering of desc-install vs WINC x207 (retry of
+  frz153 mprotect-watch with single dword).
