@@ -24,7 +24,7 @@ bytes, no captures, no analysis artefacts.
 | **Entry** | ✅ done | guest runs its own CRT + startup; 119 kernel ordinals exercised |
 | **Threads** | ✅ done | every thread start dispatched; no silent exit |
 | **Menu** | ✅ reached | title-screen frame dumps ("SUDEKI / Press START"), movies play, audio up |
-| **Gameplay** | 🔶 in progress | level + wavebank streaming ✔, AC'97/MCPX audio ✔, real Xbox pad via OHCI ✔, New Game reachable (title → loading card) ✔, attract/level scene animating ✔ · remaining: **first presented level frame** (one wall left: H29 swap-completion chain, mechanism identified), saves, crash-free soak |
+| **Gameplay** | 🔶 in progress | level + wavebank streaming ✔, AC'97/MCPX audio ✔, real Xbox pad via OHCI ✔, **navigation works — New Game reaches a real level load** (speech banks stream, job queue ~90 %) ✔ · remaining: **first presented level frame** (one wall left: H31 — the level load never completes: the streaming throttle wedges on one unit, note 0025), saves, crash-free soak |
 
 ```
 Progress to playable:  ██████████████░░░░░░  ~70 %
@@ -44,9 +44,12 @@ level-loading state, not a hang ✔.
 Sessions here are autonomous engineering sprints, not calendar days —
 each has cleared 1–3 walls. At the current pace:
 
-* **first playable level, on a pad**: gated on one wall (H29 — swap-completion
-  marks dying in the GPU service chain; mechanism identified end-to-end, fix
-  candidates queued): ≈ 1–3 more sessions
+* **first playable level, on a pad**: gated on one wall (H31 — the
+  level load stalls at ~90 %: one streaming unit re-read as zeros
+  thousands of times while the frame throttle skips rendering; the
+  stuck archive is being named now — cores + `[READ]` path trace —
+  then checked against the disc's own extent table): ≈ 1–3 more
+  sessions
 * **"playable release" grade** (saves, audio rock-solid, early game
   end-to-end, long soak clean): ≈ +3–5 sessions after the first frame
 * **Vulkan back-end parity** (staged end-state renderer): ≈ +2–3, gated
