@@ -2317,6 +2317,26 @@ CENSUS(sub_00162790, "CTOR2", 40)
 extern void sub_000807D0_gen(void);
 CENSUS(sub_000807D0, "CTRX", 40)
 
+/* frz145: resource-manager ancestry (frz144: CTOR/CTOR2/CTRX ALL x0 —
+ * message classes never instantiated). Chain mapped static:
+ * 5D740/5D880 -> 70360 -> 77140 -> {7E4C0..81D10 handlers} -> CTOR;
+ * 64990/64AD0 -> 72B00 -> 7A4C0 -> CTRX. Census pinpoints the break
+ * rung; ra attribution names call sites. */
+extern void sub_00070360_gen(void);
+CENSUS(sub_00070360, "RQ1", 60)
+
+extern void sub_00072B00_gen(void);
+CENSUS(sub_00072B00, "RQ2", 60)
+
+extern void sub_00077140_gen(void);
+CENSUS(sub_00077140, "HND1", 60)
+
+extern void sub_0007A4C0_gen(void);
+CENSUS(sub_0007A4C0, "HND2", 60)
+
+extern void sub_0007E4C0_gen(void);
+CENSUS(sub_0007E4C0, "H7E4", 60)
+
 extern void sub_001F8A00_gen(void);
 
 void sub_001F8A00(void)
