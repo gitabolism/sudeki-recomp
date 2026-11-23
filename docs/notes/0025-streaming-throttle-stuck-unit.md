@@ -126,6 +126,31 @@ consumer (which pump consumes the unit: `sub_002C0C50/C0980/C31A0`).
   the last baf `[READ]`. Also `[EF0C0]` mode/args and `[REG]`/`[DEREG]`
   relay membership.
 
+### frz108 + static close-in: the load-completion EVENT layer (H31.6 candidate)
+
+* frz108 (full-build census, killed t+828 by watcher): funnel totals
+  EF0C0 ~476 / EC590 ~257 / EC6B0 ~257 / EF1D0 ~255 — the walk DOES
+  cycle (mask hid it); pump x167 again (deterministic 4th replay);
+  core at t+828: ALL queues drained (the walk ref-releases queued
+  legs — frz107@t+465 had 30 bucketed, frz108@t+828 has 0).
+* Caller tags decode: EF0C0 mode arg = upper-nibble tag
+  (0x20000000 era-loop via EC130, 0x60000000 via EBF20) + low bits
+  mode — earlier `&3` read was the wrong field; a1 values stride
+  0x3C (load-context ARRAY); legs filter-match on `obj+0x10 == ctx`.
+* **Event layer:** the load session wait is `sub_00021AD0` (vtable
+  handler via 0x0026D456) -> `sub_001EABD0`: creates/opens two event
+  handles -> globals `0x37A118` (kernel handle `0x48000006` at kill)
+  and `0x37A114`; `sub_001EABD0`/`sub_001EAAB0`/`sub_001EE190(flag=1)`
+  WAIT on them (`0x0026D77A`=Wait(h,ms), `0x0026D78C`=WaitMultiple);
+  `sub_001EE190` path ends in `Wait(0x37A118, INFINITE)`.
+  Producer gate `0x396E91` = 1 at kill (not a flag-out blocker).
+  Reservation helpers `sub_001EF4C0/510` (byte counters `0x3975A8/AC`)
+  had ZERO census events in all runs so far (wrappers added).
+* frz110 plan: `[EACYC]` (wait-cycle counts: frozen => thread parked)
+  + `[RESREL]/[RESADD]` (reservation traffic) + `RECOMP_LOG_ORDS=
+  123,138,145,205,225` (KePulse/KeReset/KeSet/NtPulse/NtSet) to see
+  whether the load-complete event ever fires host-side.
+
 ### frz106: post-stall the dispatcher keeps polling; producer-side is the open end
 
 * Full-census run (`logs/run-frz106-220143.out`): pump x167 again, 314

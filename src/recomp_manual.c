@@ -1604,6 +1604,71 @@ void sub_001EC6B0(void)
     sub_001EC6B0_gen();
 }
 
+/* Load-session wait cycle sub_001EAAB0: Wait(0x37A118) / FE8A0 /
+ * FE690 / reset 0x37A114 / Wait / ... If this entry count freezes,
+ * a thread is parked INFINITE on the load-complete event.
+ * Reservation-accounting helpers sub_001EF4C0 / sub_001EF510 (byte
+ * pending 0x3975A8/AC): if NEVER called, reservations are never
+ * released -> byte budget can pin servicing gates. */
+extern void sub_001EAAB0_gen(void);
+
+void sub_001EAAB0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 20 || (n % 64) == 0)) {
+        void *ra = __builtin_extract_return_addr(__builtin_return_address(0));
+        fprintf(stderr, "  [EACYC] x%u ra=%p\n", n, ra);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EAAB0_gen();
+    if (on && n < 20) {
+        fprintf(stderr, "  [EACYC] x%u -> %08X\n", n, g_eax);
+        fflush(stderr);
+    }
+}
+
+extern void sub_001EF4C0_gen(void);
+
+void sub_001EF4C0(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 20 || (n % 256) == 0)) {
+        fprintf(stderr, "  [RESREL] x%u eax=%08X\n", n, g_eax);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EF4C0_gen();
+}
+
+extern void sub_001EF510_gen(void);
+
+void sub_001EF510(void)
+{
+    static int on = -1;
+    static unsigned n = 0;
+    if (on < 0) {
+        const char *e = getenv("RECOMP_RD_TRACE");
+        on = (e && *e && *e != '0') ? 1 : 0;
+    }
+    if (on && (n < 20 || (n % 256) == 0)) {
+        fprintf(stderr, "  [RESADD] x%u eax=%08X ecx=%08X\n", n, g_eax, g_ecx);
+        fflush(stderr);
+    }
+    n++;
+    sub_001EF510_gen();
+}
+
 /* H31 master switch: sub_001EE7D0 (load-pipeline driver, 60+ call
  * sites) returns immediately when guest global byte 0x397110 == 0.
  * sub_001E0210 (engine frame driver) zeroes that flag on entry and
