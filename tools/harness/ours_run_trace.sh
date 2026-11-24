@@ -3,17 +3,17 @@
 # on lifted guest functions (host symbols). No regen census needed for one-off
 # reachability questions. Light recipe (no FB dumps, bounded logs).
 set -u
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-TMO="${1:-480}"
 # self-snapshot law: bash re-reads live scripts; editing a running harness
 # corrupts it (bit twice, session 5f). Re-exec from a frozen copy instead.
 if [ -z "${OURS_SNAP:-}" ]; then
   mkdir -p /tmp/opencode
-  export OURS_SNAP=1
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  export OURS_SNAP=1 ROOT
   SN="/tmp/opencode/.snap-$(basename "$0")-$$"
   cp "$0" "$SN"
   exec bash "$SN" "$@"
 fi
+TMO="${1:-480}"
 LOG="$ROOT/logs/ours-trace-$(date +%H%M%S).out"
 PAD=/tmp/opencode/ours-trace.pad
 : > "$PAD"

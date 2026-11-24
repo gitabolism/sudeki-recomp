@@ -3,11 +3,11 @@
 # No QMP, no RAM dumps (light footprint by user directive 2026-11-23).
 # Probe-attach loop -> scripted START pad -> breakpoint window -> hard kill.
 set -u
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # self-snapshot law (see ours_run_trace.sh)
 if [ -z "${XTT_SNAP:-}" ]; then
   mkdir -p /tmp/opencode
-  export XTT_SNAP=1
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  export XTT_SNAP=1 ROOT
   SN="/tmp/opencode/.snap-$(basename "$0")-$$"
   cp "$0" "$SN"
   exec bash "$SN" "$@"
