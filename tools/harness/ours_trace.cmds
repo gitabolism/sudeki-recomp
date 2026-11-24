@@ -4,26 +4,12 @@ handle SIGSEGV nostop noprint pass
 handle SIGINT nostop noprint pass
 handle SIGTERM nostop noprint pass
 set $c1=0
-set $c2=0
-set $c3=0
-break sub_000AE630
+break sub_00027430
 commands
 silent
 set $c1=$c1+1
-printf "[AE630 x%d] ecx=%08X\n",$c1,$ecx
-continue
+if ($c1 % 100) == 1
+  printf "[27430 x%d] ecx=%08X\n",$c1,$ecx
 end
-break sub_000B19D0
-commands
-silent
-set $c2=$c2+1
-printf "[B19D0 x%d]\n",$c2
-continue
-end
-break sub_000B14F0
-commands
-silent
-set $c3=$c3+1
-printf "[B14F0 x%d]\n",$c3
 continue
 end

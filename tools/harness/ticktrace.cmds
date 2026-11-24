@@ -3,12 +3,14 @@ set pagination off
 set architecture i386
 set $n = 0
 target remote 127.0.0.1:12353
-break *0xAE630
+break *0x27430
 commands
 silent
 set $n=$n+1
 if $n == 1
-  printf "[AE630 #1] ecx=%08X ra=%08X\n",$ecx,*((unsigned int*)$esp)
+  printf "[27430 #1] ecx=%08X ra=%08X\n",$ecx,*((unsigned int*)$esp)
+end
+if $n == 40
   detach
   quit
 end

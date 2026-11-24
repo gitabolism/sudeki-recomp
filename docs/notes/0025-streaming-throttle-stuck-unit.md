@@ -3095,3 +3095,27 @@ not file size; no input drift — doctor green).
 - Next domino if all x0: xemu bp AE630 #1 -> its ra = the asset-lifecycle
   dispatcher (likely also dispatches the 478-class tier; may be the
   elusive FRM-tier ticker).
+
+## Wall COLLAPSES to heartbeat root (21:2x-21:3x): pose x38
+
+- AE630 (batchA vtbl 325AB8+8) = state-driven batch update: iterates
+  sub-objects, at AE8A5 `call [[esi+0x94]+8]` (ui_font-side obj) ->
+  B14F0/B19D0 tier, plus static call 1330B0; state machine on +0x2C
+  (sets 2 at AE717 — explains frz176-era gate=2 misread: AE630 ran in
+  THAT era).
+- AE630 #1 (xemu): ecx=01B99BF0 (batchA obj), ra=**27984** -> owner
+  27430: container-iteration dispatcher — loop over [ebp+0x160],
+  count [ebp+0x158], filter byte [obj+0x3C]!=0, `call [[obj]+8]`.
+  batchA obj +0x3C=0x01 in frz178 -> registration-eligible.
+- 27430 = vtable slot method in the runtime-decrypted section (raw
+  0x3156C0; static vtab scan hit 0x31FAAC only).
+- ours liveness: sub_000AE630/B19D0/B14F0 x0 AND sub_00027430 **x0**
+  (full-window host-gdb, run 212x).
+- 27430 #1 (xemu): ecx=01B97C10 (scene-mgr singleton),
+  ra=**1A9A03** = the KNOWN heartbeat call site (1A99A0 drain,
+  `call [[obj]]+4`; same site family that fires F8240 frame-tick).
+- => ONE ROOT: healthy's timer-queue drain (1A9A50->1A99A0) invokes
+  BOTH frame-tick (F8240) and scene-mgr update (27430 -> batch
+  activation -> AFBF0 -> OpenResource -> world). In ours that drain
+  chain is x0 end-to-end (s5f host-gdb). Wall = who drives/feeds
+  1A9A50, and why our queue never drains.
