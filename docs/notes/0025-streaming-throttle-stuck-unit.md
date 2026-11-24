@@ -3119,3 +3119,26 @@ not file size; no input drift — doctor green).
   activation -> AFBF0 -> OpenResource -> world). In ours that drain
   chain is x0 end-to-end (s5f host-gdb). Wall = who drives/feeds
   1A9A50, and why our queue never drains.
+
+## BOOT-THREAD CHAIN DECODED (22:0x): pose x39 — invisible thread start (BRIEF risk #2, at last)
+
+- Live stack window at block-entry 120A1 (fresh frames):
+  [272312] (return inside XAPILIB-ish fns @0x272300-block, calls
+  sub esp,0x4c @272470) -> [0026C6F0] -> [0026D456] -> [0026C68F] ->
+  XapiThreadStartup trampoline (C104FB10) -> C1008DD4 (xemu kernel).
+  => game boot thread body = owner(26C600/68F/6F0) — a routine with NO
+  static xrefs in the XBE (clean dword+E8/E9 scans: 0 hits) — pushed as
+  thread-start ARGUMENT (invisible to static analysis; brief risk #2).
+- Frame below: 11581/11560 = STALE residue (that tier did NOT run this
+  era; block 12090..122BA entered pre-attach, its entry bp can never
+  hit post-attach; 122C0/11F0C0 bp-miss anomalies likely era/marker
+  noise on top of once-at-boot execution).
+- ours binary census: sub_00026C600 ABSENT (never lifted);
+  11560/12090/122C0/11F0C0/1A9A50/27430 present but x0 (chain dead at
+  the thread-start edge — matches BRIEF's documented failure mode).
+- laws: hbreak silently unsupported at xemu guest stub (use soft bps);
+  -S passthrough works (freeze at reset) but boot tier runs within
+  ~1s and blocks are entered once at boot — entry bps miss legitimately;
+  runtime bytes at 12090/122C0 == static XBE (no .text drift);
+  dword-scan false positives: ModRM 0x90+disp0x120 looks like imm
+  0x12090 (7 sites) — always verify owner disasm before banking xrefs.

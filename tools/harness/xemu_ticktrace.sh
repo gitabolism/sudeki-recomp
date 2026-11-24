@@ -35,7 +35,7 @@ done
 [ $OK -eq 1 ] || { kill -9 $XPID 2>/dev/null; pkill -9 -x xemu 2>/dev/null; echo NO-ATTACH; exit 1; }
 python3 -u "$ROOT/tools/uinput_pad.py" create 6 > /tmp/opencode/uinput_pad.out 2>&1 &
 PADPID=$!
-timeout -s INT 300 gdb -batch -x "$ROOT/tools/harness/ticktrace.cmds" > /tmp/opencode/ticktrace.out 2>&1
+timeout -s INT "${XT_TM:-300}" gdb -batch -x "$ROOT/tools/harness/ticktrace.cmds" > /tmp/opencode/ticktrace.out 2>&1
 echo "gdb rc=$? lines=$(grep -c "" /tmp/opencode/ticktrace.out)"
 kill $PADPID 2>/dev/null
 kill -9 $XPID 2>/dev/null
