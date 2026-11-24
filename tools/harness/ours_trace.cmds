@@ -3,36 +3,23 @@ set pagination off
 handle SIGSEGV nostop noprint pass
 handle SIGINT nostop noprint pass
 handle SIGTERM nostop noprint pass
-set $c1=0
-set $c2=0
-set $c3=0
-break sub_000AFBF0
+break main
 commands
 silent
-set $c1=$c1+1
-if ($c1 % 20) == 1
-  printf "[AFBF0 x%d] ecx=%08X\n",$c1,$ecx
-end
+set $off = g_xbox_mem_offset
+watch *(unsigned int*)($off + 0x27FE52C)
+condition 2 *(unsigned int*)($off + 0x27FE52C) != 0
 continue
 end
-break sub_0016FC10
+break sub_000B14F0
 commands
 silent
-set $c2=$c2+1
-if ($c2 % 20) == 1
-  printf "[16FC10 x%d]\n",$c2
-end
+printf "[B14F0]\n"
 continue
 end
-break sub_00137E20
+break sub_000B17A3
 commands
 silent
-set $c3=$c3+1
-if ($c3 % 20) == 1
-  printf "[137E20 x%d] ra=%08X\n",$c3,*((unsigned int*)$esp)
-end
-if $c3 == 200
-  delete 3
-end
+printf "[B17A3]\n"
 continue
 end

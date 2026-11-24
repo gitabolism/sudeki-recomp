@@ -5,6 +5,15 @@
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMO="${1:-480}"
+# self-snapshot law: bash re-reads live scripts; editing a running harness
+# corrupts it (bit twice, session 5f). Re-exec from a frozen copy instead.
+if [ -z "${OURS_SNAP:-}" ]; then
+  mkdir -p /tmp/opencode
+  export OURS_SNAP=1
+  SN="/tmp/opencode/.snap-$(basename "$0")-$$"
+  cp "$0" "$SN"
+  exec bash "$SN" "$@"
+fi
 LOG="$ROOT/logs/ours-trace-$(date +%H%M%S).out"
 PAD=/tmp/opencode/ours-trace.pad
 : > "$PAD"
@@ -17,7 +26,9 @@ env \
   RECOMP_RD_TRACE=1 \
   RECOMP_PAD_LIVE="$PAD" \
   gdb -batch -x "$ROOT/tools/harness/ours_trace.cmds" \
-    -ex run --args build/sudeki > "$LOG" 2>&1 &
+    -ex run -ex "printf [WATCH-STOP1]\n" -ex "bt 8" -ex continue \
+    -ex "printf [WATCH-STOP2]\n" -ex "bt 8" -ex continue \
+    --args build/sudeki > "$LOG" 2>&1 &
 GAME=$!
 until grep -qE "vblank.*ISR claimed|vblank 600|\[PUMP\] n=1 " "$LOG" 2>/dev/null; do
   kill -0 $GAME 2>/dev/null || { echo "died pre-nav"; exit 1; }

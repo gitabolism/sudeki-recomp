@@ -4,6 +4,14 @@
 # Probe-attach loop -> scripted START pad -> breakpoint window -> hard kill.
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# self-snapshot law (see ours_run_trace.sh)
+if [ -z "${XTT_SNAP:-}" ]; then
+  mkdir -p /tmp/opencode
+  export XTT_SNAP=1
+  SN="/tmp/opencode/.snap-$(basename "$0")-$$"
+  cp "$0" "$SN"
+  exec bash "$SN" "$@"
+fi
 BIN=$HOME/Applications/xemu/xemu-0.8.139-x86_64.AppImage
 GDBPORT=12353
 LOG="$ROOT/logs/xemu-ticktrace-$(date +%H%M%S).out"
