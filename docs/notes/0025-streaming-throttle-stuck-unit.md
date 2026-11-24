@@ -3014,3 +3014,20 @@ not file size; no input drift — doctor green).
   accessor: one-time InitCritSec([376CC4]), EnterCritical, alloc 0x240
   (27233f), then fans out into the OpenResource family.
 - ours_trace v7 (running): AFBF0 / 16FC10 / 137E20 liveness.
+
+## Asset method-tables found in RAM (20:4x): instances exist in OURS too
+
+- frz176 core guest 0x325A80-0x325B80 (runtime-built region, XBE file
+  there is unrelated): two METHOD BATCHES with RTTI-style name follows:
+  batch A @~325AB8 {173490, ADC00, AE630, AEBE0, AFBB0, ADD90, ADCE0,
+  19B960, AECB0, 137DB0, B63A0, ADD80, 137D80, B0250, AD820, AEBD0,
+  ADD70, ADD80, AFBF0, B0140} + name **"Background_CharactersSG"**;
+  batch B @~325B20 {17D840, B2270, 173490, B06A0, B19D0, B2390, 137B20,
+  173490, 173490, 19B960, 16D70, 137DB0, B63A0, B1C80, 137D80, 25CA80,
+  91AA0, B63A0, B25B0, B26D0, B08F0, B17E0, B3B90} + name **"ui_font"**.
+  (137D80/137DB0 = sibling descriptor ctors; B08F0 = 7x OpenResource site.)
+- **Stamps found in OUR frz176 core**: instance 027FE500 (vptr 325AB8),
+  instance 027F2A30 (vptr 325B20) -> asset batch objects ARE constructed
+  in our port. Objects alive, handlers registered, only method INVOCATION
+  (AFBF0 etc.) missing.
+- xemu bp AFBF0 #2 -> ra + this-dump (running) = the missing dispatcher.
