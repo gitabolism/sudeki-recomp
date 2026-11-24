@@ -3,28 +3,28 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-23 22:1x (session 5g, ~21:1x–…)
+**Last updated:** 2026-11-24 00:3x (session 5g, ~21:10–00:3x)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
 (xemu same-moment capture still owed, see Queue);
 **navigation works; the game reaches a fully rendered "Press START"
 title and CYCLES it as an attract loop (frz172/174 FB dumps)**;
-load-stall wall (H31, re-posed x39, home = note 0025) in ONE sentence:
-**pose x39 = BRIEF risk #2 at last: the healthy heartbeat tier
-(11F0C0->1A9A50 drain -> scene-mgr 27430 -> batchA AE630 -> activation
-thunk -> AFBF0 -> OpenResource) runs on the game BOOT THREAD whose
-chain 26C68F/26D3E4 -> 272470 -> 2722EC -> engine block (12090..122BA)
-has ZERO static xrefs in the XBE; our port SPAWNS the thread identical
-(PsCreateSystemThreadEx routine=26D3E4 ctx=26C68F, run frz178 log) but
-those routine owners were NEVER LIFTED (nm: absent) so the thread body
-runs nothing. FIX IN FLIGHT: frz179 regen +4 measured seeds
-(logs/seeds-frz179-merged.json, 33 seeds; regen detached ~22:1x,
-check 22:57).**
+load-stall wall (H31, re-posed x42, home = note 0025) in ONE sentence:
+**x41 ROOT FOUND + PATCHED (patch 0054): bridge_PsCreateSystemThreadEx
+INLINE first-call pushed args but never set g_seh_ebp, so the CRT
+thread-start thunk (fpo_leaf `ebp=g_seh_ebp`) dereferenced a STALE slot
+for its body call — heartbeat trampoline 11560 and the engine block
+(12090) now RUN (host-gdb x1 each, first time ever). pose x42: engine
+block enters, runs init (11DE0 x1) but parks inside it — never reaches
+its eternal frame loop (122C0/258420/11F0C0/1A9A50/27430 still x0);
+frz180 ABRT core (patched binary) + core-bt in flight to find the
+parking spot inside 11DE0's init tier.**
 
 ## Where things are verified
 
 - Toolkit: `xboxrecomp/` @ v0.18.0 / `37b61d589168adee3680fabd51805ee81427bf07`;
-  `scripts/doctor.sh` green (XBE SHA-256 pin, skill digests, stubs
-  432 agree). Patch series **`0001..0053`**; the patch-by-patch table
+  `scripts/doctor.sh` green (XBE SHA-256 pin, skill digests; stubs
+  432 agree via `scripts/stubs.sh`, not doctor). Patch series
+  **`0001..0054`**; the patch-by-patch table
   lives in THIRD_PARTY.md (its one home); `scripts/build.sh` resets
   to the pin and re-applies in order.
 - Manual overrides (`src/recomp_manual.c`, `--exclude-manual`): census
@@ -54,37 +54,48 @@ check 22:57).**
 
 ## Last run
 
-Session 5g (21:1x–22:1x): **H31 collapsed to the invisible boot-thread
-lift gap (pose x39); frz179 regen in flight.**
+Session 5g (21:10–00:3x): **wall walked from "asset invocation" to a
+runtime kernel ABI bug FOUND + PATCHED; heartbeat alive.**
 - frz178 core: batchA obj PRESENT (02853AE0 vptr 325AB8), gate +0x2C=0
-  clean-closed; ui_font instance 0280BA10; resys 40/66 (era fingerprint
-  018Axxxx lineage).
-- xemu chain resolved rung-by-rung: 27430 (container dispatcher, ra
-  1A9A03 = heartbeat 1A99A0) <- drain 1A9A50 <- 11F0C0 <- engine block
-  (12090..122BA, entered once at boot, loops eternal) <- XAPILIB tier
-  (2722EC/272470) <- boot thread (worker 26D3E4, ctx 26C68F).
-- ours: thread SPAWNED identical (frz178 kernel log #1/#2) but owners
-  26C68F/26D3E4/2722EC/272470 absent from binary -> thread body inert.
-- Laws banked: hbreak unsupported at xemu stub; -S passthrough works
-  (boot tier runs <1 s post-reset, entry bps miss legit); dword-scan
-  ModRM false positives (0x12090 x7); runtime .text == static (no drift);
-  ours_trace symbol format sub_00XXXXXX (6-digit VAs, 0x1A9A50 not
-  0x01A9A50) — s5f "x0" verdicts re-verified TRUE under corrected fmt.
-- frz179: seeds merged 33 (4 new measured), pipeline+build detached,
-  automation checkpoint 22:57.
+  clean-closed; ui_font instance 0280BA10; resys 40/66 (era 018Axxxx).
+- xemu domino chain: AFBF0 <- B14F0-thunk <- AE630(batchA update,
+  state machine +0x2C) <- 27430 container dispatcher (ra 1A9A03 =
+  heartbeat 1A99A0) <- 1A9A50 drain <- 11F0C0 <- engine block
+  (12090..122BA) <- XAPILIB tier <- boot thread (worker CRT thunk
+  26D3E4, ctx 26C68F; body owner 26C68F contains `call 0x11560`).
+- x39 ("owners never lifted") REFUTED same-session: my nm pattern was
+  9-digit; real symbol form is `sub_00XXXXXX` 8-digit. All owners were
+  lifted; frz179 regen (+4 seeds, 33 total) = functionally no-op.
+- x40 ("body never lands") superseded: first PsCreateSystemThreadEx
+  is INLINE on the main thread; body tier partially alive (TDATA open
+  from sub_0026CA8A).
+- **x41 ROOT: inline first-call branch never published g_seh_ebp ->
+  fpo_leaf thunk inherited the ENTRY tier's frame -> `call [ebp+8]`
+  stale slot. Patch 0054 (one line + comment). Verified: 26C68F x1,
+  11560 x1, 12090 x1, 11DE0 x1 — heartbeat trampoline runs in our
+  port for the first time.**
+- x42 open: block parks inside sub_00011DE0 init (122C0/258420 x0);
+  frz180 (patched, 900 s + ABRT) core-bt in flight.
+- Laws banked: ptrace_scope=1 blocks gdb attach (use cores, not sudo);
+  hbreak silently unsupported at xemu stub; -S works but boot tier
+  runs <1 s post-reset; runtime .text == static; dword-scan ModRM
+  false positives (0x12090 x7); gdb printf on untyped symbols needs
+  casts; NEVER half-window census rounds for x0 verdicts.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x39: BRIEF risk #2 confirmed —
-   the engine heartbeat chain runs on the game BOOT THREAD (worker
-   26D3E4, ctx 26C68F, then 272470 -> 2722EC -> engine block
-   12090..122BA -> 11F0C0/1A9A50 drain -> 27430 scene-mgr -> AE630
-   batchA -> activation thunk -> AFBF0 -> OpenResource). Our port
-   spawns the SAME thread (identical routine/ctx in kernel log) but
-   the chain owners were never lifted (zero static xrefs in XBE =
-   invisible thread-start args), so the thread body is inert and every
-   downstream rung is x0. frz179 regen (+4 measured seeds) tests the
-   fix; if heartbeat wakes, expect asset activation + load progress.)**
+1. **H31 (ACTIVE, note 0025, RE-POSED x42): the healthy heartbeat tier
+   (engine block 12090 -> 11F0C0/1A9A50 drain -> 27430 scene-mgr ->
+   AE630 batchA -> activation thunk -> AFBF0 -> OpenResource) runs on
+   the game boot thread. x41 found the first real runtime break: the
+   inline first-call of PsCreateSystemThreadEx never published
+   g_seh_ebp, so the CRT thunk's body call deref'd a stale slot
+   (patch 0054 fixes it; heartbeat trampoline 11560 + engine block
+   12090 now run in ours). OPEN half: the block parks inside
+   sub_00011DE0 init and never reaches its eternal frame loop
+   (122C0/258420/11F0C0/1A9A50/27430 still x0) -> frz180 core-bt names
+   the parking site inside the init tier (12E70/11EB90/889B0/1CCA0/
+   26FFBE + heap work).**
    Prior frz18-era Buki-card runs prove input end-to-end works when the
    tier lives.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
@@ -99,22 +110,21 @@ lift gap (pose x39); frz179 regen in flight.**
 
 ## Queue (next concrete actions)
 
-* **1. frz179 boot-thread fix (regen +4 seeds, detached, checkpoint
-  22:57):** verify new symbols (26C68F/26D3E4/2722EC/272470), 15-min
-  nav window, host-gdb liveness census (12090/11F0C0/1A9A50/27430/
-  AE630). Alive -> re-check AFBF0/OpenResource tier + Press-START/
-  load state + FB dumps; dead -> trace ours-side worker 26D3E4 flow
-  vs healthy (block-entry ABI may need manual wiring).**
-* **2. paging:true xemu RAM dump (ram-paged.elf, in flight):** redo the
-  healthy-vs-ours globals diff with VA-correct mapping (the earlier
-  "inverted regime" reading is REFUTED — string pool, see note 0025).
-* **3. Menu artefact completion (rule 6):** xemu shotseq unique-name pair
-  still owed; FB law OPEN; `xemu_qmp_probe.sh` unrun. Now the GUEST side
+* **1. frz180 core-bt verdict (in flight: patched binary, 900 s nav +
+  ABRT; extract zst core, ELF-phdr anchor law): where does the main
+  thread park inside the 11DE0 init tier? Symbolize host bt frames
+  (sub_00XXXXXX), compare against 11DE0's call graph
+  (12E70/11EB90/heap/889B0/1CCA0/26FFBE + [0x376CE0] gate). Then the
+  smallest host-side fix for that parking site; re-probe 122C0/258420/
+  11F0C0 liveness; THEN first depth artefact: does the Press-START
+  era change (FB dumps + census timeline).**
+* **2. Menu artefact completion (rule 6):** xemu shotseq unique-name pair
+  still owed; FB law OPEN; `scripts/xemu_qmp_probe.sh` unrun. Now the GUEST side
   has a crisp same-moment (Press START, frz172 #172) — the xemu pair is
   this exact screen.
-* **4. Write-path decision**: capacity enforcement (patch 0005) sits on
+* **3. Write-path decision**: capacity enforcement (patch 0005) sits on
   `bridge_NtWriteFile` the guest never uses — move or retire.
-* **5. Then the Gameplay gate:** first presented level frame.
+* **4. Then the Gameplay gate:** first presented level frame.
 * Carry-over: JP disc regression sample later; roadmap staging (vanilla
   -> Vulkan -> features) per user directive; post-playable feature order
   (2026-11-22): HDR -> Raytracing -> Multiplayer; prior art
@@ -159,8 +169,9 @@ lift gap (pose x39); frz179 regen in flight.**
   `tools/corepeek.py` + anchor pair `0037306C,00373074` @`0x3975E4` +
   gate `[0x397110]==1`.
   `/tmp/opencode` is tmpfs: everything there vanishes on host reboot.
-- Cores kept (tmpfs ~5.8 GB): frz171 (frz171/172 host-base pair);
-  prune at next pause.
+- Cores kept (tmpfs, reboot-volatile): frz176.core + frz178.core
+  (~4.7 GB) + frz180.core landing; frz171/frz175 xemu-era dumps gone
+  (prior "Cores kept: frz171/175/176" lines were stale).
 - **DETACHED-RUN LAW (session 5f)**: background shells die at the 600 s
   harness cap AND cascade SIGTERM to the game. Runs with windows
   >10 min MUST be `setsid nohup ... & disown` from a short shell;
@@ -193,8 +204,8 @@ lift gap (pose x39); frz179 regen in flight.**
   (regs + 14 esp dwords + continue). **RAM dump law: use
   `dump-guest-memory paging:true`** — paging:false = PHYSICAL segments
   (per-page scatter; identity-pair delta valid only within one page-run;
-  sanity-check every read set). Cores kept: frz171 (CF logo era),
-  frz175 (CF black era), frz176 (BF pill era); tmpfs 63G, no prune need.
+  sanity-check every read set). xemu-side RAM dumps must be re-taken
+  when needed (tmpfs wipes on reboot).
 - **GDB TWO-MODE LAW (session 5f)**: xemu round = `target remote
   127.0.0.1:<port>` (xemu launched with `-gdb tcp::<port>`, port must
   match cmds file) + `set architecture i386`, breaks at GUEST VAs.
@@ -249,4 +260,4 @@ lift gap (pose x39); frz179 regen in flight.**
 | 11-23 13:0x–15:3x s5d | frz161-173: queue-push full decode; NAM/TISS/BUCK probe tier; **frz171/172 OVERTURN: PUMP-x167-terminal = harness artifact; game reaches Press START** (FB #172); loader pump evt6 livelock identified; base-diff symbolization law; new-wrapper-regen law; upstream prior-art re-checked (unclaimed); pose x29 | `d39a8dc`..`22c4964`+ |
 | 11-23 15:5x–17:5x s5e | **xref-scan-bug overturn** (VA=off+0x10000; false zero-xref laws); frz175 core verdict (loader anatomy CLOSED, no livelock); 478-table ctors run + instances exist; **xemu RAM-diff REFUTED** (paging:false = physical/string-pool); input tier ALIVE (pad CTOR); **FRM x0 era-invariant**; frz176 core; **xemu gdb-stub trace tool online** (pose x32) | (sess 5e) |
 | 11-23 19:1x–21:0x s5f | lean xemu ticktraces: **healthy pump anatomy** (F8240 vtable-slot caller 1A9A03, pump class vptr 3237F0, ctor 58810, core composite 58E30, resource-open roots 5EC70/5EDB0, heartbeat 1A9A50->1A99A0); ours host-gdb probe: **whole chain x0**; **REVERSAL: resource system + 40/66 handlers + asset-batch instances ALL PRESENT in ours** (frz176 core; healthy identical 40/66) — missing = invocation of asset methods (AFBF0/Background_CharactersSG, B08F0/ui_font); XPP SIGSEGV gdb law; durable tools/harness + chainup.py; **history scrub (username path, 14 commits) + rule 13 leak guards** (pose x36) | (sess 5f) |
-| 11-23 21:1x–22:1x s5g | frz178 core: batch obj present + gate clean-closed; activation domino chain AE630<-27430(container)<-heartbeat 1A9A03; **BOOT-THREAD DECODE: engine block <- 2722EC/272470 <- worker 26D3E4 (spawned identical in ours, but owners NEVER LIFTED — invisible thread-start, BRIEF risk #2 confirmed)**; ours_trace x0 verdicts re-verified under corrected symbol fmt; frz179 regen +4 measured seeds (33) detached | (this session) |
+| 11-23 21:10–11-24 00:3x s5g | frz178 core: batch obj present + gate clean-closed; xemu activation domino chain AE630<-27430<-heartbeat 1A9A03<-drain<-11F0C0<-engine block<-boot thread; **x41 ROOT: PsCreateSystemThreadEx inline first-call never published g_seh_ebp -> CRT thunk body-call deref'd stale slot -> patch 0054; heartbeat trampoline 11560 + engine block 12090 ALIVE first time (x1 each)**; x39/x40 poses refuted mid-session (nm 9-digit fmt bug, half-window x0 artifacts); frz180 core-bt in flight (pose x42: parks in 11DE0 init) | (this session) |
