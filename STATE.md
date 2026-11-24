@@ -43,8 +43,14 @@ title era; run in flight).
   ("Angola1/2","Skip1","Selecte...","elements") — objects carry
   class tags, not vtables, at +0 (frz154 generalized).
 - Ghidra bench installed; capstone raw decode is the working bench.
-- Git: `origin/main = 77f770f` per `git reflog`; posture question
-  lives in Blockers — agent pushes nothing either way.
+- Git: history SCRUBBED session 5f (user directive): 14 commits
+  `f55e0cd..d075914` rewritten to drop the machine-user absolute path
+  (harness `ROOT=` lines); old backup refs/reflogs/objects purged;
+  verified zero identifier hits across all refs + fsck. Local
+  `origin/main` mirror deleted (remote itself STILL HAS the old
+  commits — user force-push needed, see Blockers). `core.hooksPath`
+  = `.githooks` installed (pre-commit leak guard; doctor checks it).
+  Rule 13 (AGENTS): personal identifiers never enter the repo.
 - JP second sample: `~/Downloads/xbox/sudeki-jap/default.xbe`
   (parked, outside git).
 
@@ -124,8 +130,16 @@ chain probe x0; two gdb trace modes online (xemu stub / host symbols).**
   = harness artifact**). Era lottery law: per-boot regime variance is
   REAL (frz171 CF-era cycles vs frz172 BF-era true-167) — judge runs by
   era fingerprint, never by single-run markers.
-- User question (rule 7): push posture — see "Where things are
-  verified" Git bullet.
+- **USER ACTION REQUIRED (privacy):** the pre-scrub commits (old
+  `f55e0cd..027d79a`) still exist on GitHub (`origin/main` was
+  `f55e0cd`). From this machine, when you choose: `git fetch --prune`
+  is not needed — just `git push --force-with-lease origin main`
+  (or `--force` since the tracking ref was removed) to replace remote
+  history with the scrubbed one. Then GitHub GC eventually drops the
+  old objects; for immediate removal ask GitHub support ("remove
+  cached objects for commit SHAs"). Rule 7: the agent never pushes.
+  Open question: personal Gmail in some commit AUTHOR metadata — tell
+  me if that should be rewritten too (touches all 427 commits).
 
 ## Housekeeping facts (recipe home)
 
@@ -222,4 +236,4 @@ chain probe x0; two gdb trace modes online (xemu stub / host symbols).**
 | 11-23 06:3x–13:0x s5c | frz135→152 census arc + patch 0052; hangwatch v2; object-tier census ALL x0 then CORE-READ CORRECTION; waiter ledger decoded; H31 re-posed x24: one never-closed waiter; audit #3 applied | `546c64e`..`f497810` |
 | 11-23 13:0x–15:3x s5d | frz161-173: queue-push full decode; NAM/TISS/BUCK probe tier; **frz171/172 OVERTURN: PUMP-x167-terminal = harness artifact; game reaches Press START** (FB #172); loader pump evt6 livelock identified; base-diff symbolization law; new-wrapper-regen law; upstream prior-art re-checked (unclaimed); pose x29 | `d39a8dc`..`22c4964`+ |
 | 11-23 15:5x–17:5x s5e | **xref-scan-bug overturn** (VA=off+0x10000; false zero-xref laws); frz175 core verdict (loader anatomy CLOSED, no livelock); 478-table ctors run + instances exist; **xemu RAM-diff REFUTED** (paging:false = physical/string-pool); input tier ALIVE (pad CTOR); **FRM x0 era-invariant**; frz176 core; **xemu gdb-stub trace tool online** (pose x32) | (sess 5e) |
-| 11-23 19:1x–20:2x s5f | lean xemu ticktraces: **healthy pump anatomy** (F8240 vtable-slot caller 1A9A03, pump class vptr 3237F0, ctor 58810, core composite 58E30, resource-open roots 5EC70/5EDB0, heartbeat 1A9A50->1A99A0); ours host-gdb probe: **whole chain x0**; XPP SIGSEGV gdb law; durable tools/harness + chainup.py (pose x34) | (this session) |
+| 11-23 19:1x–21:0x s5f | lean xemu ticktraces: **healthy pump anatomy** (F8240 vtable-slot caller 1A9A03, pump class vptr 3237F0, ctor 58810, core composite 58E30, resource-open roots 5EC70/5EDB0, heartbeat 1A9A50->1A99A0); ours host-gdb probe: **whole chain x0**; **REVERSAL: resource system + 40/66 handlers + asset-batch instances ALL PRESENT in ours** (frz176 core; healthy identical 40/66) — missing = invocation of asset methods (AFBF0/Background_CharactersSG, B08F0/ui_font); XPP SIGSEGV gdb law; durable tools/harness + chainup.py; **history scrub (username path, 14 commits) + rule 13 leak guards** (pose x36) | (this session) |
