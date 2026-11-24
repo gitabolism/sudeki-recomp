@@ -3049,3 +3049,23 @@ not file size; no input drift — doctor green).
   (e.g. the PUMP/loader completion walker), the break is a data edge
   (batch object not registered in the completion container), not a
   code-reach edge.
+
+## Missing caller edge FOUND (20:4x): ui_font batch method invokes the accessor
+
+- xemu at AFBF0 #1: ecx=01B99BF0 (**= healthy [0x396F18]**, the
+  Background_CharactersSG batch obj), **ra = 0xB17BD** — the tail of
+  function B14F0 (owner of the B17A3 fragment):
+  `mov ecx,[0x396F18]; if [[ecx+0x2C]]==0 { [+0x2C]=1; call [[ecx]+0x48] }`
+  — batchA vtbl 325AB8+0x48 = **AFBF0 exactly**. An ACTIVATE-ONCE thunk
+  living in the **ui_font batch method B14F0 (batchB[?])**.
+- Our frz176 core: [0x396F18]=027FE500 present but obj+0x2C = **2** (not
+  0, and != the 1 the thunk writes) -> gate pre-set by another path,
+  or activation never happened and a different writer set 2.
+- ours: B14F0-era methods (B17E0/B08F0) x0 full-window (run 203031) ->
+  ui_font batch methods NEVER run in our port either. Same wall one
+  level up: who invokes batchB methods?
+- Gate-writer watch (era-proof: guest-entry arming, watch [0x396F18]
+  nonzero-store bt -> then live obj+0x2C writer bt) running.
+- Laws: harness self-snapshot (mid-run edits corrupt live bash — bit
+  x2); gdb watch chain needs arming AFTER xbox_MemoryLayoutInit
+  (guest-entry bp, not main) + symbol casts + printf quoting.
