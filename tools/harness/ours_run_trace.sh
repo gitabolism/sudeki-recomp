@@ -27,7 +27,6 @@ env \
   RECOMP_PAD_LIVE="$PAD" \
   gdb -batch -x "$ROOT/tools/harness/ours_trace.cmds" \
     -ex run \
-    -ex 'printf [GLOBAL-STORE-STOP]\n' -ex 'bt 8' -ex continue \
     --args build/sudeki > "$LOG" 2>&1 &
 GAME=$!
 until grep -qE "vblank.*ISR claimed|vblank 600|\[PUMP\] n=1 " "$LOG" 2>/dev/null; do
