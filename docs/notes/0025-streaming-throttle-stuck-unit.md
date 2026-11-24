@@ -2934,3 +2934,23 @@ not file size; no input drift — doctor green).
   constructs vptr-3237F0 pump objects -> timer-queue 1A9A50 -> F8240 frame
   tick -> F9D40 -> FRM. Ours dies somewhere ABOVE 5EC70.
 - tools/chainup.py added (E8-callers + dword-ref walker; VA=off+0x10000 law).
+
+## Ours-side chain probe (20:1x): resource-manager tier fully x0
+
+- ours_trace v3 (host gdb, 7 bps all installed, healthy full-window run:
+  PUMP n=1 from 00F7FD3C, vblank alive): **5EC70 / 5EDB0 / 70A20 / 7EB20 /
+  58E30 / 58810 / 72A40 ALL x0**. So the whole engine resource-manager tier
+  (which constructs the 58E30 core composite that EMBEDS the pump object at
+  +0x364) never runs in our port — while raw XAPI opens of boot.baf /
+  SOLWORLDM.gex / SOLXM.fubi / startup.baf SUCCEED (from 0x27158E).
+- 58E30(edi) static anatomy: stamps vptr 32351C (+8 323500, +2C 3234D0,
+  +260/264 326a38/34, +88C/890 327a80/7c), embeds sub-objects via ctors:
+  58810 (+0x364 pump), 1132F0 (+0x49C), 583D0 (+0x57C), 591A0 (+0x600),
+  59540 (+0x6CC, stamps 323428/24/08/3C2C/33FC), F0660 (+0x74C),
+  592E0 (+0x7B4) — ~2.2 KB composite = the engine core object.
+- 72A40 = by-name registry lookup ([edi+0x7c] count, [edi+0x84] entries,
+  stride 0x14) — the resource class table keyed by name/id.
+- Two gdb modes now in the harness (law): xemu round = `target remote
+  127.0.0.1:<port>` guest-CPU stub (xemu launched -gdb tcp::<port>, port
+  MUST match cmds file); ours round = plain `gdb --args build/sudeki`,
+  break on host symbols sub_XXXXXXXX (no target remote).
