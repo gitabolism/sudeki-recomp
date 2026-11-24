@@ -2992,3 +2992,12 @@ not file size; no input drift — doctor green).
   than the engine OpenResource tier; both exist in healthy too.
 - Next: xemu bt at 14960 first hits -> the tier that calls OpenResource in
   healthy (and check if that tier is alive in ours).
+
+## Healthy OpenResource callers named (20:2x)
+
+- xemu RA at 014960: first hits come from **137E20** (boot era, edx XOR
+  key C813481D) then **154350@154552**. 137E20 = ctor of resource-instance
+  descriptor object (vptr 32C134, fields to +0xD4), 33 static engine call
+  sites (0x39EE0/0x92010/0xA26F0/0xB08F0/0x192E10/0x193B20 families...).
+- ours_trace v6 liveness matrix (running): 174E0/30970/31100/379D0/39580/
+  3ACC0/3CD70/5C060/5D400 (014960's direct owners) sampled.
