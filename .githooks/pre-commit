@@ -15,7 +15,7 @@ for pat in "$me" "$hn"; do
         exit 1
     fi
 done
-if printf '%s\n' "$staged" | grep -qE "^+.*/(home|Users|mnt)/.*$me|^+.*$me"; then
+if printf '%s\n' "$staged" | grep -qE "^.*/(home|Users|mnt)/[^[:space:]]*$me|^.*$me"; then
     echo "pre-commit: absolute home path for this machine user in staged content — refuse (use ~ / \$HOME)." >&2
     exit 1
 fi
