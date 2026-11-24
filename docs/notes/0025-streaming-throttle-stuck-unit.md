@@ -3082,3 +3082,16 @@ not file size; no input drift — doctor green).
   B17A3: `if [[0x396F18]+0x2C]==0 { =1; call [[obj]+0x48] }`) never
   runs in ours; B14F0 is NOT in batchA/batchB slot lists -> belongs to
   a third tier object -> xemu bp B14F0 #1 ra = the final missing caller.
+
+## Activation domino chain RESOLVED (21:2x)
+
+- xemu: B19D0 (ui_font batchB[4]) #1: ecx=01B944D0 (ui_font batch obj),
+  ra=**AE8B1** -> owner **AE630** = **batchA[1]** (Background_CharactersSG
+  own slot 1). chainup: AE630 has no static E8 callers (table-dispatched).
+- So healthy activation order: dispatcher -> **AE630 (batchA slot1)** ->
+  B19D0 (batchB slot4, ui_font) -> B14F0-thunk (B1AD2 call) -> gate
+  [0x396F18]+0x2C==0 -> **AFBF0** -> descriptors/OpenResource -> world.
+- ours liveness probe (running): AE630/B19D0/B14F0 host-symbol bps.
+- Next domino if all x0: xemu bp AE630 #1 -> its ra = the asset-lifecycle
+  dispatcher (likely also dispatches the 478-class tier; may be the
+  elusive FRM-tier ticker).

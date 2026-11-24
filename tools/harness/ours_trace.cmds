@@ -3,21 +3,27 @@ set pagination off
 handle SIGSEGV nostop noprint pass
 handle SIGINT nostop noprint pass
 handle SIGTERM nostop noprint pass
-set $s = 0
-tbreak sub_0026C92B
+set $c1=0
+set $c2=0
+set $c3=0
+break sub_000AE630
 commands
 silent
-set $off = *(unsigned long long*)&g_xbox_mem_offset
-watch *(unsigned int*)($off + 0x396F18)
-condition 3 *(unsigned int*)($off + 0x396F18) != 0
+set $c1=$c1+1
+printf "[AE630 x%d] ecx=%08X\n",$c1,$ecx
 continue
 end
-break sub_0026C79D
+break sub_000B19D0
 commands
 silent
-set $s=$s+1
-if ($s % 200) == 1
-  printf "[G396F18=%08X] sample %d\n",*(unsigned int*)(*(unsigned long long*)&g_xbox_mem_offset + 0x396F18),$s
+set $c2=$c2+1
+printf "[B19D0 x%d]\n",$c2
+continue
 end
+break sub_000B14F0
+commands
+silent
+set $c3=$c3+1
+printf "[B14F0 x%d]\n",$c3
 continue
 end
