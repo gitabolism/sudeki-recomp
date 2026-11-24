@@ -3,24 +3,13 @@ set pagination off
 set architecture i386
 set $n = 0
 target remote 127.0.0.1:12353
-break *0x137E20
+break *0xAFBF0
 commands
 silent
 set $n=$n+1
-if $n == 1
-  printf "[137E20 #1] ra=%08X\n",*((unsigned int*)$esp)
-  set $o = *(unsigned int*)0x3DD7FC
-  printf "resys obj=%08X vptr=%08X\n",$o,*(unsigned int*)$o
-  set $i = 0
-  set $cnt = 0
-  while $i < 0x42
-    set $v = *(unsigned int*)($o+0x40+$i*4)
-    if $v != 0
-      set $cnt = $cnt + 1
-    end
-    set $i = $i + 1
-  end
-  printf "handlers populated: %d\n",$cnt
+if $n == 2
+  printf "[AFBF0 #2] ecx=%08X ra=%08X\n",$ecx,*((unsigned int*)$esp)
+  x/16xw $ecx
   detach
   quit
 end

@@ -3,7 +3,7 @@
 # on lifted guest functions (host symbols). No regen census needed for one-off
 # reachability questions. Light recipe (no FB dumps, bounded logs).
 set -u
-ROOT=/SR
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMO="${1:-480}"
 LOG="$ROOT/logs/ours-trace-$(date +%H%M%S).out"
 PAD=/tmp/opencode/ours-trace.pad

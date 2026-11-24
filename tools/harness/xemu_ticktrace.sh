@@ -3,7 +3,7 @@
 # No QMP, no RAM dumps (light footprint by user directive 2026-11-23).
 # Probe-attach loop -> scripted START pad -> breakpoint window -> hard kill.
 set -u
-ROOT=/SR
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BIN=$HOME/Applications/xemu/xemu-0.8.139-x86_64.AppImage
 GDBPORT=12353
 LOG="$ROOT/logs/xemu-ticktrace-$(date +%H%M%S).out"
