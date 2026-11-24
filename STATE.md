@@ -3,28 +3,24 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-23 17:5x (session 5e cont., ~15:5x–…)
+**Last updated:** 2026-11-23 20:2x (session 5f, ~19:1x–…)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
 (xemu same-moment capture still owed, see Queue);
 **navigation works; the game reaches a fully rendered "Press START"
 title and CYCLES it as an attract loop (frz172/174 FB dumps)**;
-load-stall wall (H31, re-posed x31, home = note 0025) in ONE sentence:
-the old "stuck Loading" picture was partly a HARNESS ARTIFACT (frz171
-law); un-killed, the load machinery CYCLES and renders the Press START
-title — but the SOL **scene/object-graph tier stays dead for the whole
-pill era** (MSG/SWEEP/MKLU/SCH/CTOR census ALL x0, frz174); the
-**xref-scan-bug overturn (session 5e)** showed the tier family DOES
-have static refs (SWEEP = F1CA0 dispatcher cmd 0x37 leg; MSG1 callers
-= .rdata-table methods; CTOR called from ~12 dispatcher-family
-methods), and the whole dead chain bottomed at command-object methods
-that are never vtable-invoked; frz175 (CF14C, black era) core: main
-parked in D3D task-wait (1DE5C0), wakes era-invariant, runtime-table
-hunt REFUTED (no heap table copies anywhere). frz176 verdict: **FRM
-(15B640 engine frame dispatcher) x0 in EVERY era — the scene-tier
-tick pump itself never runs**; input tier ALIVE (XAPI init chain ran,
-pad CTOR ran, pad+dev objs in core) so START reaches the game and the
-dead tier is its consumer. Next lever = **xemu gdb-stub trace of the
-HEALTHY game** (who invokes FRM/CTOR/MSG1 live; run in flight).
+load-stall wall (H31, re-posed x34, home = note 0025) in ONE sentence:
+the missing tier is now NAMED and its anatomy is measured — healthy game
+constructs the engine CORE composite object (ctor 58E30, embeds pump
+objects 58810 at +0x364 + 6 more sub-objects; vptrs runtime-decrypted,
+zero-filled in XBE) from a resource-open method pair (5EC70/5EDB0,
+registered in .rdata table ~0x331EF8, table base XOR-obfuscated); then
+a timer-queue drain (1A9A50) fires due-timers (1A99A0 -> vtable+4) =
+F8240 frame-tick -> F9D40 iterator -> FRM/scene commands. In OUR port
+the WHOLE chain 5EC70/5EDB0/70A20/7EB20/58E30/58810/72A40/1A9A50/
+1A99A0/F8240 is x0 (host-gdb ours_trace, full-window healthy run) while
+raw XAPI opens of boot.baf/SOLWORLDM.gex/SOLXM.fubi/startup.baf SUCCEED.
+Next lever = xemu bt at 5EC70 (who invokes the resource-open tier at
+title era; run in flight).
 
 ## Where things are verified
 
@@ -54,39 +50,37 @@ HEALTHY game** (who invokes FRM/CTOR/MSG1 live; run in flight).
 
 ## Last run
 
-Session 5e (15:5x–17:5x): **xref-scan-bug overturn; xemu RAM-diff
-REFUTED; input tier exonerated; FRM permanent-zero law; xemu gdb-trace
-tool online.**
-- xref law fixed (VA=fileoff+0x10000): SWEEP reached via F1CA0 cmd-0x37
-  leg; MSG callers = .rdata-table methods; CTOR called from ~12
-  dispatcher-family methods; RSRC roots = slots of shared 478-slot
-  .rdata run (owner ctors 57E90/57EE0 RUN; instances exist in cores).
-- xemu healthy-title RAM diff (earlier today) REFUTED: paging:false
-  physical dump + dead delta -> string-pool reads; no inverted-regime
-  claim stands.
-- frz176 (1900 s, SIGABRT core, BF14C pill-attract era, 188 FB dumps):
-  dead set unchanged; FRM/MSG1/CTOR x0; XAPI INIT0 x1; pad CTOR ran
-  (pad obj 01490E48, dev obj 01892820) -> input tier ALIVE.
-- FRM x0 in the full frz15x-176 log sweep = engine frame dispatcher
-  never ticks in any era.
-- frz175 core verdict (CF14C black era): main alive in D3D task-wait;
-  x749M evt6 census = pump container-walk work, NOT livelock (loader
-  anatomy CLOSED); wake counts era-invariant.
-- Duplicate census block compile-fail: REGI/REGX/CMD1 were already
-  wrapped (RGCX/RGT/FRM) — dead set was complete at the roots.
-Full verdicts in note 0025 (sections through "xemu RAM-diff REFUTED").
+Session 5f (19:1x–20:2x): **healthy pump-chain anatomy complete; ours-side
+chain probe x0; two gdb trace modes online (xemu stub / host symbols).**
+- xemu lean ticktrace: F9D40 x354 (rads F8334/F8EF6), F8240 alive (caller
+  rad 1A9A03 = `call [[obj]]+4` -> F8240 = vtable 33216C slot+4), TickService
+  33170 x0 at title (that path is NOT the title pump), FRM ctrl alive.
+- OBJ dump at F8240: this=02056510 vptr **3237F0** (pump class; literal
+  stamp at 58867 inside ctor **58810**).
+- Static chain up: 58810 <- 58E30 (core composite ctor, embeds pump at
+  +0x364) <- 7EB20 <- 77AD0 <- 70A20 <- **5EC70/5EDB0** (resource-open
+  methods, registered in .rdata table ~0x331EF8, zero static refs to the
+  window = XOR base), gate 72A40 = by-name registry lookup.
+- Heartbeat (healthy): timer-queue drain **1A9A50** -> due-timers ->
+  **1A99A0** -> `call [[obj]]+4` = **F8240** -> pumps 3237F0 objects ->
+  F9D40 -> FRM.
+- ours_trace v2/v3 (host gdb on build/sudeki, `handle SIGSEGV nostop pass`
+  LAW — without it gdb eats an absorbed XPP fault at sub_00310375): whole
+  chain x0 end-to-end in a full healthy-window run.
+- Tools: tools/chainup.py; tools/harness/{ours_trace.cmds,ours_run_trace.sh,
+  ticktrace.cmds,xemu_ticktrace.sh} (durable repo copies post-reboot).
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x32: the wall bottoms at "no one
-   ever invokes the engine frame dispatcher (FRM 15B640) or any command
-   vtable slot" — FRM x0 era-invariant; singletons/ctors of the 478-table
-   class DO run (instances exist), XAPI+input tier fully alive; the
-   missing edge is a vtable-walker/ticker that in the healthy game must
-   call into 15B640/5D740-family slots. xemu gdb-stub trace of the dead
-   chain on the reference game answers this DYNAMICALLY (rule 6
-   posture).** Prior frz18-era Buki-card runs prove input end-to-end
-   works when the tier lives.
+1. **H31 (ACTIVE, note 0025, RE-POSED x34: the wall = the engine core
+   composite (58E30 ctor, embeds 58810 pump objects) is never constructed
+   in our port; its static creator chain 5EC70/5EDB0 -> 70A20 -> 7EB20 ->
+   58E30 is fully x0 under host-gdb, though XAPI-level resource opens
+   succeed. The healthy game runs it from a resource-open method
+   (registered tier, XOR-obfuscated table base). xemu bt at 5EC70 answers
+   which caller tier fires it at title era DYNAMICALLY (rule 6 posture).**
+   Prior frz18-era Buki-card runs prove input end-to-end works when the
+   tier lives.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
    0001-0011/0016-0024): cache capacity ends the boot write-loop (0005);
    async-IO return convention = the phantom charge (0011); ICALL-skip
@@ -184,6 +178,15 @@ Full verdicts in note 0025 (sections through "xemu RAM-diff REFUTED").
   (per-page scatter; identity-pair delta valid only within one page-run;
   sanity-check every read set). Cores kept: frz171 (CF logo era),
   frz175 (CF black era), frz176 (BF pill era); tmpfs 63G, no prune need.
+- **GDB TWO-MODE LAW (session 5f)**: xemu round = `target remote
+  127.0.0.1:<port>` (xemu launched with `-gdb tcp::<port>`, port must
+  match cmds file) + `set architecture i386`, breaks at GUEST VAs.
+  Ours round = `gdb -batch -x cmds -ex run --args build/sudeki`, breaks
+  at HOST symbols `sub_XXXXXXXX` (lifted guest fns are host symbols —
+  reachability questions need NO census regen). Ours round MUST set
+  `handle SIGSEGV nostop noprint pass` (+ SIGINT/SIGTERM) — the runtime
+  absorbs an XPP-section fault at sub_00310375 and gdb otherwise fakes a
+  crash. Hot-site bps: sample + auto-`delete N` after N hits.
 - Era fingerprints: frz168-171 = CF1xx heap era; frz172 = BF1xx era
   (heap drifts with gen/manual edits — re-anchor always).
 - Git: never push (rule 7); local commits through `22c4964`+; every
@@ -218,4 +221,5 @@ Full verdicts in note 0025 (sections through "xemu RAM-diff REFUTED").
 | 11-23 03:0x–06:3x s5b | frz128→134 census arc: evt7 polarity closed, loader healthy-parked, submit chain runs, state-3 refuted, 522 CQ pushes all-completions, START-spam exonerated -> H31 re-posed x14: engine-side stop-of-issue; xemu FB capture pipeline live | `99d6370`..`729777e` |
 | 11-23 06:3x–13:0x s5c | frz135→152 census arc + patch 0052; hangwatch v2; object-tier census ALL x0 then CORE-READ CORRECTION; waiter ledger decoded; H31 re-posed x24: one never-closed waiter; audit #3 applied | `546c64e`..`f497810` |
 | 11-23 13:0x–15:3x s5d | frz161-173: queue-push full decode; NAM/TISS/BUCK probe tier; **frz171/172 OVERTURN: PUMP-x167-terminal = harness artifact; game reaches Press START** (FB #172); loader pump evt6 livelock identified; base-diff symbolization law; new-wrapper-regen law; upstream prior-art re-checked (unclaimed); pose x29 | `d39a8dc`..`22c4964`+ |
-| 11-23 15:5x–17:5x s5e | **xref-scan-bug overturn** (VA=off+0x10000; false zero-xref laws); frz175 core verdict (loader anatomy CLOSED, no livelock); 478-table ctors run + instances exist; **xemu RAM-diff REFUTED** (paging:false = physical/string-pool); input tier ALIVE (pad CTOR); **FRM x0 era-invariant**; frz176 core; **xemu gdb-stub trace tool online** (pose x32) | (this session) |
+| 11-23 15:5x–17:5x s5e | **xref-scan-bug overturn** (VA=off+0x10000; false zero-xref laws); frz175 core verdict (loader anatomy CLOSED, no livelock); 478-table ctors run + instances exist; **xemu RAM-diff REFUTED** (paging:false = physical/string-pool); input tier ALIVE (pad CTOR); **FRM x0 era-invariant**; frz176 core; **xemu gdb-stub trace tool online** (pose x32) | (sess 5e) |
+| 11-23 19:1x–20:2x s5f | lean xemu ticktraces: **healthy pump anatomy** (F8240 vtable-slot caller 1A9A03, pump class vptr 3237F0, ctor 58810, core composite 58E30, resource-open roots 5EC70/5EDB0, heartbeat 1A9A50->1A99A0); ours host-gdb probe: **whole chain x0**; XPP SIGSEGV gdb law; durable tools/harness + chainup.py (pose x34) | (this session) |
