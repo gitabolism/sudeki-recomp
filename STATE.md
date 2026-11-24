@@ -162,6 +162,10 @@ chain probe x0; two gdb trace modes online (xemu stub / host symbols).**
   `/tmp/opencode` is tmpfs: everything there vanishes on host reboot.
 - Cores kept (tmpfs ~5.8 GB): frz171 (frz171/172 host-base pair);
   prune at next pause.
+- **DETACHED-RUN LAW (session 5f)**: background shells die at the 600 s
+  harness cap AND cascade SIGTERM to the game. Runs with windows
+  >10 min MUST be `setsid nohup ... & disown` from a short shell;
+  completion discovered via automation or wrap-log check, never polling.
 - Other useful env: `RECOMP_CACHE_CAP_BYTES`, `RECOMP_WATCH=<va>…`,
   `RECOMP_SEM_TRACE`, `RECOMP_LOG_ORDS=…` (patch homes: THIRD_PARTY
   table).
