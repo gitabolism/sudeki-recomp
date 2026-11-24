@@ -7,19 +7,6 @@ break main
 commands
 silent
 set $off = g_xbox_mem_offset
-watch *(unsigned int*)($off + 0x27FE52C)
-condition 2 *(unsigned int*)($off + 0x27FE52C) != 0
-continue
-end
-break sub_000B14F0
-commands
-silent
-printf "[B14F0]\n"
-continue
-end
-break sub_000B17A3
-commands
-silent
-printf "[B17A3]\n"
+watch *(unsigned int*)($off + 0x396F18)
 continue
 end
