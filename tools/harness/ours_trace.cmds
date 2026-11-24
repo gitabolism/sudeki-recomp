@@ -6,7 +6,8 @@ handle SIGTERM nostop noprint pass
 break main
 commands
 silent
-set $off = g_xbox_mem_offset
+set $off = *(unsigned long long*)&g_xbox_mem_offset
 watch *(unsigned int*)($off + 0x396F18)
+condition 2 *(unsigned int*)($off + 0x396F18) != 0
 continue
 end

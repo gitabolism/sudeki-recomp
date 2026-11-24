@@ -26,13 +26,14 @@ env \
   RECOMP_RD_TRACE=1 \
   RECOMP_PAD_LIVE="$PAD" \
   gdb -batch -x "$ROOT/tools/harness/ours_trace.cmds" \
-    -ex run -ex "printf [GLOBAL-STORE1]\n" -ex "bt 8" \
-    -ex "set \$obj = *(unsigned int*)(g_xbox_mem_offset + 0x396F18)" \
-    -ex "printf obj=%08X\n", \$obj \
-    -ex "watch *(unsigned int*)(g_xbox_mem_offset + \$obj + 0x2c)" \
-    -ex "condition 3 *(unsigned int*)(g_xbox_mem_offset + \$obj + 0x2c) != 0" \
+    -ex run \
+    -ex 'printf [GLOBAL-STORE1]\n' -ex 'bt 8' \
+    -ex 'set $obj = *(unsigned int*)(*(unsigned long long*)&g_xbox_mem_offset + 0x396F18)' \
+    -ex 'printf "obj=%08X gate_now=%08X\n", $obj, *(unsigned int*)(*(unsigned long long*)&g_xbox_mem_offset + $obj + 0x2c)' \
+    -ex 'watch *(unsigned int*)(*(unsigned long long*)&g_xbox_mem_offset + $obj + 0x2c)' \
+    -ex 'condition 3 *(unsigned int*)(*(unsigned long long*)&g_xbox_mem_offset + $obj + 0x2c) != 0' \
     -ex continue \
-    -ex "printf [GATE-WRITER]\n" -ex "bt 8" -ex continue \
+    -ex 'printf [GATE-WRITER]\n' -ex 'bt 8' -ex continue \
     --args build/sudeki > "$LOG" 2>&1 &
 GAME=$!
 until grep -qE "vblank.*ISR claimed|vblank 600|\[PUMP\] n=1 " "$LOG" 2>/dev/null; do
