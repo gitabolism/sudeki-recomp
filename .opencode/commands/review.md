@@ -11,6 +11,17 @@ never edit). Order:
    actually exist (`reference/`, `logs/`, `patches/xboxrecomp/`,
    cores under `/tmp/opencode/`)? Do cited commit hashes resolve
    (`git cat-file -e`)? Do pins match `scripts/doctor.sh`?
+2b. **Data-leak audit (mandatory, every run)**: derive the machine's
+    username (`id -un`), hostname (`hostname`) and any personal email
+    at runtime — NEVER hardcode identifier values in repo files. Scan
+    HEAD's tracked content (`git grep`), all reachable history
+    (`git rev-list --all` + `git grep`), commit author/committer
+    metadata, and `git fsck` dangling objects for those values and
+    for absolute home paths (`/home/`, `/Users/`, `C:\Users`). Any hit
+    = report file + commit list as a FINDING at the top of the audit
+    verdict (privacy outranks direction). Also confirm the fast guard
+    is installed: `scripts/doctor.sh` LEAK check green and
+    `git config core.hooksPath` = `.githooks`.
 3. Hunt drift: hypotheses marked ACTIVE that evidence already closed;
    walls described in more than one home; queue items that current
    evidence made moot; session/last-run headers without wall-clock

@@ -85,4 +85,29 @@ else
     warn "analysis toolchain not installed (optional: scripts/analysis_tools.sh)"
 fi
 
+# 9. personal-identifier leak scan (user directive 2026-11-23): no
+# machine username, hostname, or absolute home path in tracked content.
+# Identifiers are derived at runtime — the guard itself never contains
+# them (that would be a leak by its own existence).
+me="$(id -un)"; hn="$(hostname)"
+leak=0
+for pat in "$me" "$hn"; do
+    if git grep -qw -I "$pat" HEAD -- 2>/dev/null; then
+        bad "personal identifier '$pat' present in tracked content:"
+        git grep -lw -I "$pat" HEAD -- | sed 's/^/        /'
+        leak=1
+    fi
+done
+if git grep -qIE "/(home|Users|m?nt)/[^ ]*$me" HEAD -- 2>/dev/null; then
+    bad "absolute home path for this machine user in tracked content (use ~, \$HOME or repo-relative):"
+    git grep -lIE "/(home|Users|m?nt)/[^ ]*$me" HEAD -- | sed 's/^/        /'
+    leak=1
+fi
+[ $leak -eq 0 ] && ok "no personal identifiers in tracked content"
+if [ "$(git config core.hooksPath 2>/dev/null)" = ".githooks" ]; then
+    ok "pre-commit leak guard active (core.hooksPath=.githooks)"
+else
+    bad "leak guard not installed — run: git config core.hooksPath .githooks"
+fi
+
 exit $fail

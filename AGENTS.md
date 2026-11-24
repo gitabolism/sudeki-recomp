@@ -90,6 +90,14 @@ never progress.
     ignored". This is noise pollution; the user has zero tolerance for
     it, and history scrubbing to remove it is expensive — do not create
     it in the first place.
+13. **Personal identifiers (user directive, 2026-11-23).** Machine
+    username, hostname, absolute home paths and personal emails never
+    enter the repo — write scripts/docs with `~`, `$HOME` or
+    repo-relative paths only. Guards: `.githooks/pre-commit` (enabled
+    once per machine: `git config core.hooksPath .githooks`),
+    `scripts/doctor.sh` leak check, and `/review` step 2b (full-history
+    deep scan). The guards derive identifiers at runtime — never
+    hardcode an identifier into a guard meant to catch it.
 
 ## Autonomy and the approval gate
 

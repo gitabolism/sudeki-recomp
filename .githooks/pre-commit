@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# pre-commit — personal-identifier leak guard (user directive 2026-11-23).
+# Blocks staged content containing this machine's username/hostname or
+# absolute home paths. Identifiers are derived at runtime; this file must
+# never hardcode them (its own content must stay leak-free).
+# Installed via: git config core.hooksPath .githooks   (checked by doctor.sh)
+set -u
+me="$(id -un)"; hn="$(hostname)"
+staged="$(git diff --cached -U0 --diff-filter=ACM)"
+[ -z "$staged" ] && exit 0
+for pat in "$me" "$hn"; do
+    if printf '%s\n' "$staged" | grep -qw -- "$pat"; then
+        echo "pre-commit: personal identifier '$pat' in staged content — refuse." >&2
+        echo "            use ~, \$HOME, or repo-relative paths instead." >&2
+        exit 1
+    fi
+done
+if printf '%s\n' "$staged" | grep -qE "^+.*/(home|Users|mnt)/.*$me|^+.*$me"; then
+    echo "pre-commit: absolute home path for this machine user in staged content — refuse (use ~ / \$HOME)." >&2
+    exit 1
+fi
+exit 0
