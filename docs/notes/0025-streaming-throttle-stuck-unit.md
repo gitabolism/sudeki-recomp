@@ -3142,3 +3142,31 @@ not file size; no input drift — doctor green).
   runtime bytes at 12090/122C0 == static XBE (no .text drift);
   dword-scan false positives: ModRM 0x90+disp0x120 looks like imm
   0x12090 (7 sites) — always verify owner disasm before banking xrefs.
+
+## x39 REFUTED same-session (22:4x): boot-thread owners WERE lifted; break is INSIDE the CRT thunk
+
+- nm format law (bit TWICE): VA 0x26D3E4 -> host symbol sub_0026D3E4
+  (8-digit), 0x1A9A50 -> sub_001A9A50. The "never lifted" claim came
+  from grepping sub_00026D3E4 (9-digit) — FALSE. Owners 26C68F/26D3E4/
+  2722EC/272470 all present in the frz178 binary; frz179 regen (33
+  seeds) produced a functionally identical tree (build no-op).
+- ours liveness (correct names, full window): sub_0026D3E4 x1 (thread
+  spawned+runs), sub_0026D1E6 x1 (passed the SEH prologue AND the
+  blob copy AND the atexit list-walker), then NOTHING: sub_0026C68F
+  x0 — the indirect body-call at 26D453 (lifted: guarded ICALL,
+  26C68F in guard list, no "Failed to resolve" logged) never lands.
+- 26C68F decoded = XAPILIB thread-body tail: 26D0DD/26CE89 ctors,
+  TLS checks, and call 0x11560 @26C6EB (heartbeat trampoline; ra
+  26C6F0 matches the healthy stack window EXACTLY) -> 12090 engine
+  block eternal pump.
+- => pose x40: worker thread stalls between 26D1E6-return and the
+  indirect body-call (deadlock/absorbed-fault candidate: the
+  critical section at 0x33D8D8 walker, or [ebp+8] content). Live
+  thread-snapshot (attach + bt all) in flight to see where the
+  worker blocks.
+- tool: tools/harness/threadsnap.sh (plain nav run + gdb attach
+  "thread apply all bt"). Mystery: first version died with a bogus
+  bash "looking for matching )" syntax error at line 12 despite
+  bash -n passing; clean rewrite fixed — suspect write-encoding
+  artifact; law: on unexplained bash parse errors, rewrite the
+  header block, do not debug bash grammar for 5 rounds.

@@ -5,26 +5,25 @@ handle SIGINT nostop noprint pass
 handle SIGTERM nostop noprint pass
 set $a=0
 set $b=0
-break sub_001A9A50
+set $c=0
+break sub_0026D3E4
 commands
 silent
 set $a=$a+1
-if ($a % 2000) == 1
-  printf "[1A9A50 x%d] edi=%08X\n",$a,$edi
-end
-if $a == 20000
-  printf "[1A9A50 STOP 20000]\n"
-  detach
-  quit
-end
+printf "[26D3E4 x%d]\n",$a
 continue
 end
-break sub_00027430
+break sub_0026D1E6
 commands
 silent
 set $b=$b+1
-if ($b % 500) == 1
-  printf "[27430 x%d]\n",$b
+printf "[26D1E6 x%d]\n",$b
+continue
 end
+break sub_0027241C
+commands
+silent
+set $c=$c+1
+printf "[27241C x%d]\n",$c
 continue
 end
