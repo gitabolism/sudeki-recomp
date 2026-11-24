@@ -6,90 +6,33 @@ handle SIGTERM nostop noprint pass
 set $c1=0
 set $c2=0
 set $c3=0
-set $c4=0
-set $c5=0
-set $c6=0
-set $c7=0
-set $c8=0
-set $c9=0
-break sub_000174E0
+break sub_000AFBF0
 commands
 silent
 set $c1=$c1+1
 if ($c1 % 20) == 1
-  printf "[174E0 x%d]\n",$c1
+  printf "[AFBF0 x%d] ecx=%08X\n",$c1,$ecx
 end
 continue
 end
-break sub_00030970
+break sub_0016FC10
 commands
 silent
 set $c2=$c2+1
 if ($c2 % 20) == 1
-  printf "[30970 x%d]\n",$c2
+  printf "[16FC10 x%d]\n",$c2
 end
 continue
 end
-break sub_00031100
+break sub_00137E20
 commands
 silent
 set $c3=$c3+1
 if ($c3 % 20) == 1
-  printf "[31100 x%d]\n",$c3
+  printf "[137E20 x%d] ra=%08X\n",$c3,*((unsigned int*)$esp)
 end
-continue
-end
-break sub_000379D0
-commands
-silent
-set $c4=$c4+1
-if ($c4 % 20) == 1
-  printf "[379D0 x%d]\n",$c4
-end
-continue
-end
-break sub_00039580
-commands
-silent
-set $c5=$c5+1
-if ($c5 % 20) == 1
-  printf "[39580 x%d]\n",$c5
-end
-continue
-end
-break sub_0003ACC0
-commands
-silent
-set $c6=$c6+1
-if ($c6 % 20) == 1
-  printf "[3ACC0 x%d]\n",$c6
-end
-continue
-end
-break sub_0003CD70
-commands
-silent
-set $c7=$c7+1
-if ($c7 % 20) == 1
-  printf "[3CD70 x%d]\n",$c7
-end
-continue
-end
-break sub_0005C060
-commands
-silent
-set $c8=$c8+1
-if ($c8 % 20) == 1
-  printf "[5C060 x%d]\n",$c8
-end
-continue
-end
-break sub_0005D400
-commands
-silent
-set $c9=$c9+1
-if ($c9 % 20) == 1
-  printf "[5D400 x%d]\n",$c9
+if $c3 == 200
+  delete 3
 end
 continue
 end

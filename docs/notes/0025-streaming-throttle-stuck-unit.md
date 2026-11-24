@@ -3001,3 +3001,16 @@ not file size; no input drift — doctor green).
   sites (0x39EE0/0x92010/0xA26F0/0xB08F0/0x192E10/0x193B20 families...).
 - ours_trace v6 liveness matrix (running): 174E0/30970/31100/379D0/39580/
   3ACC0/3CD70/5C060/5D400 (014960's direct owners) sampled.
+
+## Boot-era OpenResource caller chain (20:3x): ends at dynamic-dispatch AFBF0
+
+- Healthy 137E20 #1: ra=**16FC8F** (owner 16FC10); resys obj=004736C8
+  **40/66 handlers populated — IDENTICAL to ours (40)**; registration
+  side is byte-equivalent; ONLY the call side is missing.
+- chainup 16FC10: callers incl. 16F710 <- {92010, A26F0, 135AA0, ...},
+  171F90 <- {A26F0, AD910, B08F0, 135AA0...}, 191DD0/192950/0BE780 <-
+  **0AFBF0**. 0AFBF0 has NO static callers and no ptr refs = registered/
+  dynamic dispatch (thread-start or handler). Body = lazy service
+  accessor: one-time InitCritSec([376CC4]), EnterCritical, alloc 0x240
+  (27233f), then fans out into the OpenResource family.
+- ours_trace v7 (running): AFBF0 / 16FC10 / 137E20 liveness.
