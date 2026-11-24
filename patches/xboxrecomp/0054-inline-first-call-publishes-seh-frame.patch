@@ -1,0 +1,15 @@
+--- a/src/kernel/kernel_bridge.c
++++ b/src/kernel/kernel_bridge.c
+@@ -921,6 +921,12 @@
+                  * worker, the race the lock is for. */
+                 {
+                     int took = xbox_GuestCpuEnterCallback();
++                    /* The pushed args form the routine's frame: publish it as
++                     * the SEH frame base, matching bridge_run_thread_inline.
++                     * An fpo_leaf entry (CRT _threadstartup) inherits
++                     * g_seh_ebp; left at the caller's frame it dereferences a
++                     * stale slot for its body call (note 0025 pose x41). */
++                    g_seh_ebp = g_esp;
+                     fn();
+                     xbox_GuestCpuLeaveCallback(took);
+                 }

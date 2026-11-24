@@ -3170,3 +3170,34 @@ not file size; no input drift — doctor green).
   bash -n passing; clean rewrite fixed — suspect write-encoding
   artifact; law: on unexplained bash parse errors, rewrite the
   header block, do not debug bash grammar for 5 rounds.
+
+## x41: FOUND AND PATCHED (00:0x): inline first-call never published g_seh_ebp -> CRT thunk body-call deref'd a stale slot
+
+- Threadsnap attach dead (ptrace_scope=1; sudo = gate). Core-bt route
+  instead: frz178.core thread census (26 threads) = NO thread parked in
+  the thunk chain -> the main thread's INLINE first call had already
+  moved past it. bt #3 proved first call is inline (xbe_entry_point ->
+  kernel_thunk_dispatch -> bridge_PsCreateSystemThreadEx ->
+  sub_0026D3E4), and the log shows the boot body tier ALIVE
+  (TDATA open from 0x26CACF = sub_0026CA8A; 27241C x634) — x40's
+  "body never lands" was a partial-window artifact YET AGAIN.
+- True root (patch 0054): bridge_run_thread_inline sets
+  g_seh_ebp = g_esp after pushing (ctx2, ctx1, 0); but the FIRST-call
+  inline branch in bridge_PsCreateSystemThreadEx pushes args and calls
+  fn() WITHOUT setting g_seh_ebp. sub_0026D3E4 is fpo_leaf
+  (`ebp = g_seh_ebp /* inherit caller's frame */`) -> inherited the
+  ENTRY tier's frame -> `call [ebp+8]` at 26D453 read a stale slot ->
+  body invoked through a wild pointer path; the real ctx1-based body
+  dispatch (sub_0026C68F, which contains `call 0x11560` @26C6EB = the
+  heartbeat trampoline) never ran correctly.
+- Patched (patches/xboxrecomp/0054-inline-first-call-publishes-seh-frame.patch,
+  15 lines): inline branch now does g_seh_ebp = g_esp before fn().
+  Verified live (host-gdb counts, patched binary): sub_0026C68F x1,
+  sub_00011560 x1 (HEARTBEAT TRAMPOLINE ALIVE), sub_00012090 x1
+  (engine block ENTERED), sub_00011DE0 x1; still x0: sub_0011F0C0/
+  1A9A50/27430 (drain tier) and 122C0/258420 (block never reaches
+  its loop body at 12127 — parks INSIDE 11DE0 init).
+- pose x42: engine block entered but stalls inside sub_00011DE0
+  (engine init: calls 12E70/11EB90/heap/889B0/1CCA0/26FFBE...).
+  frz180 core (patched binary, ABRT at 900 s) + core-bt will show
+  exactly where init parks. Patch series now 0001..0054.

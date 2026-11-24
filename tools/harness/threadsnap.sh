@@ -21,11 +21,12 @@ env \
   RECOMP_VBLANK=1 RECOMP_PB_EXEC=1 RECOMP_PB_WALK=dma \
   RECOMP_KERNEL_LOG_BUDGET=0 RECOMP_AC97_READY=1 RECOMP_USB=1 \
   RECOMP_ARM_UNTIL_SEEN=0 RECOMP_TITLE_KEVENTS=1 \
-  RECOMP_MISSING_FILES=all RECOMP_LOG_ORDS=123,138,145,205,225 \
+  RECOMP_LOG_ORDS=123,138,145,205,225 \
+  RECOMP_MISSING_FILES=all RECOMP_GATE_TRACE=1 RECOMP_EVENT_LOG=1 \
   RECOMP_PAD_LIVE="$PAD" \
   build/sudeki > "$LOG" 2>&1 &
 GAME=$!
-until grep -qE "\[PUMP\] n=1 " "$LOG" 2>/dev/null; do
+until grep -qE "\[PUMP\] n=1 |vblank.*ISR claimed" "$LOG" 2>/dev/null; do
   kill -0 $GAME 2>/dev/null || { echo "died pre-nav; log=$LOG"; exit 1; }
   sleep 2
 done
