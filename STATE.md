@@ -139,16 +139,16 @@ runtime kernel ABI bug FOUND + PATCHED; heartbeat alive.**
   = harness artifact**). Era lottery law: per-boot regime variance is
   REAL (frz171 CF-era cycles vs frz172 BF-era true-167) — judge runs by
   era fingerprint, never by single-run markers.
-- **USER ACTION REQUIRED (privacy):** the pre-scrub commits (old
-  `f55e0cd..027d79a`) still exist on GitHub (`origin/main` was
-  `f55e0cd`). From this machine, when you choose: `git fetch --prune`
-  is not needed — just `git push --force-with-lease origin main`
-  (or `--force` since the tracking ref was removed) to replace remote
-  history with the scrubbed one. Then GitHub GC eventually drops the
-  old objects; for immediate removal ask GitHub support ("remove
-  cached objects for commit SHAs"). Rule 7: the agent never pushes.
-  Open question: personal Gmail in some commit AUTHOR metadata — tell
-  me if that should be rewritten too (touches all 427 commits).
+- **PRIVACY (post-scrub status):** force-push DONE (user) — remote
+  `main` = `dca9367` (scrubbed lineage); pre-scrub objects linger on
+  GitHub only as unreferenced garbage until GC (ask support for
+  immediate removal if ever needed). Remaining open question from
+  `/review` (2026-11-24): author/committer EMAIL metadata is a
+  personal webmail address on 450/451 commits — tell me if that
+  should be rewritten too (touches all history; rule 7: agent never
+  pushes, so a rewrite needs your re-push after it).
+- Local `main` is ahead of `origin/main` (fast-forward) — push when
+  convenient; nothing here rewrites history.
 
 ## Housekeeping facts (recipe home)
 
