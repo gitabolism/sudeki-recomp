@@ -3031,3 +3031,21 @@ not file size; no input drift — doctor green).
   in our port. Objects alive, handlers registered, only method INVOCATION
   (AFBF0 etc.) missing.
 - xemu bp AFBF0 #2 -> ra + this-dump (running) = the missing dispatcher.
+
+## Healthy boot-era ORDER captured (20:3x)
+
+- Single xemu window (bp-count mode): **[AFBF0] fires FIRST, then 137E20
+  (descriptors), then 14960 #1 (ra=137F78, inside 137E20 itself), then
+  5BEB0** — accessor -> descriptor-ctor -> OpenResource -> typed-handler
+  dispatch, one causal chain. xemu era-lottery applies too (prior round
+  AFBF0 x0 in 300 s; this round it fired) — judge xemu traces by
+  multi-round, not one window.
+- AFBF0 is Background_CharactersSG batch[18] (asset method); its caller
+  has NO static path (runtime-table dispatch) — ra capture round running.
+- Working hypothesis (refinement of pose x36): the asset-batch objects
+  are constructed AND filled in ours; the loader-completion (or scene
+  gate) dispatch INTO their batch methods is the one live edge our port
+  never takes. If AFBF0 ra resolves into a tier that is ALIVE in ours
+  (e.g. the PUMP/loader completion walker), the break is a data edge
+  (batch object not registered in the completion container), not a
+  code-reach edge.
