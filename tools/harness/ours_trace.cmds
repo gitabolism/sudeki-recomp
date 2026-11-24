@@ -1,27 +1,41 @@
 set confirm off
 set pagination off
+handle SIGSEGV nostop noprint pass
+handle SIGINT nostop noprint pass
+handle SIGTERM nostop noprint pass
 set $n = 0
-break sub_001A9A50
+break sub_0005EC70
 commands
 silent
-set $n=$n+1
-if ($n % 200) == 1
-  printf "[1A9A50 x%d]\n",$n
-  bt 4
-end
+printf "[5EC70]\n"
+bt 4
 continue
 end
-break sub_001A99A0
+break sub_0005EDB0
 commands
 silent
-printf "[1A99A0]\n"
+printf "[5EDB0]\n"
+bt 4
+continue
+end
+break sub_00070A20
+commands
+silent
+printf "[70A20]\n"
+bt 4
+continue
+end
+break sub_0007EB20
+commands
+silent
+printf "[7EB20]\n"
 bt 3
 continue
 end
-break sub_000F8240
+break sub_00058E30
 commands
 silent
-printf "[F8240]\n"
+printf "[58E30]\n"
 bt 3
 continue
 end
@@ -32,10 +46,15 @@ printf "[58810 pumpobj-CTOR]\n"
 bt 4
 continue
 end
-break sub_00164140
+break sub_00072A40
 commands
 silent
-printf "[164140]\n"
-bt 3
+set $n=$n+1
+if ($n % 100) == 1
+  printf "[72A40 x%d] ecx=%08X\n",$n,$ecx
+end
+if $n == 2000
+  delete 7
+end
 continue
 end

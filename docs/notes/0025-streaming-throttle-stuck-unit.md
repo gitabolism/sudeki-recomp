@@ -2867,3 +2867,70 @@ not file size; no input drift — doctor green).
   M168/TSVC/TKL2) -> required regen (new manual VAs = _gen rename law):
   pipeline --seed seeds-frz177-tick-tier.json v2 (10 TRUE owners; the 9
   bogus -0x1000 seeds removed) -> build -> frz177.
+
+## Healthy pump chain narrowed (19:3x): F8240 = framework slot+4; ours x0 end-to-end
+
+- Lean ticktrace (tools/harness/xemu_ticktrace.sh + ticktrace.cmds; no dumps,
+  pad ON): healthy title — **F9D40 x354** (rads F8334 in owner F8240, F8EF6
+  in owner F8C10; multiple esi objects 021xxxxx/020Exxxx/028xxxxx),
+  **F8240 alive**, FACF0 x3 (registration via 58C98, edi=0x85),
+  **TickService 33170 x0** -> the 32B8C event-switch/TickService path is NOT
+  the title-era pump; the pump is the F8240/F8C10 tier.
+- F8240 real caller rad = **1A9A03** inside method **1A99A0**:
+  `mov eax,[ecx]; call [eax+4]` -> F8240 sits at **slot +4 of vtable
+  0x33216C** {1ACCE0, F8240, 0F6400, 0F6230, 1533B0...} — sibling family of
+  vtable 0x33DC78 {199DF0, 0F6400, 0F6230, 1533B0...} (199DF0 = framework
+  tick method that ALSO calls F8240 + gates F9D40 on
+  [[obj+0x10]+0x50]&0x400000 + [obj+0xF8]byte+0x13 bit 1; 199DF0 x0 on the
+  title-era sample — the timing-class edge drives it instead).
+- **No literal 0x33216C/0x33DC78 anywhere in the XBE** (vptrs stamped via
+  runtime-XOR obfuscation, same scheme as 54E00/F9CF0 field decode) ->
+  static construction hunt is conclusively dead; dynamic = awatch plan.
+- Ours (host-gdb ours_trace, host symbols = guest fns, no regen needed):
+  **F8240/F8C10/199DF0/F9D40/33170 ALL x0** in a 460 s run (that run died
+  with guest STACK-OVERFLOW SIGSEGV at 0x310375 near esp 00F7FC3C — gdb-env
+  era; logged as possible separate finding).
+- Scanner law re-learned (x2): t = d[0x1000:] slice -> site VA = 0x11000 + i;
+  helpers must not re-add offsets twice.
+- Next dynamic step: F8240-hit OBJ dump (ecx/vptr/+0x10/+0xF8/+0xB0/+0xB8)
+  -> then xemu `awatch` on obj+0 dword -> constructor site -> the exact
+  stamp+init sequence our port must reach.
+
+## Heartbeat chain (19:5x): timer-queue -> F8240 frame tick -> pump objects
+
+- xemu OBJ dump at F8240 hit: this=02056510 vptr **3237F0** (+4 3237E8,
+  +18 3237E4, +78 3237D0, +A8 3237CC, +BC 323790 multi-vtable object;
+  +B0/+B8 = 0 at this instance).
+- **3237F0 IS a literal stamp** at 58867 inside ctor **58810** (lifted):
+  callers of 58810 = 58EA2 + the scene tier itself: **15AB8A (in M15A owner
+  15AB10), 15B80A (inside FRM!), 15C4AA, 15DDCA, 15F54A, 16068D, 16213E,
+  162500, 16306A, 16403A, 1648D2, 16826A, 168A82** — i.e. the CTOR(159710)
+  family that ran x73 in xemu creates the pump objects; F8240/F9D40 call
+  their slots back.
+- Periodic driver (healthy): **1A9A50** = timer-queue drain (esi+0x10 list,
+  due-check [ecx+0xc]+[ecx+4] vs arg) -> for each due timer **1A99A0** ->
+  `call [[obj]]+4` -> **F8240**. 1A9A50 owner lifted; single static caller
+  1A9A76 = inside itself; dynamic heartbeat caller TBD via ours/xemu bt.
+- ours_trace v2 (host gdb, no regen): breaks 1A9A50/1A99A0/F8240/58810/
+  164140 — running now to localize where OUR chain first goes silent.
+
+## Pump-object constructor chain resolved statically (20:0x)
+
+- ours_trace v2 (host gdb, SIGSEGV/SIGINT `nostop pass` law — WITHOUT it gdb
+  eats an absorbed XPP-section fault at sub_00310375 (XPP 0x30F600 leaf getter
+  `[[arg]]`), faking a crash and stopping the run; with pass, run is healthy
+  full-window): **1A9A50/1A99A0/F8240/58810/164140 ALL x0** — heartbeat tier
+  absent end-to-end in our port.
+- Static chain UP from pump ctor: 58810 <- 58E30 (root creator, 58EA2) <-
+  7EB20 (@77B30) <- 77AD0 (@70A9B) <- 70A20 <- **5EC70 (@5ECF7) and 5EDB0
+  (@5EE04)** — both member methods (ecx=this) building an open-parameter
+  struct, calling gate **72A40** (bool) then 70A20; 5EC70 slow path also
+  calls 42C30/57FB0/58000.
+- 5EC70/5EDB0 are **registered** (not called): stored adjacent in .rdata
+  table @0x331EF8 (neighbors 063E30/064020/065490/062940/25CA80/06F5B0/
+  05EE90/05EF90...). **Zero dword refs to window 0x331E00-0x332010 in .text**
+  -> table reached via runtime-XOR base (same scheme as [0x375FA8] at 58896).
+- So healthy boot = resource-open tier -> 70A20 -> 7EB20 -> 58E30 -> 58810
+  constructs vptr-3237F0 pump objects -> timer-queue 1A9A50 -> F8240 frame
+  tick -> F9D40 -> FRM. Ours dies somewhere ABOVE 5EC70.
+- tools/chainup.py added (E8-callers + dword-ref walker; VA=off+0x10000 law).
