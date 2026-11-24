@@ -201,6 +201,15 @@ chain probe x0; two gdb trace modes online (xemu stub / host symbols).**
   `handle SIGSEGV nostop noprint pass` (+ SIGINT/SIGTERM) — the runtime
   absorbs an XPP-section fault at sub_00310375 and gdb otherwise fakes a
   crash. Hot-site bps: sample + auto-`delete N` after N hits.
+- **GDB FRAGILITY LAW (session 5f, post-frz178-call)**: batch watch
+  chains (hw watchpoints armed in commands blocks, shared bp/watch
+  numbering, mid-run script edits) burned 5 rounds; for
+  state-at-window-end questions prefer **plain run -> ABRT core ->
+  corescan** (tools/harness/run_window.sh). Host symbol entries can be
+  mid-block (sub_00311B48 never hits despite callers' ret-addrs inside
+  it) — bp only functions proven to print census tags.
+- **Harness self-snapshot law**: tools/harness scripts re-exec from a
+  frozen /tmp copy (mid-run edits corrupted live bash twice).
 - Era fingerprints: frz168-171 = CF1xx heap era; frz172 = BF1xx era
   (heap drifts with gen/manual edits — re-anchor always).
 - Git: never push (rule 7); local commits through `22c4964`+; every
