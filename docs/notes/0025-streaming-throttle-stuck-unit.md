@@ -2971,3 +2971,24 @@ not file size; no input drift — doctor green).
   populated.
 - ours_trace v4 probe (running): 5BEB0 hit/id/entry census + 5EC70/5EDB0
   bt — decides which.
+
+## REVERSAL (20:1x): resource system EXISTS and is REGISTERED in our port
+
+- frz176 core (streamed from systemd zst; anchor pair law held): **[0x3DD7FC]
+  = 00FD36C8** (resource-system singleton, vptr 323EE0) with **40/66 typed
+  handler slots POPULATED** (id 01..0x1A+ incl. **id 04 -> 00FD4C20,
+  vtbl 3235B4, slot+4 = 5EDB0** = the core-composite creator handler).
+  So the engine boot init that CONSTRUCTS+REGISTERS the resource system ran
+  fully in our port.
+- ours_trace v5: **014960 (OpenResource wrapper) x0** full-window; healthy:
+  5BEB0 entered ONLY from 149C1 (inside 014960) — ra capture #2/#60 both
+  149C1, ecx (handler-array obj) = 004736C8 healthy vs 00FD36C8 ours
+  (same object class, heap era drift).
+- So H31 pose x35: the wall = **nobody in our running loop ever CALLS
+  OpenResource**; registration side is healthy. Global [0x375FA8]=00000FFF
+  = the XOR key for resource ids (matches 58896 ctor masking scheme).
+- XAPI-level opens of boot.baf/SOLWORLDM.gex/SOLXM.fubi/startup.baf all
+  come from **271466 (XAPILIB open helper, rad 27158E)** — a DIFFERENT path
+  than the engine OpenResource tier; both exist in healthy too.
+- Next: xemu bt at 14960 first hits -> the tier that calls OpenResource in
+  healthy (and check if that tier is alive in ours).
