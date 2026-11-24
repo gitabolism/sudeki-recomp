@@ -3,24 +3,22 @@
 > Read me first, every session. Update me at the end of every session,
 > even interrupted ones. Protocol in `AGENTS.md`.
 
-**Last updated:** 2026-11-23 20:2x (session 5f, ~19:1x–…)
+**Last updated:** 2026-11-23 22:1x (session 5g, ~21:1x–…)
 **Stage:** LIFT complete, ENTRY strong, **MENU artefact reached**
 (xemu same-moment capture still owed, see Queue);
 **navigation works; the game reaches a fully rendered "Press START"
 title and CYCLES it as an attract loop (frz172/174 FB dumps)**;
-load-stall wall (H31, re-posed x34, home = note 0025) in ONE sentence:
-the missing tier is now NAMED and its anatomy is measured — healthy game
-constructs the engine CORE composite object (ctor 58E30, embeds pump
-objects 58810 at +0x364 + 6 more sub-objects; vptrs runtime-decrypted,
-zero-filled in XBE) from a resource-open method pair (5EC70/5EDB0,
-registered in .rdata table ~0x331EF8, table base XOR-obfuscated); then
-a timer-queue drain (1A9A50) fires due-timers (1A99A0 -> vtable+4) =
-F8240 frame-tick -> F9D40 iterator -> FRM/scene commands. In OUR port
-the WHOLE chain 5EC70/5EDB0/70A20/7EB20/58E30/58810/72A40/1A9A50/
-1A99A0/F8240 is x0 (host-gdb ours_trace, full-window healthy run) while
-raw XAPI opens of boot.baf/SOLWORLDM.gex/SOLXM.fubi/startup.baf SUCCEED.
-Next lever = xemu bt at 5EC70 (who invokes the resource-open tier at
-title era; run in flight).
+load-stall wall (H31, re-posed x39, home = note 0025) in ONE sentence:
+**pose x39 = BRIEF risk #2 at last: the healthy heartbeat tier
+(11F0C0->1A9A50 drain -> scene-mgr 27430 -> batchA AE630 -> activation
+thunk -> AFBF0 -> OpenResource) runs on the game BOOT THREAD whose
+chain 26C68F/26D3E4 -> 272470 -> 2722EC -> engine block (12090..122BA)
+has ZERO static xrefs in the XBE; our port SPAWNS the thread identical
+(PsCreateSystemThreadEx routine=26D3E4 ctx=26C68F, run frz178 log) but
+those routine owners were NEVER LIFTED (nm: absent) so the thread body
+runs nothing. FIX IN FLIGHT: frz179 regen +4 measured seeds
+(logs/seeds-frz179-merged.json, 33 seeds; regen detached ~22:1x,
+check 22:57).**
 
 ## Where things are verified
 
@@ -56,35 +54,37 @@ title era; run in flight).
 
 ## Last run
 
-Session 5f (19:1x–20:2x): **healthy pump-chain anatomy complete; ours-side
-chain probe x0; two gdb trace modes online (xemu stub / host symbols).**
-- xemu lean ticktrace: F9D40 x354 (rads F8334/F8EF6), F8240 alive (caller
-  rad 1A9A03 = `call [[obj]]+4` -> F8240 = vtable 33216C slot+4), TickService
-  33170 x0 at title (that path is NOT the title pump), FRM ctrl alive.
-- OBJ dump at F8240: this=02056510 vptr **3237F0** (pump class; literal
-  stamp at 58867 inside ctor **58810**).
-- Static chain up: 58810 <- 58E30 (core composite ctor, embeds pump at
-  +0x364) <- 7EB20 <- 77AD0 <- 70A20 <- **5EC70/5EDB0** (resource-open
-  methods, registered in .rdata table ~0x331EF8, zero static refs to the
-  window = XOR base), gate 72A40 = by-name registry lookup.
-- Heartbeat (healthy): timer-queue drain **1A9A50** -> due-timers ->
-  **1A99A0** -> `call [[obj]]+4` = **F8240** -> pumps 3237F0 objects ->
-  F9D40 -> FRM.
-- ours_trace v2/v3 (host gdb on build/sudeki, `handle SIGSEGV nostop pass`
-  LAW — without it gdb eats an absorbed XPP fault at sub_00310375): whole
-  chain x0 end-to-end in a full healthy-window run.
-- Tools: tools/chainup.py; tools/harness/{ours_trace.cmds,ours_run_trace.sh,
-  ticktrace.cmds,xemu_ticktrace.sh} (durable repo copies post-reboot).
+Session 5g (21:1x–22:1x): **H31 collapsed to the invisible boot-thread
+lift gap (pose x39); frz179 regen in flight.**
+- frz178 core: batchA obj PRESENT (02853AE0 vptr 325AB8), gate +0x2C=0
+  clean-closed; ui_font instance 0280BA10; resys 40/66 (era fingerprint
+  018Axxxx lineage).
+- xemu chain resolved rung-by-rung: 27430 (container dispatcher, ra
+  1A9A03 = heartbeat 1A99A0) <- drain 1A9A50 <- 11F0C0 <- engine block
+  (12090..122BA, entered once at boot, loops eternal) <- XAPILIB tier
+  (2722EC/272470) <- boot thread (worker 26D3E4, ctx 26C68F).
+- ours: thread SPAWNED identical (frz178 kernel log #1/#2) but owners
+  26C68F/26D3E4/2722EC/272470 absent from binary -> thread body inert.
+- Laws banked: hbreak unsupported at xemu stub; -S passthrough works
+  (boot tier runs <1 s post-reset, entry bps miss legit); dword-scan
+  ModRM false positives (0x12090 x7); runtime .text == static (no drift);
+  ours_trace symbol format sub_00XXXXXX (6-digit VAs, 0x1A9A50 not
+  0x01A9A50) — s5f "x0" verdicts re-verified TRUE under corrected fmt.
+- frz179: seeds merged 33 (4 new measured), pipeline+build detached,
+  automation checkpoint 22:57.
 
 ## Live hypotheses
 
-1. **H31 (ACTIVE, note 0025, RE-POSED x34: the wall = the engine core
-   composite (58E30 ctor, embeds 58810 pump objects) is never constructed
-   in our port; its static creator chain 5EC70/5EDB0 -> 70A20 -> 7EB20 ->
-   58E30 is fully x0 under host-gdb, though XAPI-level resource opens
-   succeed. The healthy game runs it from a resource-open method
-   (registered tier, XOR-obfuscated table base). xemu bt at 5EC70 answers
-   which caller tier fires it at title era DYNAMICALLY (rule 6 posture).**
+1. **H31 (ACTIVE, note 0025, RE-POSED x39: BRIEF risk #2 confirmed —
+   the engine heartbeat chain runs on the game BOOT THREAD (worker
+   26D3E4, ctx 26C68F, then 272470 -> 2722EC -> engine block
+   12090..122BA -> 11F0C0/1A9A50 drain -> 27430 scene-mgr -> AE630
+   batchA -> activation thunk -> AFBF0 -> OpenResource). Our port
+   spawns the SAME thread (identical routine/ctx in kernel log) but
+   the chain owners were never lifted (zero static xrefs in XBE =
+   invisible thread-start args), so the thread body is inert and every
+   downstream rung is x0. frz179 regen (+4 measured seeds) tests the
+   fix; if heartbeat wakes, expect asset activation + load progress.)**
    Prior frz18-era Buki-card runs prove input end-to-end works when the
    tier lives.
 2. H14–H30 CLOSED — one-line lessons index (homes = notes
@@ -99,13 +99,12 @@ chain probe x0; two gdb trace modes online (xemu stub / host symbols).**
 
 ## Queue (next concrete actions)
 
-* **1. xemu gdb-stub trace verdict (/tmp/opencode/gdbtrace.out):** which
-  dead-chain rungs fire in the HEALTHY game and from which return
-  addresses (esp-dword anchors) -> symbolize vs our static map -> the
-  caller tier that our port never reaches. If MSG1/CTOR/FRM fire at
-  xemu TITLE era, the missing wiring is boot-time; if only after
-  Press-START, xemu-side pad injection (QMP) is needed for the trace.
-  Then: port the same caller edge to our side (host override per law).
+* **1. frz179 boot-thread fix (regen +4 seeds, detached, checkpoint
+  22:57):** verify new symbols (26C68F/26D3E4/2722EC/272470), 15-min
+  nav window, host-gdb liveness census (12090/11F0C0/1A9A50/27430/
+  AE630). Alive -> re-check AFBF0/OpenResource tier + Press-START/
+  load state + FB dumps; dead -> trace ours-side worker 26D3E4 flow
+  vs healthy (block-entry ABI may need manual wiring).**
 * **2. paging:true xemu RAM dump (ram-paged.elf, in flight):** redo the
   healthy-vs-ours globals diff with VA-correct mapping (the earlier
   "inverted regime" reading is REFUTED — string pool, see note 0025).
@@ -249,4 +248,5 @@ chain probe x0; two gdb trace modes online (xemu stub / host symbols).**
 | 11-23 06:3x–13:0x s5c | frz135→152 census arc + patch 0052; hangwatch v2; object-tier census ALL x0 then CORE-READ CORRECTION; waiter ledger decoded; H31 re-posed x24: one never-closed waiter; audit #3 applied | `546c64e`..`f497810` |
 | 11-23 13:0x–15:3x s5d | frz161-173: queue-push full decode; NAM/TISS/BUCK probe tier; **frz171/172 OVERTURN: PUMP-x167-terminal = harness artifact; game reaches Press START** (FB #172); loader pump evt6 livelock identified; base-diff symbolization law; new-wrapper-regen law; upstream prior-art re-checked (unclaimed); pose x29 | `d39a8dc`..`22c4964`+ |
 | 11-23 15:5x–17:5x s5e | **xref-scan-bug overturn** (VA=off+0x10000; false zero-xref laws); frz175 core verdict (loader anatomy CLOSED, no livelock); 478-table ctors run + instances exist; **xemu RAM-diff REFUTED** (paging:false = physical/string-pool); input tier ALIVE (pad CTOR); **FRM x0 era-invariant**; frz176 core; **xemu gdb-stub trace tool online** (pose x32) | (sess 5e) |
-| 11-23 19:1x–21:0x s5f | lean xemu ticktraces: **healthy pump anatomy** (F8240 vtable-slot caller 1A9A03, pump class vptr 3237F0, ctor 58810, core composite 58E30, resource-open roots 5EC70/5EDB0, heartbeat 1A9A50->1A99A0); ours host-gdb probe: **whole chain x0**; **REVERSAL: resource system + 40/66 handlers + asset-batch instances ALL PRESENT in ours** (frz176 core; healthy identical 40/66) — missing = invocation of asset methods (AFBF0/Background_CharactersSG, B08F0/ui_font); XPP SIGSEGV gdb law; durable tools/harness + chainup.py; **history scrub (username path, 14 commits) + rule 13 leak guards** (pose x36) | (this session) |
+| 11-23 19:1x–21:0x s5f | lean xemu ticktraces: **healthy pump anatomy** (F8240 vtable-slot caller 1A9A03, pump class vptr 3237F0, ctor 58810, core composite 58E30, resource-open roots 5EC70/5EDB0, heartbeat 1A9A50->1A99A0); ours host-gdb probe: **whole chain x0**; **REVERSAL: resource system + 40/66 handlers + asset-batch instances ALL PRESENT in ours** (frz176 core; healthy identical 40/66) — missing = invocation of asset methods (AFBF0/Background_CharactersSG, B08F0/ui_font); XPP SIGSEGV gdb law; durable tools/harness + chainup.py; **history scrub (username path, 14 commits) + rule 13 leak guards** (pose x36) | (sess 5f) |
+| 11-23 21:1x–22:1x s5g | frz178 core: batch obj present + gate clean-closed; activation domino chain AE630<-27430(container)<-heartbeat 1A9A03; **BOOT-THREAD DECODE: engine block <- 2722EC/272470 <- worker 26D3E4 (spawned identical in ours, but owners NEVER LIFTED — invisible thread-start, BRIEF risk #2 confirmed)**; ours_trace x0 verdicts re-verified under corrected symbol fmt; frz179 regen +4 measured seeds (33) detached | (this session) |
