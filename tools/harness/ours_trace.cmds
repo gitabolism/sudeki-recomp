@@ -1,41 +1,41 @@
 set confirm off
 set pagination off
 set $n = 0
-break sub_000F8240
+break sub_001A9A50
 commands
 silent
 set $n=$n+1
-if ($n % 50) == 1
-  printf "[F8240 x%d]\n",$n
-  bt 3
+if ($n % 200) == 1
+  printf "[1A9A50 x%d]\n",$n
+  bt 4
 end
 continue
 end
-break sub_000F8C10
+break sub_001A99A0
 commands
 silent
-printf "[F8C10]\n"
+printf "[1A99A0]\n"
 bt 3
 continue
 end
-break sub_00199DF0
+break sub_000F8240
 commands
 silent
-printf "[199DF0]\n"
+printf "[F8240]\n"
+bt 3
+continue
+end
+break sub_00058810
+commands
+silent
+printf "[58810 pumpobj-CTOR]\n"
 bt 4
 continue
 end
-break sub_000F9D40
+break sub_00164140
 commands
 silent
-printf "[F9D40]\n"
-bt 3
-continue
-end
-break sub_00033170
-commands
-silent
-printf "[33170]\n"
+printf "[164140]\n"
 bt 3
 continue
 end

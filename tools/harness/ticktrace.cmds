@@ -28,7 +28,12 @@ commands
 silent
 set $n=$n+1
 if $n == 15
-  printf "[HIT F8240 #15] ra=%08X\n",$n,*((unsigned int*)$esp)
+  printf "[HIT F8240 x%d] ra=%08X\n",$n,*((unsigned int*)$esp)
+end
+if $n == 30
+  printf "[OBJ] ecx=%08X vptr=%08X +10=%08X +F8=%08X +B0=%08X +B8=%08X\n",$ecx,*(unsigned int*)$ecx,*(unsigned int*)($ecx+0x10),*(unsigned int*)($ecx+0xf8),*(unsigned int*)($ecx+0xb0),*(unsigned int*)($ecx+0xb8)
+  detach
+  quit
 end
 continue
 end
