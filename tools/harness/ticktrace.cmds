@@ -2,36 +2,27 @@ set confirm off
 set pagination off
 set architecture i386
 set $n = 0
+set $m = 0
 target remote 127.0.0.1:12353
-break *0x199DF0
+break *0x5EC70
 commands
 silent
 set $n=$n+1
-if $n <= 3
-  printf "[HIT 199DF0 #%d] ra=%08X ecx=%08X eax=%08X\n",$n,*((unsigned int*)$esp),$ecx,$eax
-  x/12xw $esp
-  if $n == 1
-    set $o = $ecx
-    set $s = *(unsigned int*)($o+0x10)
-    printf "obj.vptr=%08X +10=%08X +F8=%08X\n",*(unsigned int*)$o,*(unsigned int*)($o+0x10),*(unsigned int*)($o+0xf8)
-    printf "subsystem=%08X vt=%08X f50=%08X\n",$s,*(unsigned int*)$s,*(unsigned int*)($s+0x50)
-  end
-end
-if $n == 3
+if $n == 2
+  printf "[RA 5EC70 #%d] ecx=%08X ra=%08X\n",$n,$ecx,*((unsigned int*)$esp)
+  x/24xw $esp
   detach
   quit
 end
 continue
 end
-break *0xF8240
+break *0x5EDB0
 commands
 silent
-set $n=$n+1
-if $n == 15
-  printf "[HIT F8240 x%d] ra=%08X\n",$n,*((unsigned int*)$esp)
-end
-if $n == 30
-  printf "[OBJ] ecx=%08X vptr=%08X +10=%08X +F8=%08X +B0=%08X +B8=%08X\n",$ecx,*(unsigned int*)$ecx,*(unsigned int*)($ecx+0x10),*(unsigned int*)($ecx+0xf8),*(unsigned int*)($ecx+0xb0),*(unsigned int*)($ecx+0xb8)
+set $m=$m+1
+if $m == 10
+  printf "[RA 5EDB0 #%d] ecx=%08X ra=%08X\n",$m,$ecx,*((unsigned int*)$esp)
+  x/24xw $esp
   detach
   quit
 end

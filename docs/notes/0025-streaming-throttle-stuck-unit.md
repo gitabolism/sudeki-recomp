@@ -2954,3 +2954,20 @@ not file size; no input drift — doctor green).
   127.0.0.1:<port>` guest-CPU stub (xemu launched -gdb tcp::<port>, port
   MUST match cmds file); ours round = plain `gdb --args build/sudeki`,
   break on host symbols sub_XXXXXXXX (no target remote).
+
+## Caller of the resource-open tier named (20:3x): 5BEB0 typed-handler dispatch
+
+- xemu RA capture at 5EDB0 (hit #10): ecx=00474C20 (heap object), true
+  **ra = 0x5BF06** inside **5BEB0** (owner call_target).
+- 5BEB0(edi=this, arg=[esp+0x3c]&0x7f < 0x42): looks up
+  `[[edi+0x40+id*4]]` (66-slot typed HANDLER ARRAY on the object), calls
+  slot+4 with open-args; result consumed via 580D0. So 5EC70/5EDB0 are
+  registered handlers at vtable(+4) of objects stored in a typed array.
+- 5BEB0's single static caller: 0x5BF03 itself <- hmm, direct E8 caller =
+  **149BC in owner 014960** — and 014960 is ubiquitous (46 direct callers
+  across engine incl. F9B70/FBD30/153090-family). => not a rare boot
+  edge; the break in our port is expected to be ABOVE: either 5BEB0 never
+  runs, or its object's [edi+0x40..+0x144] handler array is never
+  populated.
+- ours_trace v4 probe (running): 5BEB0 hit/id/entry census + 5EC70/5EDB0
+  bt — decides which.
