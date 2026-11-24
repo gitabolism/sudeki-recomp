@@ -19,4 +19,8 @@ if printf '%s\n' "$staged" | grep -qE "^.*/(home|Users|mnt)/[^[:space:]]*$me|^.*
     echo "pre-commit: absolute home path for this machine user in staged content — refuse (use ~ / \$HOME)." >&2
     exit 1
 fi
+if printf '%s\n' "$staged" | grep -qE '^\+.*(BEGIN [A-Z ]*PRIVATE KEY|ssh-rsa AA[A]{2}|ghp_[A-Za-z0-9]{20}|github_pat_[A-Za-z0-9_]{20}|npm_[A-Za-z0-9]{30}|xox[baprs]-)'; then
+    echo "pre-commit: credential-shaped string in staged content — refuse." >&2
+    exit 1
+fi
 exit 0
