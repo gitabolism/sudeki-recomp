@@ -9,14 +9,14 @@ commands
 silent
 set $off = *(unsigned long long*)&g_xbox_mem_offset
 watch *(unsigned int*)($off + 0x396F18)
-condition 2 *(unsigned int*)($off + 0x396F18) != 0
+condition 3 *(unsigned int*)($off + 0x396F18) != 0
 continue
 end
 break sub_00311B48
 commands
 silent
 set $s=$s+1
-if ($s % 3000) == 1
+if ($s % 50) == 1
   printf "[G396F18=%08X] sample %d\n",*(unsigned int*)(*(unsigned long long*)&g_xbox_mem_offset + 0x396F18),$s
 end
 continue
