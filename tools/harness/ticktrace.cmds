@@ -1,0 +1,42 @@
+set confirm off
+set pagination off
+set architecture i386
+set $n = 0
+target remote 127.0.0.1:12353
+break *0x33170
+commands
+silent
+set $n=$n+1
+if ($n % 20) == 1
+  printf "[TSVC x%d] ecx=%08X ra=%08X id=%02X\n",$n,$ecx,*((unsigned int*)$esp),*((unsigned int*)($esp+8))
+end
+continue
+end
+break *0xF9D40
+commands
+silent
+printf "[TICK1] esi=%08X ebx=%08X ra=%08X\n",$esi,$ebx,*((unsigned int*)$esp)
+continue
+end
+break *0xFACF0
+commands
+silent
+printf "[TKL2] eax=%08X edi=%08X ra=%08X\n",$eax,$edi,*((unsigned int*)$esp)
+continue
+end
+break *0x15B640
+commands
+silent
+set $n=$n+1
+if ($n % 100) == 1
+  printf "[FRM ctrl x%d] ecx=%08X ra=%08X\n",$n,$ecx,*((unsigned int*)$esp)
+end
+continue
+end
+break *0x33EB0
+commands
+silent
+printf "[S33E] ecx=%08X ra=%08X\n",$ecx,*((unsigned int*)$esp)
+continue
+end
+continue
