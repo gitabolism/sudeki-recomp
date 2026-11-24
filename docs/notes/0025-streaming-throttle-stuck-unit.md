@@ -3069,3 +3069,16 @@ not file size; no input drift — doctor green).
 - Laws: harness self-snapshot (mid-run edits corrupt live bash — bit
   x2); gdb watch chain needs arming AFTER xbox_MemoryLayoutInit
   (guest-entry bp, not main) + symbol casts + printf quoting.
+
+## frz178 core verdict (21:1x): object PRESENT, gate CLEAN-closed — pose x37
+
+- Core forensics (ELF phdr mapping via run-log RAM base 0x7f9f92a00000 —
+  new cleaner anchoring law, no pair-VA needed): [0x396F18]=02853AE0 with
+  vptr **325AB8** (Background_CharactersSG batch obj PRESENT); gate
+  +0x2C = **0** (closed-clean, unlike frz176 era's 2); ui_font instance
+  0280BA10 (vptr 325B20) present; resys 00FD36C8 40/66 handlers; era
+  heap = 018Axxxx family (frz177-era lineage).
+- => THE wall is exactly: healthy's activate-once thunk (B14F0 tail at
+  B17A3: `if [[0x396F18]+0x2C]==0 { =1; call [[obj]+0x48] }`) never
+  runs in ours; B14F0 is NOT in batchA/batchB slot lists -> belongs to
+  a third tier object -> xemu bp B14F0 #1 ra = the final missing caller.
